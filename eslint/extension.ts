@@ -13,7 +13,7 @@ export function activate() {
 			run: { module },
 			debug: { module, options: debugOptions}
 		},
-		syncTextDocument: (textDocument) => textDocument.getLanguageId() === 'javascript',
+		syncTextDocument: (textDocument) => (textDocument.getLanguageId() === 'javascript' || textDocument.getLanguageId() === 'javascriptreact'),
 		configuration: 'eslint',
 		fileWatchers: workspace.createFileSystemWatcher('**/.eslintrc')
 	}

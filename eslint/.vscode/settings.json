@@ -1,12 +1,11 @@
 // Place your settings in this file to overwrite default and user settings.
 {
 	"files.exclude": {
-		"out": true,
-		"bin": true
+		"out": false
 	},
 	"search.exclude": {
 		"out": true,
-		"bin": true
+		"server": true
 	},
 	"files.trimTrailingWhitespace": true,
 	"editor.insertSpaces": false,

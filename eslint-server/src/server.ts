@@ -3,10 +3,12 @@
  *--------------------------------------------------------*/
 'use strict';
 
-import { ResponseError, RequestType, IRequestHandler, NotificationType, INotificationHandler,
+import {
+	ResponseError, RequestType, IRequestHandler, NotificationType, INotificationHandler,
 	IValidatorConnection, createValidatorConnection, SingleFileValidator, InitializeResult, InitializeError,
 	IValidationRequestor, ISimpleTextDocument, Diagnostic, Severity, Position, Files,
-	LanguageServerError, MessageKind } from 'vscode-languageserver';
+	LanguageServerError, MessageKind
+} from 'vscode-languageserver';
 
 import fs = require('fs');
 import path = require('path');

@@ -7,24 +7,17 @@
 		"vscode": "*"
 	},
 	"activationEvents": [
-		"onLanguage:javascript",
-		"command:extension.sayHello"
+		"onLanguage:javascript", "onLanguage:javascriptreact"
 	],
 	"main": "./out/extension",
 	"contributes": {
-		"commands"
-			: [{
-				"command": "extension.sayHello",
-				"title": "ESLint linter command"
-			}
-		],
 		"configuration": {
 			"type": "object",
 			"title": "ESLint configuration",
 			"properties": {
 				"eslint.enable": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"description": "Control whether eslint is enabled for JavaScript files or not."
 				},
 				"eslint.options": {

@@ -6,7 +6,6 @@
 		"node": "*"
 	},
 	"private": true,
-	"main": "./lib/server.js",
 	"dependencies": {
 		"vscode-languageserver": "next"
 	},
