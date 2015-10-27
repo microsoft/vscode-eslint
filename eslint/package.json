@@ -1,0 +1,48 @@
+{
+	"name": "eslint",
+	"description": "eslint",
+	"version": "0.0.1",
+	"publisher": "vscode",
+	"engines": {
+		"vscode": "*"
+	},
+	"activationEvents": [
+		"onLanguage:javascript",
+		"command:extension.sayHello"
+	],
+	"main": "./out/extension",
+	"contributes": {
+		"commands"
+			: [{
+				"command": "extension.sayHello",
+				"title": "ESLint linter command"
+			}
+		],
+		"configuration": {
+			"type": "object",
+			"title": "ESLint configuration",
+			"properties": {
+				"eslint.enable": {
+					"type": "boolean",
+					"default": false,
+					"description": "Control whether eslint is enabled for JavaScript files or not."
+				},
+				"eslint.options": {
+					"type": "object",
+					"default": {},
+					"description": "The eslint options object to provide args to the eslint command."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+	},
+	"devDependencies": {
+		"vscode": "*"
+	},
+	"dependencies": {
+		"vscode-languageclient": "next"
+	}
+}

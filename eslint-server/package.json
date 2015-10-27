@@ -1,0 +1,20 @@
+{
+	"name": "eslint-server",
+	"version": "0.1.0",
+	"description": "ESLint Linter Server",
+	"engines": {
+		"node": "*"
+	},
+	"private": true,
+	"main": "./lib/server.js",
+	"dependencies": {
+		"vscode-languageserver": "next"
+	},
+	"devDependencies": {
+		"typescript": "^1.6.2"
+	},
+	"scripts": {
+		"compile": "installServerIntoExtension ./package.json ./src/tsconfig.json && tsc -p ./src",
+		"watch": "installServerIntoExtension ./package.json ./src/tsconfig.json && tsc --watch -p ./src"
+	}
+}

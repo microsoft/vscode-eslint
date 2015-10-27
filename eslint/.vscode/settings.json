@@ -1,0 +1,14 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+	"files.exclude": {
+		"out": true,
+		"bin": true
+	},
+	"search.exclude": {
+		"out": true,
+		"bin": true
+	},
+	"files.trimTrailingWhitespace": true,
+	"editor.insertSpaces": false,
+	"editor.tabSize": 4
+}
