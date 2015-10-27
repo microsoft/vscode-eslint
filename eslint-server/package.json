@@ -14,7 +14,7 @@
 		"typescript": "^1.6.2"
 	},
 	"scripts": {
-		"compile": "installServerIntoExtension ./package.json ./src/tsconfig.json && tsc -p ./src",
-		"watch": "installServerIntoExtension ./package.json ./src/tsconfig.json && tsc --watch -p ./src"
+		"compile": "installServerIntoExtension ../eslint ./package.json ./src/tsconfig.json && tsc -p ./src",
+		"watch": "installServerIntoExtension ../eslint ./package.json ./src/tsconfig.json && tsc --watch -p ./src"
 	}
 }
