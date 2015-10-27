@@ -4,7 +4,7 @@
 		"module": "commonjs",
 		"moduleResolution": "node",
 		"sourceMap": true,
-		"outDir": "../../eslint/bin/server"
+		"outDir": "../../eslint/server"
 	},
 	"exclude": [
 		"node_modules"
