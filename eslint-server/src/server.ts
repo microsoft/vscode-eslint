@@ -4,10 +4,12 @@
 'use strict';
 
 import {
+	createConnection, IConnection,
 	ResponseError, RequestType, IRequestHandler, NotificationType, INotificationHandler,
-	IValidatorConnection, createValidatorConnection, SingleFileValidator, InitializeResult, InitializeError,
-	IValidationRequestor, ISimpleTextDocument, Diagnostic, Severity, Position, Files,
-	LanguageServerError, MessageKind
+	InitializeResult, InitializeError,
+	Diagnostic, Severity, Position, Files,
+	TextDocuments, ITextDocument,
+	ErrorMessageTracker
 } from 'vscode-languageserver';
 
 import fs = require('fs');
@@ -69,61 +71,103 @@ function convertSeverity(severity: number): number {
 	}
 }
 
-let connection: IValidatorConnection = createValidatorConnection(process.stdin, process.stdout);
-let validator : SingleFileValidator = {
-	initialize: (rootFolder: string): Thenable<InitializeResult | ResponseError<InitializeError>> => {
-		return Files.resolveModule(rootFolder, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
-			if (!value.CLIEngine) {
-				return new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
-			}
-			lib = value;
-			return null;
-		}, (error) => {
-			return Promise.reject(
-				new ResponseError<InitializeError>(99,
-					'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\' and then press Retry.',
-					{ retry: true }));
-		});
-	},
-	onConfigurationChange(_settings: Settings, requestor: IValidationRequestor): void {
-		settings = _settings;
-		if (settings.eslint) {
-			options = settings.eslint.options || {};
+let connection: IConnection = createConnection(process.stdin, process.stdout);
+connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>> => {
+	let rootFolder = params.rootFolder;
+	return Files.resolveModule(rootFolder, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
+		if (!value.CLIEngine) {
+			return new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 		}
-		requestor.all();
-	},
-	validate: (document: ISimpleTextDocument): Diagnostic[] => {
-		let CLIEngine = lib.CLIEngine;
-		try {
-			var cli = new CLIEngine(options);
-			let content = document.getText();
-			let uri = document.uri;
-			let report: ESLintReport = cli.executeOnText(content, Files.uriToFilePath(uri));
-			let diagnostics: Diagnostic[] = [];
-			if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
-				let docReport = report.results[0];
-				if (docReport.messages && Array.isArray(docReport.messages)) {
-					docReport.messages.forEach((problem) => {
-						if (problem) {
-							diagnostics.push(makeDiagnostic(problem));
-						}
-					});
+		lib = value;
+		let result: InitializeResult = { capabilities: { }};
+		return result;
+	}, (error) => {
+		return Promise.reject(
+			new ResponseError<InitializeError>(99,
+				'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\' and then press Retry.',
+				{ retry: true }));
+	});
+})
+
+function getMessage(err: any, document: ITextDocument): string {
+	let result: string = null;
+	if (typeof err.message === 'string' || err.message instanceof String) {
+		result = <string>err.message;
+		result = result.replace(/\r?\n/g, ' ');
+		if (/^CLI: /.test(result)) {
+			result = result.substr(5);
+		}
+	} else {
+		result = `An unknown error occured while validating file: ${Files.uriToFilePath(document.uri)}`;
+	}
+	return result;
+}
+
+function validate(document: ITextDocument): void {
+	let CLIEngine = lib.CLIEngine;
+	var cli = new CLIEngine(options);
+	let content = document.getText();
+	let uri = document.uri;
+	let report: ESLintReport = cli.executeOnText(content, Files.uriToFilePath(uri));
+	let diagnostics: Diagnostic[] = [];
+	if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
+		let docReport = report.results[0];
+		if (docReport.messages && Array.isArray(docReport.messages)) {
+			docReport.messages.forEach((problem) => {
+				if (problem) {
+					diagnostics.push(makeDiagnostic(problem));
 				}
-			}
-			return diagnostics;
-		} catch (err) {
-			let message:string = null;
-			if (typeof err.message === 'string' || err.message instanceof String) {
-				message = <string>err.message;
-				message = message.replace(/\r?\n/g, ' ');
-				if (/^CLI: /.test(message)) {
-					message = message.substr(5);
-				}
-				throw new LanguageServerError(message, MessageKind.Show);
-			}
-			throw err;
+			});
 		}
 	}
-};
+	// Publish the diagnostics
+	return connection.publishDiagnostics({ uri, diagnostics });
+}
 
-connection.run(validator);
+function validateSingle(document: ITextDocument): void {
+	try {
+		validate(document);
+	} catch (err) {
+		connection.window.showErrorMessage(getMessage(err, document));
+	}
+}
+
+function valiateMany(documents: ITextDocument[]): void {
+	let tracker = new ErrorMessageTracker();
+	documents.forEach(document => {
+		try {
+			validate(document);
+		} catch (err) {
+			tracker.add(getMessage(err, document));
+		}
+	});
+	tracker.publish(connection);
+}
+
+
+let documents: TextDocuments = new TextDocuments();
+// The documents manager listen for text document create, change
+// and close on the connection
+documents.listen(connection);
+
+// A text document has changed. Validate the document.
+documents.onDidContentChange((event) => {
+	validate(event.document);
+});
+
+connection.onDidChangeConfiguration((params) => {
+	settings = params.settings;
+	if (settings.eslint) {
+		options = settings.eslint.options || {};
+	}
+	// Settings have changed. Revalidate all documents.
+	valiateMany(documents.all());
+});
+
+connection.onDidChangeFiles((params) => {
+	// A .eslintrc has change. No smartness here.
+	// Simply revalidate all file.
+	valiateMany(documents.all());
+});
+
+connection.listen();
