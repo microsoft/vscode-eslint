@@ -44,10 +44,6 @@ interface ESLintReport {
 	results: ESLintDocumentReport[];
 }
 
-let settings: Settings = null;
-let options: any = null;
-let lib: any = null;
-
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	return {
 		message: problem.message,
@@ -72,6 +68,9 @@ function convertSeverity(severity: number): number {
 }
 
 let connection: IConnection = createConnection(process.stdin, process.stdout);
+let lib: any = null;
+let settings: Settings = null;
+let options: any = null;
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>> => {
 	let rootFolder = params.rootFolder;
 	return Files.resolveModule(rootFolder, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
@@ -132,7 +131,7 @@ function validateSingle(document: ITextDocument): void {
 	}
 }
 
-function valiateMany(documents: ITextDocument[]): void {
+function validateMany(documents: ITextDocument[]): void {
 	let tracker = new ErrorMessageTracker();
 	documents.forEach(document => {
 		try {
@@ -152,7 +151,7 @@ documents.listen(connection);
 
 // A text document has changed. Validate the document.
 documents.onDidContentChange((event) => {
-	validate(event.document);
+	validateSingle(event.document);
 });
 
 connection.onDidChangeConfiguration((params) => {
@@ -161,13 +160,13 @@ connection.onDidChangeConfiguration((params) => {
 		options = settings.eslint.options || {};
 	}
 	// Settings have changed. Revalidate all documents.
-	valiateMany(documents.all());
+	validateMany(documents.all());
 });
 
 connection.onDidChangeFiles((params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
-	valiateMany(documents.all());
+	validateMany(documents.all());
 });
 
 connection.listen();
