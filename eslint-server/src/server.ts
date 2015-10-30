@@ -8,7 +8,7 @@ import {
 	ResponseError, RequestType, IRequestHandler, NotificationType, INotificationHandler,
 	InitializeResult, InitializeError,
 	Diagnostic, Severity, Position, Files,
-	TextDocuments, ITextDocument,
+	TextDocuments, ITextDocument, TextDocumentSyncKind,
 	ErrorMessageTracker
 } from 'vscode-languageserver';
 
@@ -71,6 +71,16 @@ let connection: IConnection = createConnection(process.stdin, process.stdout);
 let lib: any = null;
 let settings: Settings = null;
 let options: any = null;
+let documents: TextDocuments = new TextDocuments();
+
+// The documents manager listen for text document create, change
+// and close on the connection
+documents.listen(connection);
+// A text document has changed. Validate the document.
+documents.onDidChangeContent((event) => {
+	validateSingle(event.document);
+});
+
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>> => {
 	let rootFolder = params.rootFolder;
 	return Files.resolveModule(rootFolder, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
@@ -78,7 +88,7 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 			return new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 		}
 		lib = value;
-		let result: InitializeResult = { capabilities: { }};
+		let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind }};
 		return result;
 	}, (error) => {
 		return Promise.reject(
@@ -120,7 +130,7 @@ function validate(document: ITextDocument): void {
 		}
 	}
 	// Publish the diagnostics
-	return connection.publishDiagnostics({ uri, diagnostics });
+	return connection.sendDiagnostics({ uri, diagnostics });
 }
 
 function validateSingle(document: ITextDocument): void {
@@ -140,19 +150,8 @@ function validateMany(documents: ITextDocument[]): void {
 			tracker.add(getMessage(err, document));
 		}
 	});
-	tracker.publish(connection);
+	tracker.sendErrors(connection);
 }
-
-
-let documents: TextDocuments = new TextDocuments();
-// The documents manager listen for text document create, change
-// and close on the connection
-documents.listen(connection);
-
-// A text document has changed. Validate the document.
-documents.onDidContentChange((event) => {
-	validateSingle(event.document);
-});
 
 connection.onDidChangeConfiguration((params) => {
 	settings = params.settings;
@@ -163,7 +162,7 @@ connection.onDidChangeConfiguration((params) => {
 	validateMany(documents.all());
 });
 
-connection.onDidChangeFiles((params) => {
+connection.onDidChangeWatchedFiles((params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	validateMany(documents.all());
