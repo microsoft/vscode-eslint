@@ -14,7 +14,7 @@ export function activate(subscriptions: Disposable[]) {
 	};
 
 	let clientOptions: LanguageClientOptions = {
-		languageSelector: ['javascript', 'javascriptreact'],
+		documentSelector: ['javascript', 'javascriptreact'],
 		synchronize: {
 			configurationSection: 'eslint',
 			fileEvents: workspace.createFileSystemWatcher('**/.eslintrc')
