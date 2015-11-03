@@ -1,8 +1,8 @@
 import * as path from 'path';
-import { workspace, Disposable } from 'vscode';
+import { workspace, Disposable, ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, RequestType } from 'vscode-languageclient';
 
-export function activate(subscriptions: Disposable[]) {
+export function activate(context: ExtensionContext) {
 
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
@@ -22,5 +22,5 @@ export function activate(subscriptions: Disposable[]) {
 	}
 
 	let client = new LanguageClient('ES Linter', serverOptions, clientOptions);
-	subscriptions.push(new SettingMonitor(client, 'eslint.enable').start());
+	context.subscriptions.push(new SettingMonitor(client, 'eslint.enable').start());
 }
