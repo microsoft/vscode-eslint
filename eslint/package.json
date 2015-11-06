@@ -1,10 +1,19 @@
 {
 	"name": "eslint",
 	"description": "eslint",
-	"version": "0.0.1",
-	"publisher": "vscode",
+	"version": "0.10.0",
+	"author": "Microsoft Corporation",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Microsoft/vscode-eslint.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Microsoft/vscode-eslint/issues"
+	},
+	"publisher": "dbaeumer",
 	"engines": {
-		"vscode": "*"
+		"vscode": "0.10.x"
 	},
 	"activationEvents": [
 		"onLanguage:javascript", "onLanguage:javascriptreact"
@@ -33,9 +42,9 @@
 		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
 	},
 	"devDependencies": {
-		"vscode": "next"
+		"vscode": "0.10.x"
 	},
 	"dependencies": {
-		"vscode-languageclient": "next"
+		"vscode-languageclient": "0.10.x"
 	}
 }

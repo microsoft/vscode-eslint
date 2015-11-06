@@ -7,7 +7,7 @@ import {
 	createConnection, IConnection,
 	ResponseError, RequestType, IRequestHandler, NotificationType, INotificationHandler,
 	InitializeResult, InitializeError,
-	Diagnostic, Severity, Position, Files,
+	Diagnostic, DiagnosticSeverity, Position, Files,
 	TextDocuments, ITextDocument, TextDocumentSyncKind,
 	ErrorMessageTracker
 } from 'vscode-languageserver';
@@ -48,9 +48,9 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	return {
 		message: problem.message,
 		severity: convertSeverity(problem.severity),
-		start: {
-			line: problem.line - 1,
-			character: problem.column - 1
+		range: {
+			start: { line: problem.line - 1, character: problem.column - 1 },
+			end: { line: problem.line - 1, character: problem.column - 1 }
 		}
 	};
 }
@@ -59,11 +59,11 @@ function convertSeverity(severity: number): number {
 	switch (severity) {
 		// Eslint 1 is warning
 		case 1:
-			return Severity.Warning;
+			return DiagnosticSeverity.Warning;
 		case 2:
-			return Severity.Error;
+			return DiagnosticSeverity.Error;
 		default:
-			return Severity.Error;
+			return DiagnosticSeverity.Error;
 	}
 }
 
@@ -82,8 +82,8 @@ documents.onDidChangeContent((event) => {
 });
 
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>> => {
-	let rootFolder = params.rootFolder;
-	return Files.resolveModule(rootFolder, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
+	let rootPath = params.rootPath;
+	return Files.resolveModule(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
 		if (!value.CLIEngine) {
 			return new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 		}
