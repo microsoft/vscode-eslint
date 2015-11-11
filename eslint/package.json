@@ -1,7 +1,8 @@
 {
-	"name": "eslint",
-	"description": "Extension to lint JavaScript files using eslint.",
-	"version": "0.10.0",
+	"name": "vscode-eslint",
+	"displayName": "ESLint",
+	"description": "Use ESLint to lint JavaScript files.",
+	"version": "0.10.1",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -11,11 +12,12 @@
 	"bugs": {
 		"url": "https://github.com/Microsoft/vscode-eslint/issues"
 	},
+	"publisher": "dbaeumer",
+	"icon": "eslint_icon.svg",
 	"categories": [
 		"Languages",
 		"Linters"
 	],
-	"publisher": "dbaeumer",
 	"engines": {
 		"vscode": "0.10.x"
 	},
