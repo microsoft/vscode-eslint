@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Use ESLint to lint JavaScript files.",
-	"version": "0.10.1",
+	"version": "0.10.4",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -15,9 +15,8 @@
 	"publisher": "dbaeumer",
 	"icon": "eslint_icon.svg",
 	"categories": [
-		"Languages",
 		"Linters"
-	],
+	],	
 	"engines": {
 		"vscode": "0.10.x"
 	},
@@ -44,11 +43,13 @@
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "cd ../eslint-server && npm run compile && cd ../eslint && node ./node_modules/vscode/bin/compile",
-		"compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+		"vscode:prepublish": "cd ../eslint-server && npm run compile && cd ../eslint && tsc -p ./",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
 	},
 	"devDependencies": {
-		"vscode": "0.10.x"
+		"vscode": "0.10.x",
+		"typescript": "^1.6.2"
 	},
 	"dependencies": {
 		"vscode-languageclient": "0.10.x"
