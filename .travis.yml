@@ -3,9 +3,9 @@ sudo: false
 
 node_js:
   - "0.12"
-  
+
 install:
   - cd eslint-server && npm install && cd ../eslint && npm install && cd ..
-  
+
 script:
   - cd eslint-server && npm run compile && cd ../eslint && npm run compile && cd ..
