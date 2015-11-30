@@ -1,4 +1,4 @@
-# VSCode ESLint extension
+# VS Code ESLint extension
 
 Integrates [ESlint](http://eslint.org/) into VS Code.
 

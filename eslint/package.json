@@ -1,8 +1,8 @@
 {
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
-	"description": "Use ESLint to lint JavaScript files.",
-	"version": "0.10.4",
+	"description": "Integrates ESLint into VS Code",
+	"version": "0.10.5",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
