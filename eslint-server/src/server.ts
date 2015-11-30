@@ -94,7 +94,7 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 	}, (error) => {
 		return Promise.reject(
 			new ResponseError<InitializeError>(99,
-				'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\' and then press Retry.',
+				'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\' or globally using \'npm install -g eslint\' and then press Retry.',
 				{ retry: true }));
 	});
 })

@@ -1,8 +1,8 @@
 {
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
-	"description": "Integrates ESLint into VS Code",
-	"version": "0.10.5",
+	"description": "Integrates ESLint into VS Code.",
+	"version": "0.10.6",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
