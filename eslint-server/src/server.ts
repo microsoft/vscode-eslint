@@ -10,7 +10,7 @@ import {
 	InitializeResult, InitializeError,
 	Diagnostic, DiagnosticSeverity, Position, Files,
 	TextDocuments, ITextDocument, TextDocumentSyncKind,
-	ErrorMessageTracker
+	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
 } from 'vscode-languageserver';
 
 import fs = require('fs');
@@ -68,7 +68,7 @@ function convertSeverity(severity: number): number {
 	}
 }
 
-let connection: IConnection = createConnection(process.stdin, process.stdout);
+let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 let lib: any = null;
 let settings: Settings = null;
 let options: any = null;
