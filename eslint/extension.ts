@@ -27,6 +27,6 @@ export function activate(context: ExtensionContext) {
 		}
 	}
 
-	let client = new LanguageClient('ES Linter', serverOptions, clientOptions);
+	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
 	context.subscriptions.push(new SettingMonitor(client, 'eslint.enable').start());
 }
