@@ -40,7 +40,13 @@
 					"description": "The eslint options object to provide args to the eslint command."
 				}
 			}
-		}
+		},
+		"jsonValidation": [
+			{
+				"fileMatch": ".eslintrc",
+				"url": "http://json.schemastore.org/eslintrc"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "cd ../eslint-server && npm run compile && cd ../eslint && tsc -p ./",
