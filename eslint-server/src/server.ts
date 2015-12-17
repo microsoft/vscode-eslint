@@ -47,7 +47,7 @@ interface ESLintReport {
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	return {
-		message: problem.message,
+		message: `${problem.message} (${problem.ruleId})`,
 		severity: convertSeverity(problem.severity),
 		range: {
 			start: { line: problem.line - 1, character: problem.column - 1 },
