@@ -12,6 +12,7 @@ import {
 	TextDocuments, ITextDocument, TextDocumentSyncKind,
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
 } from 'vscode-languageserver';
+import {ESLintAutofixRequest} from "./lib/protocol";
 
 import fs = require('fs');
 import path = require('path');
@@ -19,6 +20,7 @@ import path = require('path');
 interface Settings {
 	eslint: {
 		enable: boolean;
+		enableAutofixOnSave: boolean;
 		options: any;
 	}
 	[key: string]: any;
@@ -37,6 +39,7 @@ interface ESLintDocumentReport {
 	errorCount: number;
 	warningCount: number;
 	messages: ESLintProblem[];
+	output?: string;
 }
 
 interface ESLintReport {
@@ -171,6 +174,49 @@ connection.onDidChangeWatchedFiles((params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	validateMany(documents.all());
+});
+
+function assign(x: any, ...ys: any[]) {
+	for (let y of ys) {
+		for (let key in y) {
+			if (y.hasOwnProperty(key)) {
+				x[key] = y[key];
+			}
+		}
+	}
+	return x;
+}
+
+// The handler of autofix command.
+connection.onRequest(ESLintAutofixRequest.type, (params) => {
+	// Checks the current configure.
+	if (!settings ||
+		!settings.eslint.enable ||
+		(params.onSaved && !settings.eslint.enableAutofixOnSave)
+	) {
+		return {fixedContent: null};
+	}
+
+	// Gets the target document.
+	let document = documents.get(params.uri);
+	if (document == null) {
+		return {fixedContent: null};
+	}
+
+	// Calculate autofix.
+	let cli = new lib.CLIEngine(assign({}, options, {fix: true}));
+	let report: ESLintReport = cli.executeOnText(
+		document.getText(),
+		Files.uriToFilePath(params.uri)
+	);
+
+	// Rewrite the file directly if the target document is being hidden.
+	if (params.hidden) {
+		lib.CLIEngine.outputFixes(report);
+		return {fixedContent: null};
+	}
+
+	return {fixedContent: report.results[0].output || null};
 });
 
 connection.listen();

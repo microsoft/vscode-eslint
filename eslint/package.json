@@ -21,7 +21,9 @@
 		"vscode": "^0.10.8"
 	},
 	"activationEvents": [
-		"onLanguage:javascript", "onLanguage:javascriptreact"
+		"onLanguage:javascript",
+		"onLanguage:javascriptreact",
+		"onCommand:eslint.executeAutofix"
 	],
 	"main": "./out/extension",
 	"contributes": {
@@ -33,6 +35,11 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Control whether eslint is enabled for JavaScript files or not."
+				},
+				"eslint.enableAutofixOnSave": {
+					"type": "boolean",
+					"default": false,
+					"description": "Control the flag to enable executing Autofix when you save a file."
 				},
 				"eslint.options": {
 					"type": "object",
@@ -49,6 +56,13 @@
 			{
 				"fileMatch": ".eslintrc.json",
 				"url": "http://json.schemastore.org/eslintrc"
+			}
+		],
+		"commands": [
+			{
+				"command": "eslint.executeAutofix",
+				"title": "Execute Autofix",
+				"category": "ESLint"
 			}
 		]
 	},
