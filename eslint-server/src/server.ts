@@ -49,6 +49,7 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	return {
 		message: `${problem.message} (${problem.ruleId})`,
 		severity: convertSeverity(problem.severity),
+		source: 'eslint',
 		range: {
 			start: { line: problem.line - 1, character: problem.column - 1 },
 			end: { line: problem.line - 1, character: problem.column - 1 }

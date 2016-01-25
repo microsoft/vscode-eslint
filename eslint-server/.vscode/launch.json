@@ -11,7 +11,7 @@
 			// Port to attach to.
 			"port": 6004,
 			"sourceMaps": true,
-			"outDir": "../eslint/server"
+			"outDir": "${workspaceRoot}/../eslint/server"
 		}
 	]
 }
