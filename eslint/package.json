@@ -4,7 +4,7 @@
 	"description": "Integrates ESLint into VS Code.",
 	"version": "0.10.12",
 	"author": "Microsoft Corporation",
-	"license": "MIT",
+	"license": "SEE LICENSE in License.txt",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Microsoft/vscode-eslint.git"
