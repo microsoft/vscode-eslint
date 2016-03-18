@@ -46,8 +46,12 @@ interface ESLintReport {
 }
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
+	let message = `${problem.message}`;
+	if (problem.ruleId != null) {
+		message += ` (${problem.ruleId})`;
+	}
 	return {
-		message: `${problem.message} (${problem.ruleId})`,
+		message: message,
 		severity: convertSeverity(problem.severity),
 		source: 'eslint',
 		range: {
