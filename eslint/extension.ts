@@ -23,7 +23,7 @@ export function activate(context: ExtensionContext) {
 		documentSelector: ['javascript', 'javascriptreact'],
 		synchronize: {
 			configurationSection: 'eslint',
-			fileEvents: workspace.createFileSystemWatcher('**/.eslintrc')
+			fileEvents: workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}')
 		}
 	}
 
