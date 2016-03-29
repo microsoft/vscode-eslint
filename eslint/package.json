@@ -53,12 +53,14 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "cd ../eslint-server && npm run compile && cd ../eslint && tsc -p ./",
+		"vscode:prepublish": "node ./node_modules/vscode/bin/install && cd ../eslint-server && npm run compile && cd ../eslint && tsc -p ./",
 		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./"
+		"watch": "tsc -watch -p ./",
+		"update-vscode": "node ./node_modules/vscode/bin/install",
+		"postinstall": "node ./node_modules/vscode/bin/install"
 	},
 	"devDependencies": {
-		"vscode": "^0.10.8",
+		"vscode": "^0.11.x",
 		"typescript": "^1.8.2"
 	},
 	"dependencies": {
