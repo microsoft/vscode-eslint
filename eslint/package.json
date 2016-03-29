@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "0.10.12",
+	"version": "0.10.13",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -45,6 +45,10 @@
 			{
 				"fileMatch": ".eslintrc",
 				"url": "http://json.schemastore.org/eslintrc"
+			},
+			{
+				"fileMatch": ".eslintrc.json",
+				"url": "http://json.schemastore.org/eslintrc"
 			}
 		]
 	},
@@ -54,10 +58,10 @@
 		"watch": "tsc -watch -p ./"
 	},
 	"devDependencies": {
-		"vscode": "0.10.x",
-		"typescript": "^1.6.2"
+		"vscode": "^0.10.8",
+		"typescript": "^1.8.2"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^1.1.0"
+		"vscode-languageclient": "^1.4.0"
 	}
 }
