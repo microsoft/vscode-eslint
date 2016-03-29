@@ -53,7 +53,7 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "node ./node_modules/vscode/bin/install && cd ../eslint-server && npm run compile && cd ../eslint && tsc -p ./",
+		"vscode:prepublish": "npm run update-vscode && cd ../eslint-server && npm run compile && cd ../eslint && tsc -p ./",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"update-vscode": "node ./node_modules/vscode/bin/install",
