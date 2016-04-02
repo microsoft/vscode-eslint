@@ -25,12 +25,6 @@ export interface ESLintAutofixParams {
 	uri: string;
 
 	/**
-	 * The flag to indicate that this request target is being hidden.
-	 * If this is `true`, the server would rewrite the target file directly.
-	 */
-	hidden: boolean;
-
-	/**
 	 * The flag to indicate this request was triggered by saved.
 	 * If this is `true` and the `eslint.enableAutofixOnSave` configure is `false`, the request would be ignored.
 	 */

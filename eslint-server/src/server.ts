@@ -210,12 +210,6 @@ connection.onRequest(ESLintAutofixRequest.type, (params) => {
 		Files.uriToFilePath(params.uri)
 	);
 
-	// Rewrite the file directly if the target document is being hidden.
-	if (params.hidden) {
-		lib.CLIEngine.outputFixes(report);
-		return {fixedContent: null};
-	}
-
 	return {fixedContent: report.results[0].output || null};
 });
 

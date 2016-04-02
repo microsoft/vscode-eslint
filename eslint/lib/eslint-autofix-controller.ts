@@ -86,12 +86,16 @@ export default class ESLintAutofixController {
 	 */
 	private executeAutofix(document: TextDocument, editor: TextEditor, onSaved: boolean): void {
 		if (this.client.needsStart()) {
-			console.log("executeAutofix: skipped because the client hasn't started yet.");
+			console.log(`executeAutofix: skipped because the client hasn't started yet "${document.uri.fsPath}"`);
+			return;
+		}
+		if (editor == null) {
+			console.log(`executeAutofix: skipped because the editor object is nothing "${document.uri.fsPath}"`);
 			return;
 		}
 
 		const uri = String(document.uri);
-		const hidden = editor == null;
+		const filePath = document.uri.fsPath;
 
 		// Skip if it's recursively.
 		if (this.executingFlags.get(uri)) {
@@ -100,18 +104,16 @@ export default class ESLintAutofixController {
 		}
 		this.executingFlags.set(uri, true);
 
-		console.log("executeAutofix: started " + document.uri.fsPath);
+		console.log(`executeAutofix: started "${filePath}"`);
 
 		// Send an autofix request to the server.
 		this.client.sendRequest(ESLintAutofixRequest.type, {
 			uri: uri,
-			hidden: hidden,
 			onSaved: onSaved
 		}).then(result => {
-			// If "hidden" is "true", the server wrote the result to the file directly.
-			// Or if there are no change of Autofix then "result.fixedContent" is null.
+			// If there are no change of Autofix then "result.fixedContent" is null.
 			// In those case, do nothing here.
-			if (hidden || result.fixedContent == null) {
+			if (result.fixedContent == null) {
 				return true;
 			}
 			if (String(editor.document.uri) !== uri) {
@@ -138,20 +140,14 @@ export default class ESLintAutofixController {
 			(result) => {
 				this.executingFlags.set(uri, false);
 				if (!result) {
-					window.showErrorMessage(
-						"Failed to apply the result of Autofix: " +
-						document.uri.fsPath
-					);
+					window.showErrorMessage(`Failed to apply the result of Autofix: "${filePath}"`);
 				}
-				console.log("executeAutofix: done " + document.uri.fsPath);
+				console.log(`executeAutofix: done "${filePath}"`);
 			},
 			(err) => {
 				this.executingFlags.set(uri, false);
-				window.showErrorMessage(
-					err && err.message ||
-					"Failed to execute Autofix: " + document.uri.fsPath
-				);
-				console.log("executeAutofix: done " + document.uri.fsPath);
+				console.error(`executeAutofix: failed "${filePath}"\n${err.stack}`);
+				window.showErrorMessage(`Failed to execute Autofix: "${filePath}"`);
 			}
 		);
 	}
