@@ -96,6 +96,7 @@ export default class ESLintAutofixController {
 		}
 
 		const uri = String(document.uri);
+		const version = document.version;
 		const filePath = document.uri.fsPath;
 
 		// Skip if it's recursively.
@@ -115,7 +116,7 @@ export default class ESLintAutofixController {
 			if (result.edits.length === 0) {
 				return true;
 			}
-			if (String(editor.document.uri) !== uri) {
+			if (String(editor.document.uri) !== uri || editor.document.version !== version) {
 				return false;
 			}
 
