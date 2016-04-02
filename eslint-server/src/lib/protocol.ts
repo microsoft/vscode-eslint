@@ -5,6 +5,7 @@
 'use strict';
 
 import {RequestType} from 'vscode-languageserver';
+import {ESLintAutofixEdit} from "./eslint";
 
 /**
  * The autofix method is sent from the client to the server.
@@ -37,7 +38,8 @@ export interface ESLintAutofixParams {
 export interface ESLintAutofixResult {
 	/**
 	 * The fixed content.
-	 * This is `undefined` if no change.
+	 * This is an empty array if no change.
+	 * This is sorted by their position.
 	 */
-	fixedContent: string;
+	edits: ESLintAutofixEdit[];
 }

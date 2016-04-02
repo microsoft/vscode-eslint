@@ -12,6 +12,7 @@ import {
 	TextDocuments, ITextDocument, TextDocumentSyncKind,
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
 } from 'vscode-languageserver';
+import {ESLintReport, ESLintProblem, ESLintAutofixEdit} from "./lib/eslint";
 import {ESLintAutofixRequest} from "./lib/protocol";
 
 import fs = require('fs');
@@ -24,28 +25,6 @@ interface Settings {
 		options: any;
 	}
 	[key: string]: any;
-}
-
-interface ESLintProblem {
-	line: number;
-	column: number;
-	severity: number;
-	ruleId: string;
-	message: string;
-}
-
-interface ESLintDocumentReport {
-	filePath: string;
-	errorCount: number;
-	warningCount: number;
-	messages: ESLintProblem[];
-	output?: string;
-}
-
-interface ESLintReport {
-	errorCount: number;
-	warningCount: number;
-	results: ESLintDocumentReport[];
 }
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
@@ -176,17 +155,6 @@ connection.onDidChangeWatchedFiles((params) => {
 	validateMany(documents.all());
 });
 
-function assign(x: any, ...ys: any[]) {
-	for (let y of ys) {
-		for (let key in y) {
-			if (y.hasOwnProperty(key)) {
-				x[key] = y[key];
-			}
-		}
-	}
-	return x;
-}
-
 // The handler of autofix command.
 connection.onRequest(ESLintAutofixRequest.type, (params) => {
 	// Checks the current configure.
@@ -194,23 +162,28 @@ connection.onRequest(ESLintAutofixRequest.type, (params) => {
 		!settings.eslint.enable ||
 		(params.onSaved && !settings.eslint.enableAutofixOnSave)
 	) {
-		return {fixedContent: null};
+		return {edits: []};
 	}
 
 	// Gets the target document.
 	let document = documents.get(params.uri);
 	if (document == null) {
-		return {fixedContent: null};
+		return {edits: []};
 	}
 
 	// Calculate autofix.
-	let cli = new lib.CLIEngine(assign({}, options, {fix: true}));
+	let cli = new lib.CLIEngine(options);
 	let report: ESLintReport = cli.executeOnText(
 		document.getText(),
 		Files.uriToFilePath(params.uri)
 	);
+	let edits: ESLintAutofixEdit[] = report.results[0].messages
+		.filter(problem => problem.fix != null)
+		.map(problem => problem.fix);
 
-	return {fixedContent: report.results[0].output || null};
+	edits.sort((a, b) => a.range[1] - b.range[0]);
+
+	return {edits};
 });
 
 connection.listen();

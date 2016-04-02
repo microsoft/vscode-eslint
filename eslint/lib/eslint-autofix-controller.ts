@@ -4,8 +4,9 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
-import { commands, window, workspace, Disposable, Position, Range, TextDocument, TextEditor, Uri } from 'vscode';
+import { commands, window, workspace, Disposable, Position, Range, TextDocument, TextEditor, TextEditorEdit, Uri } from 'vscode';
 import { LanguageClient } from 'vscode-languageclient';
+import { ESLintAutofixEdit } from './eslint';
 import { ESLintAutofixRequest, ESLintAutofixParams, ESLintAutofixResult } from './protocol';
 
 /**
@@ -34,7 +35,7 @@ export default class ESLintAutofixController {
 	start(): Disposable {
 		this.disposable = Disposable.from(
 			workspace.onDidSaveTextDocument(this.onSaved, this),
-			commands.registerTextEditorCommand("eslint.executeAutofix", this.onExecute, this)
+			commands.registerTextEditorCommand('eslint.executeAutofix', this.onExecute, this)
 		);
 		return this;
 	}
@@ -57,7 +58,7 @@ export default class ESLintAutofixController {
 	 * - If the document is hidden, the server does write the result of Autofix to the file directly.
 	 */
 	private onSaved(document: TextDocument): void {
-		if (document.languageId.startsWith("javascript")) {
+		if (document.languageId.startsWith('javascript')) {
 			const editor = window.visibleTextEditors.find(e => e.document === document);
 			this.executeAutofix(document, editor, true);
 		}
@@ -72,7 +73,7 @@ export default class ESLintAutofixController {
 	private onExecute(editor: TextEditor): void {
 		const document = editor.document;
 
-		if (document.languageId.startsWith("javascript")) {
+		if (document.languageId.startsWith('javascript')) {
 			this.executeAutofix(document, editor, false);
 		}
 	}
@@ -99,7 +100,7 @@ export default class ESLintAutofixController {
 
 		// Skip if it's recursively.
 		if (this.executingFlags.get(uri)) {
-			console.log("executeAutofix: skipped because recursively.");
+			console.log('executeAutofix: skipped because recursively.');
 			return;
 		}
 		this.executingFlags.set(uri, true);
@@ -111,9 +112,7 @@ export default class ESLintAutofixController {
 			uri: uri,
 			onSaved: onSaved
 		}).then(result => {
-			// If there are no change of Autofix then "result.fixedContent" is null.
-			// In those case, do nothing here.
-			if (result.fixedContent == null) {
+			if (result.edits.length === 0) {
 				return true;
 			}
 			if (String(editor.document.uri) !== uri) {
@@ -122,11 +121,7 @@ export default class ESLintAutofixController {
 
 			// Replace whole document with the autofix result.
 			return editor.edit(mutator => {
-				const wholeRange = editor.document.validateRange(new Range(
-					new Position(0, 0),
-					new Position(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY)
-				));
-				mutator.replace(wholeRange, result.fixedContent);
+				this._applyEdit(mutator, document, result.edits);
 			});
 		}).then(result => {
 			// If the trigger is "didSaveTextDocument", the document got dirty as a result of this edit.
@@ -150,5 +145,53 @@ export default class ESLintAutofixController {
 				window.showErrorMessage(`Failed to execute Autofix: "${filePath}"`);
 			}
 		);
+	}
+
+	/**
+	 * Apply autofix edits.
+	 *
+	 * @param mutator - The destination to apply.
+	 * @param document - The document of the destination to get the position of edits.
+	 * @param edits - The edits to be applied. This is sorted by their position.
+	 * @see https://github.com/eslint/eslint/blob/e5146e1dd546235b612c880498e89e0dbba7c4f8/lib/util/source-code-fixer.js#L57
+	 */
+	_applyEdit(mutator: TextEditorEdit, document: TextDocument, edits: ESLintAutofixEdit[]) {
+		let lastFixPos = Number.POSITIVE_INFINITY;
+
+		for (let i = edits.length - 1; i >= 0; --i) {
+			let {range: [start, end], text} = edits[i];
+
+			// Skip overlapped edits.
+			if (end >= lastFixPos) {
+				continue;
+			}
+
+			// Process Unicode BOM.
+			if (start < 0) {
+				// TODO: remove Unicode BOM.
+				start = 0;
+			}
+			if (start === 0 && text[0] === '\uFEFF') {
+				// TODO: insert Unicode BOM.
+				text = text.slice(1);
+			}
+
+			// Apply.
+			if (end <= start) {
+				if (text) {
+					mutator.insert(document.positionAt(start), text);
+				}
+			} else {
+				const range = new Range(document.positionAt(start), document.positionAt(end));
+
+				if (text) {
+					mutator.replace(range, text);
+				} else {
+					mutator.delete(range);
+				}
+			}
+
+			lastFixPos = start;
+		}
 	}
 }
