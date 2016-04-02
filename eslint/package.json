@@ -39,7 +39,7 @@
 				"eslint.enableAutofixOnSave": {
 					"type": "boolean",
 					"default": false,
-					"description": "Control the flag to enable executing Autofix when you save a file."
+					"description": "Control whether eslint errors are auto-fixed when a file is saved."
 				},
 				"eslint.options": {
 					"type": "object",
