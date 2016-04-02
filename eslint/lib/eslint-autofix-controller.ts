@@ -122,7 +122,7 @@ export default class ESLintAutofixController {
 
 			// Replace whole document with the autofix result.
 			return editor.edit(mutator => {
-				this._applyEdit(mutator, document, result.edits);
+				this.applyEdit(mutator, document, result.edits);
 			});
 		}).then(result => {
 			// If the trigger is "didSaveTextDocument", the document got dirty as a result of this edit.
@@ -156,7 +156,7 @@ export default class ESLintAutofixController {
 	 * @param edits - The edits to be applied. This is sorted by their position.
 	 * @see https://github.com/eslint/eslint/blob/e5146e1dd546235b612c880498e89e0dbba7c4f8/lib/util/source-code-fixer.js#L57
 	 */
-	_applyEdit(mutator: TextEditorEdit, document: TextDocument, edits: ESLintAutofixEdit[]) {
+	private applyEdit(mutator: TextEditorEdit, document: TextDocument, edits: ESLintAutofixEdit[]) {
 		let lastFixPos = Number.POSITIVE_INFINITY;
 
 		for (let i = edits.length - 1; i >= 0; --i) {
