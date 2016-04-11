@@ -6,17 +6,28 @@
 
 import {
 	createConnection, IConnection,
-	ResponseError, RequestType, IRequestHandler, NotificationType, INotificationHandler,
+	ResponseError, RequestType, RequestHandler, NotificationType, NotificationHandler,
 	InitializeResult, InitializeError,
-	Diagnostic, DiagnosticSeverity, Position, Files,
-	TextDocuments, ITextDocument, TextDocumentSyncKind,
+	Diagnostic, DiagnosticSeverity, Position, Range, Files,
+	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit,
+	Command,
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
 } from 'vscode-languageserver';
-import {ESLintReport, ESLintProblem, ESLintAutofixEdit} from "./lib/eslint";
-import {ESLintAutofixRequest} from "./lib/protocol";
 
 import fs = require('fs');
 import path = require('path');
+
+interface Map<V> {
+	[key: string]: V;
+}
+
+class ID {
+	private static base: string = `${Date.now().toString()}-`;
+	private static counter: number = 0;
+	public static next(): string {
+		return `${ID.base}${ID.counter++}`
+	}
+}
 
 interface Settings {
 	eslint: {
@@ -25,6 +36,34 @@ interface Settings {
 		options: any;
 	}
 	[key: string]: any;
+}
+
+export interface ESLintAutoFixEdit {
+	range: [number, number];
+	text: string;
+}
+
+export interface ESLintProblem {
+	line: number;
+	column: number;
+	severity: number;
+	ruleId: string;
+	message: string;
+	fix?: ESLintAutoFixEdit;
+}
+
+export interface ESLintDocumentReport {
+	filePath: string;
+	errorCount: number;
+	warningCount: number;
+	messages: ESLintProblem[];
+	output?: string;
+}
+
+export interface ESLintReport {
+	errorCount: number;
+	warningCount: number;
+	results: ESLintDocumentReport[];
 }
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
@@ -38,8 +77,35 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 		range: {
 			start: { line: problem.line - 1, character: problem.column - 1 },
 			end: { line: problem.line - 1, character: problem.column - 1 }
-		}
+		},
+		code: problem.ruleId
 	};
+}
+
+interface AutoFix {
+	label: string;
+	documentVersion: number;
+	ruleId: string;
+	edit: ESLintAutoFixEdit;
+}
+
+function computeKey(diagnostic: Diagnostic): string {
+	let range = diagnostic.range;
+	return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}`;
+}
+
+let codeActions: Map<Map<AutoFix>> = Object.create(null);
+function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, problem: ESLintProblem): void {
+	if (!problem.fix || !problem.ruleId) {
+		return;
+	}
+	let uri = document.uri;
+	let edits: Map<AutoFix> = codeActions[uri];
+	if (!edits) {
+		edits = Object.create(null);
+		codeActions[uri] = edits;
+	}
+	edits[computeKey(diagnostic)] = { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix};
 }
 
 function convertSeverity(severity: number): number {
@@ -75,7 +141,7 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 			return new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 		}
 		lib = value;
-		let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind }};
+		let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
 		return result;
 	}, (error) => {
 		return Promise.reject(
@@ -85,7 +151,7 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 	});
 })
 
-function getMessage(err: any, document: ITextDocument): string {
+function getMessage(err: any, document: TextDocument): string {
 	let result: string = null;
 	if (typeof err.message === 'string' || err.message instanceof String) {
 		result = <string>err.message;
@@ -99,11 +165,13 @@ function getMessage(err: any, document: ITextDocument): string {
 	return result;
 }
 
-function validate(document: ITextDocument): void {
+function validate(document: TextDocument): void {
 	let CLIEngine = lib.CLIEngine;
 	var cli = new CLIEngine(options);
 	let content = document.getText();
 	let uri = document.uri;
+	// Clean previously computed code actions.
+	delete codeActions[uri];
 	let report: ESLintReport = cli.executeOnText(content, Files.uriToFilePath(uri));
 	let diagnostics: Diagnostic[] = [];
 	if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
@@ -111,7 +179,9 @@ function validate(document: ITextDocument): void {
 		if (docReport.messages && Array.isArray(docReport.messages)) {
 			docReport.messages.forEach((problem) => {
 				if (problem) {
-					diagnostics.push(makeDiagnostic(problem));
+					let diagnostic = makeDiagnostic(problem);
+					diagnostics.push(diagnostic);
+					recordCodeAction(document, diagnostic, problem);
 				}
 			});
 		}
@@ -120,7 +190,7 @@ function validate(document: ITextDocument): void {
 	return connection.sendDiagnostics({ uri, diagnostics });
 }
 
-function validateSingle(document: ITextDocument): void {
+function validateSingle(document: TextDocument): void {
 	try {
 		validate(document);
 	} catch (err) {
@@ -128,7 +198,7 @@ function validateSingle(document: ITextDocument): void {
 	}
 }
 
-function validateMany(documents: ITextDocument[]): void {
+function validateMany(documents: TextDocument[]): void {
 	let tracker = new ErrorMessageTracker();
 	documents.forEach(document => {
 		try {
@@ -155,35 +225,52 @@ connection.onDidChangeWatchedFiles((params) => {
 	validateMany(documents.all());
 });
 
-// The handler of autofix command.
-connection.onRequest(ESLintAutofixRequest.type, (params) => {
-	// Checks the current configure.
-	if (!settings ||
-		!settings.eslint.enable ||
-		(params.onSaved && !settings.eslint.enableAutofixOnSave)
-	) {
-		return {edits: []};
+connection.onCodeAction((params) => {
+	let result: Command[] = [];
+	let uri = params.textDocument.uri;
+	let textDocument = documents.get(uri);
+	let edits = codeActions[uri];
+	let documentVersion: number = -1;
+	let ruleId: string;
+	function createTextEdit(editInfo: AutoFix): TextEdit {
+		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
+	if (edits) {
+		for(let diagnostic of params.context.diagnostics) {
+			let key = computeKey(diagnostic);
+			let editInfo = edits[key];
+			if (editInfo) {
+				documentVersion = editInfo.documentVersion;
+				ruleId = editInfo.ruleId;
+				result.push(Command.create(editInfo.label, 'eslint.applySingleFix', uri, documentVersion, [
+					createTextEdit(editInfo)
+				]));
 
-	// Gets the target document.
-	let document = documents.get(params.uri);
-	if (document == null) {
-		return {edits: []};
+			}
+		}
+		if (result.length > 0) {
+			let same: TextEdit[] = [];
+			let all: TextEdit[] = [];
+			for (let key of Object.keys(edits)) {
+				let editInfo = edits[key];
+				if (documentVersion === -1) {
+					documentVersion = editInfo.documentVersion;
+				}
+				let textEdit = createTextEdit(editInfo);
+				if (editInfo.ruleId === ruleId) {
+					same.push(textEdit);
+				}
+				all.push(textEdit);
+			}
+			if (same.length > 1) {
+				result.push(Command.create(`Fix all ${ruleId} problems`, 'eslint.applySameFixes', uri, documentVersion, all));
+			}
+			if (all.length > 1) {
+				result.push(Command.create(`Fix all auto-fixable problems`, 'eslint.applyAllFixes', uri, documentVersion, all));
+			}
+		}
 	}
-
-	// Calculate autofix.
-	let cli = new lib.CLIEngine(options);
-	let report: ESLintReport = cli.executeOnText(
-		document.getText(),
-		Files.uriToFilePath(params.uri)
-	);
-	let edits: ESLintAutofixEdit[] = report.results[0].messages
-		.filter(problem => problem.fix != null)
-		.map(problem => problem.fix);
-
-	edits.sort((a, b) => a.range[1] - b.range[0]);
-
-	return {edits};
+	return result;
 });
 
 connection.listen();

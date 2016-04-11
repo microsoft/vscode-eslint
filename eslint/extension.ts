@@ -5,9 +5,8 @@
 'use strict';
 
 import * as path from 'path';
-import { workspace, Disposable, ExtensionContext } from 'vscode';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind } from 'vscode-languageclient';
-import ESLintAutofixController from "./lib/eslint-autofix-controller";
+import { workspace, window, commands, Disposable, ExtensionContext } from 'vscode';
+import { LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind, TextEdit, Protocol2Code } from 'vscode-languageclient';
 
 export function activate(context: ExtensionContext) {
 	// We need to go one level up since an extension compile the js code into
@@ -28,8 +27,21 @@ export function activate(context: ExtensionContext) {
 	}
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	function applyTextEdits(uri: string, documentVersion: number, edits: TextEdit[]) {
+		let textEditor = window.activeTextEditor;
+		if (textEditor && textEditor.document.uri.toString() === uri && textEditor.document.version === documentVersion) {
+			textEditor.edit(mutator => {
+				for(let edit of edits) {
+					mutator.replace(Protocol2Code.asRange(edit.range), edit.newText);
+				}
+			});
+		}
+	}
+
 	context.subscriptions.push(
 		new SettingMonitor(client, 'eslint.enable').start(),
-		new ESLintAutofixController(client).start()
+		commands.registerCommand('eslint.applySingleFix', applyTextEdits),
+		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
+		commands.registerCommand('eslint.applyAllFixes', applyTextEdits)
 	);
 }

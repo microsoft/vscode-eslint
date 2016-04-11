@@ -75,9 +75,9 @@
 	},
 	"devDependencies": {
 		"vscode": "^0.11.x",
-		"typescript": "^1.8.2"
+		"typescript": "^1.8.9"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^1.4.0"
+		"vscode-languageclient": "^2.0.0-pre.3"
 	}
 }
