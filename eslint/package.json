@@ -74,10 +74,10 @@
 		"postinstall": "node ./node_modules/vscode/bin/install"
 	},
 	"devDependencies": {
-		"vscode": "^0.11.x",
+		"vscode": "^0.11.10",
 		"typescript": "^1.8.9"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^2.0.0-pre.3"
+		"vscode-languageclient": "^2.0.0"
 	}
 }
