@@ -249,24 +249,48 @@ connection.onCodeAction((params) => {
 			}
 		}
 		if (result.length > 0) {
-			let same: TextEdit[] = [];
-			let all: TextEdit[] = [];
-			for (let key of Object.keys(edits)) {
-				let editInfo = edits[key];
+			let same: AutoFix[] = [];
+			let all: AutoFix[] = [];
+			let fixes: AutoFix[] = Object.keys(edits).map(key => edits[key]);
+			fixes = fixes.sort((a, b) => {
+				let d = a.edit.range[0] - b.edit.range[0];
+				if (d !== 0) {
+					return d;
+				}
+				if (a.edit.range[1] === 0) {
+					return -1;
+				}
+				if (b.edit.range[1] === 0) {
+					return 1;
+				}
+				return a.edit.range[1] - b.edit.range[1];
+			});
+			function overlaps(lastEdit: AutoFix, newEdit: AutoFix): boolean {
+				return !!lastEdit && lastEdit.edit.range[1] > newEdit.edit.range[0];
+			}
+			function getLastEdit(array: AutoFix[]): AutoFix {
+				let length = array.length;
+				if (length === 0) {
+					return undefined;
+				}
+				return array[length - 1];
+			}
+			for (let editInfo of fixes) {
 				if (documentVersion === -1) {
 					documentVersion = editInfo.documentVersion;
 				}
-				let textEdit = createTextEdit(editInfo);
-				if (editInfo.ruleId === ruleId) {
-					same.push(textEdit);
+				if (editInfo.ruleId === ruleId && !overlaps(getLastEdit(same), editInfo)) {
+					same.push(editInfo);
 				}
-				all.push(textEdit);
+				if (!overlaps(getLastEdit(all), editInfo)) {
+					all.push(editInfo);
+				}
 			}
 			if (same.length > 1) {
-				result.push(Command.create(`Fix all ${ruleId} problems`, 'eslint.applySameFixes', uri, documentVersion, all));
+				result.push(Command.create(`Fix all ${ruleId} problems`, 'eslint.applySameFixes', uri, documentVersion, same.map(createTextEdit)));
 			}
 			if (all.length > 1) {
-				result.push(Command.create(`Fix all auto-fixable problems`, 'eslint.applyAllFixes', uri, documentVersion, all));
+				result.push(Command.create(`Fix all auto-fixable problems`, 'eslint.applyAllFixes', uri, documentVersion, all.map(createTextEdit)));
 			}
 		}
 	}
