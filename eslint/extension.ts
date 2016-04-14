@@ -27,12 +27,20 @@ export function activate(context: ExtensionContext) {
 	}
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+
 	function applyTextEdits(uri: string, documentVersion: number, edits: TextEdit[]) {
 		let textEditor = window.activeTextEditor;
-		if (textEditor && textEditor.document.uri.toString() === uri && textEditor.document.version === documentVersion) {
+		if (textEditor && textEditor.document.uri.toString() === uri) {
+			if (textEditor.document.version !== documentVersion) {
+				window.showInformationMessage(`ESLint fixes are outdated and can't be applied to the document.`);
+			}
 			textEditor.edit(mutator => {
 				for(let edit of edits) {
 					mutator.replace(Protocol2Code.asRange(edit.range), edit.newText);
+				}
+			}).then((success) => {
+				if (!success) {
+					window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 				}
 			});
 		}
