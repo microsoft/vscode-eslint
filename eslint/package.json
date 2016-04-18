@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "0.10.14",
+	"version": "0.10.15",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -36,11 +36,6 @@
 					"default": true,
 					"description": "Control whether eslint is enabled for JavaScript files or not."
 				},
-				"eslint.enableAutofixOnSave": {
-					"type": "boolean",
-					"default": false,
-					"description": "Control whether eslint errors are auto-fixed when a file is saved."
-				},
 				"eslint.options": {
 					"type": "object",
 					"default": {},
@@ -56,13 +51,6 @@
 			{
 				"fileMatch": ".eslintrc.json",
 				"url": "http://json.schemastore.org/eslintrc"
-			}
-		],
-		"commands": [
-			{
-				"command": "eslint.executeAutofix",
-				"title": "Execute Autofix",
-				"category": "ESLint"
 			}
 		]
 	},
