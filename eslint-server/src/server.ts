@@ -10,12 +10,13 @@ import {
 	InitializeResult, InitializeError,
 	Diagnostic, DiagnosticSeverity, Position, Range, Files,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit,
-	Command,
+	Command, MessageActionItem,
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
 } from 'vscode-languageserver';
 
 import fs = require('fs');
 import path = require('path');
+import { exec, fork, ChildProcess } from 'child_process';
 
 interface Map<V> {
 	[key: string]: V;
@@ -136,20 +137,63 @@ documents.onDidChangeContent((event) => {
 
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>> => {
 	let rootPath = params.rootPath;
-	return Files.resolveModule(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
+
+	function resolveModuleSuccess(value: any): InitializeResult | ResponseError<InitializeError> {
 		if (!value.CLIEngine) {
 			return new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 		}
 		lib = value;
 		let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
 		return result;
-	}, (error) => {
-		return Promise.reject(
-			new ResponseError<InitializeError>(99,
-				'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\' or globally using \'npm install -g eslint\' and then press Retry.',
-				{ retry: true }));
+	};
+
+	return Files.resolveModule(rootPath, 'eslint').then(
+		resolveModuleSuccess,
+		(error) => {
+			if (!rootPath) {
+				return new ResponseError<InitializeError>(
+					99,
+					'Failed to load eslint library. Please install eslint globally using \'npm install -g eslint\' and then press Retry.',
+					{ retry: true }
+				);
+			} else {
+				return connection.window.showWarningMessage(
+					'Failed to load the ESLint library. Do you want to install ESLint locally into your workspace folder? This may take a minute or two.',
+					{ title: 'Install locally', id: 'local' }
+				).then((selection) => {
+					if (selection && selection.id === 'local') {
+						let cmd: string = 'npm install eslint';
+						if (fs.existsSync(path.join(rootPath, 'package.json'))) {
+							cmd = cmd + ' --save-dev';
+						};
+						let responseError = new ResponseError<InitializeError>(
+							99,
+							`Failed to install ESLint running ${cmd}. Please install ESLint manually.`,
+							{ retry: false }
+						);
+						return new Promise((resolve, reject) => {
+							exec(cmd, (error: Error, stdout: Buffer, stderr: Buffer) => {
+								if (error) {
+									reject(responseError);
+								}
+								resolve();
+							});
+						}).then(() => {
+							return Files.resolveModule(rootPath, 'eslint').then(resolveModuleSuccess, (error) => {
+								return responseError;
+							});
+						});
+					} else {
+						return new ResponseError<InitializeError>(
+							99,
+							null,
+							{ retry: false }
+						);
+					}
+				});
+			}
 	});
-})
+});
 
 function getMessage(err: any, document: TextDocument): string {
 	let result: string = null;
