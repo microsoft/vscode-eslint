@@ -23,6 +23,8 @@
 	"activationEvents": [
 		"onLanguage:javascript",
 		"onLanguage:javascriptreact",
+		"onLanguage:typescript",
+		"onLanguage:typescriptreact",
 		"onCommand:eslint.executeAutofix"
 	],
 	"main": "./out/extension",
@@ -35,6 +37,11 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Control whether eslint is enabled for JavaScript files or not."
+				},
+				"eslint.enableTypeScript": {
+					"type": "boolean",
+					"default": false,
+					"description": "Control whether eslint is enabled for TypeScript files or not. Requires parser (https://github.com/eslint/typescript-eslint-parser)."
 				},
 				"eslint.options": {
 					"type": "object",

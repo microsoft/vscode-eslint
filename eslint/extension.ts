@@ -23,6 +23,13 @@ namespace AllFixesRequest {
 }
 
 export function activate(context: ExtensionContext) {
+	let supportedDocuments = ['javascript', 'javascriptreact'];
+	let isTypeScriptSupportEnabled = workspace.getConfiguration('eslint').get('enableTypeScript');
+
+	if (isTypeScriptSupportEnabled) {
+		supportedDocuments = supportedDocuments.concat(['typescript', 'typescriptreact']);
+	}
+
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
@@ -33,7 +40,7 @@ export function activate(context: ExtensionContext) {
 	};
 
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: ['javascript', 'javascriptreact'],
+		documentSelector: supportedDocuments,
 		synchronize: {
 			configurationSection: 'eslint',
 			fileEvents: [
@@ -41,7 +48,7 @@ export function activate(context: ExtensionContext) {
 				workspace.createFileSystemWatcher('**/package.json')
 			]
 		}
-	}
+	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
 
@@ -80,6 +87,7 @@ export function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(
 		new SettingMonitor(client, 'eslint.enable').start(),
+		new SettingMonitor(client, 'eslint.enableTypeScript').start(),
 		commands.registerCommand('eslint.applySingleFix', applyTextEdits),
 		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
 		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),
