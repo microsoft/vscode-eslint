@@ -14,7 +14,7 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-languageserver": "^2.0.0"
+		"vscode-languageserver": "^2.2.0"
 	},
 	"devDependencies": {
 		"typescript": "^1.8.9"

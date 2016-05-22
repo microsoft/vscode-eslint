@@ -9,7 +9,7 @@ import {
 	ResponseError, RequestType, RequestHandler, NotificationType, NotificationHandler,
 	InitializeResult, InitializeError,
 	Diagnostic, DiagnosticSeverity, Position, Range, Files,
-	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit,
+	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier,
 	Command,
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
 } from 'vscode-languageserver';
@@ -225,72 +225,162 @@ connection.onDidChangeWatchedFiles((params) => {
 	validateMany(documents.all());
 });
 
+class Fixes {
+	private keys: string[];
+
+	constructor (private edits: Map<AutoFix>) {
+		this.keys = Object.keys(edits);
+	}
+
+	public static overlaps(lastEdit: AutoFix, newEdit: AutoFix): boolean {
+		return !!lastEdit && lastEdit.edit.range[1] > newEdit.edit.range[0];
+	}
+
+	public isEmpty(): boolean {
+		return this.keys.length === 0;
+	}
+
+	public getDocumentVersion(): number {
+		return this.edits[this.keys[0]].documentVersion;
+	}
+
+	public getScoped(diagnostics: Diagnostic[]): AutoFix[] {
+		let result: AutoFix[] = [];
+		for(let diagnostic of diagnostics) {
+			let key = computeKey(diagnostic);
+			let editInfo = this.edits[key];
+			if (editInfo) {
+				result.push(editInfo);
+			}
+		}
+		return result;
+	}
+
+	public getAllSorted(): AutoFix[] {
+		let result = this.keys.map(key => this.edits[key]);
+		return result.sort((a, b) => {
+			let d = a.edit.range[0] - b.edit.range[0];
+			if (d !== 0) {
+				return d;
+			}
+			if (a.edit.range[1] === 0) {
+				return -1;
+			}
+			if (b.edit.range[1] === 0) {
+				return 1;
+			}
+			return a.edit.range[1] - b.edit.range[1];
+		});
+	}
+
+	public getOverlapFree(): AutoFix[] {
+		let sorted = this.getAllSorted();
+		if (sorted.length <= 1) {
+			return sorted;
+		}
+		let result: AutoFix[] = [];
+		let last: AutoFix = sorted[0];
+		result.push(last);
+		for (let i = 1; i < sorted.length; i++) {
+			let current = sorted[i];
+			if (!Fixes.overlaps(last, current)) {
+				result.push(current);
+				last = current;
+			}
+		}
+		return result;
+	}
+}
+
 connection.onCodeAction((params) => {
 	let result: Command[] = [];
 	let uri = params.textDocument.uri;
-	let textDocument = documents.get(uri);
 	let edits = codeActions[uri];
+	if (!edits) {
+		return result;
+	}
+
+	let fixes = new Fixes(edits);
+	if (fixes.isEmpty()) {
+		return result;
+	}
+
+	let textDocument = documents.get(uri);
 	let documentVersion: number = -1;
 	let ruleId: string;
 	function createTextEdit(editInfo: AutoFix): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
-	if (edits) {
-		for(let diagnostic of params.context.diagnostics) {
-			let key = computeKey(diagnostic);
-			let editInfo = edits[key];
-			if (editInfo) {
-				documentVersion = editInfo.documentVersion;
-				ruleId = editInfo.ruleId;
-				result.push(Command.create(editInfo.label, 'eslint.applySingleFix', uri, documentVersion, [
-					createTextEdit(editInfo)
-				]));
 
+	for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
+		documentVersion = editInfo.documentVersion;
+		ruleId = editInfo.ruleId;
+		result.push(Command.create(editInfo.label, 'eslint.applySingleFix', uri, documentVersion, [
+			createTextEdit(editInfo)
+		]));
+	};
+
+	if (result.length > 0) {
+		let same: AutoFix[] = [];
+		let all: AutoFix[] = [];
+
+		function getLastEdit(array: AutoFix[]): AutoFix {
+			let length = array.length;
+			if (length === 0) {
+				return undefined;
+			}
+			return array[length - 1];
+		}
+
+		for (let editInfo of fixes.getAllSorted()) {
+			if (documentVersion === -1) {
+				documentVersion = editInfo.documentVersion;
+			}
+			if (editInfo.ruleId === ruleId && !Fixes.overlaps(getLastEdit(same), editInfo)) {
+				same.push(editInfo);
+			}
+			if (!Fixes.overlaps(getLastEdit(all), editInfo)) {
+				all.push(editInfo);
 			}
 		}
-		if (result.length > 0) {
-			let same: AutoFix[] = [];
-			let all: AutoFix[] = [];
-			let fixes: AutoFix[] = Object.keys(edits).map(key => edits[key]);
-			fixes = fixes.sort((a, b) => {
-				let d = a.edit.range[0] - b.edit.range[0];
-				if (d !== 0) {
-					return d;
-				}
-				if (a.edit.range[1] === 0) {
-					return -1;
-				}
-				if (b.edit.range[1] === 0) {
-					return 1;
-				}
-				return a.edit.range[1] - b.edit.range[1];
-			});
-			function overlaps(lastEdit: AutoFix, newEdit: AutoFix): boolean {
-				return !!lastEdit && lastEdit.edit.range[1] > newEdit.edit.range[0];
-			}
-			function getLastEdit(array: AutoFix[]): AutoFix {
-				let length = array.length;
-				if (length === 0) {
-					return undefined;
-				}
-				return array[length - 1];
-			}
-			for (let editInfo of fixes) {
-				if (documentVersion === -1) {
-					documentVersion = editInfo.documentVersion;
-				}
-				if (editInfo.ruleId === ruleId && !overlaps(getLastEdit(same), editInfo)) {
-					same.push(editInfo);
-				}
-				if (!overlaps(getLastEdit(all), editInfo)) {
-					all.push(editInfo);
-				}
-			}
-			if (same.length > 1) {
-				result.push(Command.create(`Fix all ${ruleId} problems`, 'eslint.applySameFixes', uri, documentVersion, same.map(createTextEdit)));
-			}
-			if (all.length > 1) {
-				result.push(Command.create(`Fix all auto-fixable problems`, 'eslint.applyAllFixes', uri, documentVersion, all.map(createTextEdit)));
+		if (same.length > 1) {
+			result.push(Command.create(`Fix all ${ruleId} problems`, 'eslint.applySameFixes', uri, documentVersion, same.map(createTextEdit)));
+		}
+		if (all.length > 1) {
+			result.push(Command.create(`Fix all auto-fixable problems`, 'eslint.applyAllFixes', uri, documentVersion, all.map(createTextEdit)));
+		}
+	}
+	return result;
+});
+
+interface AllFixesParams {
+	textDocument: TextDocumentIdentifier;
+}
+
+interface AllFixesResult {
+	documentVersion: number,
+	edits: TextEdit[]
+}
+
+namespace AllFixesRequest {
+	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
+}
+
+connection.onRequest(AllFixesRequest.type, (params) => {
+	let result: AllFixesResult = null;
+	let uri = params.textDocument.uri;
+	let textDocument = documents.get(uri);
+	let edits = codeActions[uri];
+	function createTextEdit(editInfo: AutoFix): TextEdit {
+		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
+	}
+
+	if (edits) {
+		let fixes = new Fixes(edits);
+		if (!fixes.isEmpty()) {
+			result = {
+				documentVersion: fixes.getDocumentVersion(),
+				edits: fixes.getOverlapFree().map(createTextEdit)
 			}
 		}
 	}

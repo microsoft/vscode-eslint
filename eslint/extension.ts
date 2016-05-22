@@ -5,8 +5,22 @@
 'use strict';
 
 import * as path from 'path';
-import { workspace, window, commands, Disposable, ExtensionContext } from 'vscode';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind, TextEdit, Protocol2Code } from 'vscode-languageclient';
+import { workspace, window, commands, Disposable, ExtensionContext, Command } from 'vscode';
+import { LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind, TextDocumentIdentifier, TextEdit, Protocol2Code } from 'vscode-languageclient';
+
+
+interface AllFixesParams {
+	textDocument: TextDocumentIdentifier;
+}
+
+interface AllFixesResult {
+	documentVersion: number,
+	edits: TextEdit[]
+}
+
+namespace AllFixesRequest {
+	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
+}
 
 export function activate(context: ExtensionContext) {
 	// We need to go one level up since an extension compile the js code into
@@ -46,10 +60,26 @@ export function activate(context: ExtensionContext) {
 		}
 	}
 
+	function fixAllProblems() {
+		let textEditor = window.activeTextEditor;
+		if (!textEditor) {
+			return;
+		}
+		let uri: string = textEditor.document.uri.toString();
+		client.sendRequest(AllFixesRequest.type, { textDocument: { uri }}).then((result) => {
+			if (result) {
+				applyTextEdits(uri, result.documentVersion, result.edits);
+			}
+		}, (error) => {
+			window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
+		});
+	}
+
 	context.subscriptions.push(
 		new SettingMonitor(client, 'eslint.enable').start(),
 		commands.registerCommand('eslint.applySingleFix', applyTextEdits),
 		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
-		commands.registerCommand('eslint.applyAllFixes', applyTextEdits)
+		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),
+		commands.registerCommand('eslint.fixAllProblems', fixAllProblems)
 	);
 }
