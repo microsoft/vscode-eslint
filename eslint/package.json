@@ -40,6 +40,12 @@
 					"type": "object",
 					"default": {},
 					"description": "The eslint options object to provide args to the eslint command."
+				},
+				"eslint.trace.server": {
+					"type": "string",
+					"enum": ["off", "messages", "verbose"],
+					"default": "off",
+					"description": "Traces the communication between VSCode and the eslint linter service."
 				}
 			}
 		},
