@@ -26,6 +26,9 @@ export function activate(context: ExtensionContext) {
 	let supportedDocuments = [];
 	let eslintConfig = workspace.getConfiguration('eslint');
 
+	if (eslintConfig.get('enableFlow')) {
+		supportedDocuments = supportedDocuments.concat(['flow']);
+	}
 	if (eslintConfig.get('enableHtml')) {
 		supportedDocuments = supportedDocuments.concat(['html']);
 	}
