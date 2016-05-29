@@ -23,10 +23,16 @@ namespace AllFixesRequest {
 }
 
 export function activate(context: ExtensionContext) {
-	let supportedDocuments = ['javascript', 'javascriptreact'];
-	let isTypeScriptSupportEnabled = workspace.getConfiguration('eslint').get('enableTypeScript');
+	let supportedDocuments = [];
+	let eslintConfig = workspace.getConfiguration('eslint');
 
-	if (isTypeScriptSupportEnabled) {
+	if (eslintConfig.get('enableHtml')) {
+		supportedDocuments = supportedDocuments.concat(['html']);
+	}
+	if (eslintConfig.get('enableJavaScript')) {
+		supportedDocuments = supportedDocuments.concat(['javascript', 'javascriptreact']);
+	}
+	if (eslintConfig.get('enableTypeScript')) {
 		supportedDocuments = supportedDocuments.concat(['typescript', 'typescriptreact']);
 	}
 
@@ -87,7 +93,6 @@ export function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(
 		new SettingMonitor(client, 'eslint.enable').start(),
-		new SettingMonitor(client, 'eslint.enableTypeScript').start(),
 		commands.registerCommand('eslint.applySingleFix', applyTextEdits),
 		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
 		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),

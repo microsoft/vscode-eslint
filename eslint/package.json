@@ -21,6 +21,7 @@
 		"vscode": "^0.10.8"
 	},
 	"activationEvents": [
+		"onLanguage:html",
 		"onLanguage:javascript",
 		"onLanguage:javascriptreact",
 		"onLanguage:typescript",
@@ -37,6 +38,16 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Control whether eslint is enabled for JavaScript files or not."
+				},
+				"eslint.enableJavaScript": {
+					"type": "boolean",
+					"default": true,
+					"description": "Control whether eslint is enabled for JavaScript files or not."
+				},
+				"eslint.enableHtml": {
+					"type": "boolean",
+					"default": false,
+					"description": "Control whether eslint is enabled for HTML files or not."
 				},
 				"eslint.enableTypeScript": {
 					"type": "boolean",
