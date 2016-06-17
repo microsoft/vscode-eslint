@@ -1,6 +1,6 @@
 # VS Code ESLint extension
 
-Integrates [ESLint](http://eslint.org/) into VS Code. Version >= 0.10.13 of this extension requires VS Code >= 0.10.8.
+Integrates the [ESLint](http://eslint.org/) linter for JavaScript into VS Code. Version >= 0.10.13 of this extension requires VS Code >= 0.10.8.
 
 If you are new to ESLint check the [documentation](http://eslint.org/).
 If you use ESLint for the first time on a workspace folder it is recommended to generate a `.eslintrc` file using the [`eslint --init` command](http://eslint.org/docs/user-guide/command-line-interface).
