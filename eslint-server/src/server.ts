@@ -134,6 +134,11 @@ documents.onDidChangeContent((event) => {
 	validateSingle(event.document);
 });
 
+// Clear diagnostics on close.
+documents.onDidClose((event) => {
+	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
+});
+
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>> => {
 	let rootPath = params.rootPath;
 	return Files.resolveModule(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
