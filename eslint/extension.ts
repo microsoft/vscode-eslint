@@ -7,6 +7,7 @@
 import * as path from 'path';
 import { workspace, window, commands, Disposable, ExtensionContext, Command } from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind, TextDocumentIdentifier, TextEdit, Protocol2Code } from 'vscode-languageclient';
+import { SettingSubscriber } from './SettingSubscriber/SettingSubscriber';
 
 
 interface AllFixesParams {
@@ -23,6 +24,7 @@ namespace AllFixesRequest {
 }
 
 export function activate(context: ExtensionContext) {
+	let eslintConfig = workspace.getConfiguration('eslint');
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
@@ -31,9 +33,40 @@ export function activate(context: ExtensionContext) {
 		run: { module: serverModule, transport: TransportKind.ipc },
 		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions}
 	};
+	let settingSubscriber = new SettingSubscriber('eslint')
+	const languageSettingsMap = [
+		{
+			name: 'enableFlow',
+			value: ['flow']
+		},
+		{
+			name: 'enableHtml',
+			value: ['html']
+		},
+		{
+			name: 'enableJavaScript',
+			value: ['javascript', 'javascriptreact']
+		},
+		{
+			name: 'enableTypeScript',
+			value: ['typescript', 'typescriptreact']
+		}
+	];
+
+	const getSupportedDocuments = (): string[] => {
+		const eslintConfig = workspace.getConfiguration('eslint');
+
+		return languageSettingsMap.reduce(( documentsArray, { name, value }) => {
+			if (eslintConfig.get(name)) {
+				return documentsArray.concat(value);
+			} else {
+				return documentsArray;
+			}
+		}, []);
+	};
 
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: ['javascript', 'javascriptreact'],
+		documentSelector: getSupportedDocuments(),
 		synchronize: {
 			configurationSection: 'eslint',
 			fileEvents: [
@@ -41,7 +74,7 @@ export function activate(context: ExtensionContext) {
 				workspace.createFileSystemWatcher('**/package.json')
 			]
 		}
-	}
+	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
 
@@ -78,8 +111,36 @@ export function activate(context: ExtensionContext) {
 		});
 	}
 
+	const createNewClient = () => {
+		clientOptions.documentSelector = getSupportedDocuments();
+		client = new LanguageClient('ESLint', serverOptions, clientOptions);
+		context.subscriptions.splice(0, 1, client.start());
+	};
+
+	const documentSettingChangeHandler = (changedSettings) => {
+		// If the plugin is being disabled/enabled, settingChangeHandler can handle all changes.
+		if (changedSettings.hasOwnProperty('enable')) return;
+
+		context.subscriptions[0].dispose();
+		createNewClient();
+	};
+
+	const settingChangeHandler = (changedSettings) => {
+		client.notifyConfigurationChanged(changedSettings);
+
+		if (changedSettings.enable !== undefined) {
+			if (changedSettings.enable === true) {
+				createNewClient();
+			} else {
+				context.subscriptions[0].dispose();
+			}
+		}
+	};
+
 	context.subscriptions.push(
-		new SettingMonitor(client, 'eslint.enable').start(),
+		client.start(),
+		settingSubscriber.subscribe(settingChangeHandler),
+		settingSubscriber.subscribe(documentSettingChangeHandler, languageSettingsMap.map(({ name }) => name)),
 		commands.registerCommand('eslint.applySingleFix', applyTextEdits),
 		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
 		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),
