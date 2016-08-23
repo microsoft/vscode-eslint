@@ -46,6 +46,12 @@
 					"enum": ["off", "messages", "verbose"],
 					"default": "off",
 					"description": "Traces the communication between VSCode and the eslint linter service."
+				},
+				"eslint.run": {
+					"type": "string",
+					"enum": ["onSave", "onType"],
+					"default": "onType",
+					"description": "Run the linter on save (onSave) or on type (onType)"
 				}
 			}
 		},
