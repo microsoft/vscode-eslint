@@ -151,13 +151,17 @@ documents.onDidClose((event) => {
 });
 
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>>  | InitializeResult | ResponseError<InitializeError> => {
-	let rootPath = params.rootPath;
-	let initOptions: { legacyModuleResolve: boolean; } = params.initializationOptions;
+	let initOptions: { legacyModuleResolve: boolean; relativeModulePath: string; } = params.initializationOptions;
 	let noCLIEngine = new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 	let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
 	let legacyModuleResolve = initOptions ? !!initOptions.legacyModuleResolve : false;
 	let resolve = legacyModuleResolve ? Files.resolveModule : Files.resolveModule2;
-
+	let rootPath;
+	if (initOptions && initOptions.relativeModulePath !== '') {
+		rootPath = path.resolve(params.rootPath, initOptions.relativeModulePath);
+	} else {
+		rootPath = params.rootPath;
+	}
 	return resolve(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
 		if (!value.CLIEngine) {
 			return noCLIEngine;
@@ -167,7 +171,7 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 	}, (error) => {
 		return Promise.reject(
 			new ResponseError<InitializeError>(99,
-				'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\' or globally using \'npm install -g eslint\' and then press Retry.',
+				'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\', or globally using \'npm install -g eslint\', or set the relativeModulePath setting, and then press Retry.',
 				{ retry: true }));
 	});
 })

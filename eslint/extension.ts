@@ -64,7 +64,8 @@ export function activate(context: ExtensionContext) {
 
 	let configuration = workspace.getConfiguration('eslint');
 	clientOptions.initializationOptions = {
-		legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false
+		legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
+		relativeModulePath: configuration ? configuration.get('relativeModulePath', '') : ''
 	}
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
