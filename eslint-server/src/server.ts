@@ -120,6 +120,17 @@ function convertSeverity(severity: number): number {
 	}
 }
 
+const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
+
+const nodeExit = process.exit;
+process.exit = (code?: number) => {
+	let stack = new Error('stack');
+	connection.sendNotification(exitCalled, [code ? code : 0, stack.stack]);
+	setTimeout(() => {
+		nodeExit(code);
+	}, 1000);
+}
+
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 let lib: any = null;
 let settings: Settings = null;
@@ -139,14 +150,19 @@ documents.onDidClose((event) => {
 	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>> => {
+connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>>  | InitializeResult | ResponseError<InitializeError> => {
 	let rootPath = params.rootPath;
-	return Files.resolveModule(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
+	let initOptions: { legacyModuleResolve: boolean; } = params.initializationOptions;
+	let noCLIEngine = new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
+	let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
+	let legacyModuleResolve = initOptions ? !!initOptions.legacyModuleResolve : false;
+	let resolve = legacyModuleResolve ? Files.resolveModule : Files.resolveModule2;
+
+	return resolve(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
 		if (!value.CLIEngine) {
-			return new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
+			return noCLIEngine;
 		}
 		lib = value;
-		let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
 		return result;
 	}, (error) => {
 		return Promise.reject(

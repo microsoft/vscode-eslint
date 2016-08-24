@@ -6,7 +6,11 @@
 
 import * as path from 'path';
 import { workspace, window, commands, Disposable, ExtensionContext, Command } from 'vscode';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind, TextDocumentIdentifier, TextEdit, Protocol2Code } from 'vscode-languageclient';
+import {
+	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
+	TextDocumentIdentifier, TextEdit, Protocol2Code, NotificationType, ErrorHandler,
+	ErrorAction, CloseAction
+} from 'vscode-languageclient';
 
 
 interface AllFixesParams {
@@ -22,6 +26,8 @@ namespace AllFixesRequest {
 	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
 }
 
+const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
+
 export function activate(context: ExtensionContext) {
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
@@ -32,6 +38,8 @@ export function activate(context: ExtensionContext) {
 		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions}
 	};
 
+	let defaultErrorHandler: ErrorHandler;
+	let serverCalledProcessExit: boolean = false;
 	let clientOptions: LanguageClientOptions = {
 		documentSelector: ['javascript', 'javascriptreact'],
 		synchronize: {
@@ -40,10 +48,32 @@ export function activate(context: ExtensionContext) {
 				workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
 				workspace.createFileSystemWatcher('**/package.json')
 			]
+		},
+		errorHandler: {
+			error: (error, message, count): ErrorAction => {
+				return defaultErrorHandler.error(error, message, count);
+			},
+			closed: (): CloseAction => {
+				if (serverCalledProcessExit) {
+					return CloseAction.DoNotRestart;
+				}
+				return defaultErrorHandler.closed();
+			}
 		}
+	};
+
+	let configuration = workspace.getConfiguration('eslint');
+	clientOptions.initializationOptions = {
+		legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false
 	}
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	defaultErrorHandler = client.createDefaultErrorHandler();
+	client.onNotification(exitCalled, (params) => {
+		serverCalledProcessExit = true;
+		client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
+		window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`);
+	});
 
 	function applyTextEdits(uri: string, documentVersion: number, edits: TextEdit[]) {
 		let textEditor = window.activeTextEditor;

@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "0.10.18",
+	"version": "1.0.1",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -34,7 +34,12 @@
 				"eslint.enable": {
 					"type": "boolean",
 					"default": true,
-					"description": "Control whether eslint is enabled for JavaScript files or not."
+					"description": "Controls whether eslint is enabled for JavaScript files or not."
+				},
+				"eslint._legacyModuleResolve" : {
+					"type": "boolean",
+					"default": false,
+					"description": "Uses the legacy module resolving."
 				},
 				"eslint.options": {
 					"type": "object",
@@ -76,9 +81,9 @@
 	},
 	"devDependencies": {
 		"vscode": "^0.11.10",
-		"typescript": "^1.8.9"
+		"typescript": "^1.8.10"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^2.2.0"
+		"vscode-languageclient": "^2.4.2-next.4"
 	}
 }
