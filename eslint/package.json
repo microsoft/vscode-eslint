@@ -36,6 +36,11 @@
 					"default": true,
 					"description": "Controls whether eslint is enabled for JavaScript files or not."
 				},
+				"eslint.relativeModulePath": {
+					"type": "string",
+					"default": "",
+					"description": "Path to the eslint module relative to workspace root. Use this if eslint is not installed in the root folder."
+				},
 				"eslint._legacyModuleResolve" : {
 					"type": "boolean",
 					"default": false,
