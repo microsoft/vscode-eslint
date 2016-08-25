@@ -150,15 +150,23 @@ documents.onDidClose((event) => {
 	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
+function trace(message: string, verbose?: string): void {
+	connection.tracer.log(message, verbose);
+}
+
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>>  | InitializeResult | ResponseError<InitializeError> => {
 	let rootPath = params.rootPath;
-	let initOptions: { legacyModuleResolve: boolean; } = params.initializationOptions;
+	let initOptions: {
+		legacyModuleResolve: boolean;
+		nodePath: string;
+	} = params.initializationOptions;
 	let noCLIEngine = new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 	let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
 	let legacyModuleResolve = initOptions ? !!initOptions.legacyModuleResolve : false;
+	let nodePath = initOptions ? (initOptions.nodePath ? initOptions.nodePath : undefined) : undefined;
 	let resolve = legacyModuleResolve ? Files.resolveModule : Files.resolveModule2;
 
-	return resolve(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
+	return resolve(rootPath, 'eslint', nodePath, trace).then((value): InitializeResult | ResponseError<InitializeError> => {
 		if (!value.CLIEngine) {
 			return noCLIEngine;
 		}
