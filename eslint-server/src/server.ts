@@ -29,12 +29,14 @@ class ID {
 	}
 }
 
+type RunValues = 'onType' | 'onSave';
+
 interface Settings {
 	eslint: {
 		enable: boolean;
 		enableAutofixOnSave: boolean;
 		options: any;
-		run: string;
+		run: RunValues;
 	}
 	[key: string]: any;
 }
