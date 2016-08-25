@@ -34,6 +34,7 @@ interface Settings {
 		enable: boolean;
 		enableAutofixOnSave: boolean;
 		options: any;
+		run: string;
 	}
 	[key: string]: any;
 }
@@ -140,9 +141,17 @@ let documents: TextDocuments = new TextDocuments();
 // The documents manager listen for text document create, change
 // and close on the connection
 documents.listen(connection);
-// A text document has changed. Validate the document.
+// A text document has changed. Validate the document according the run setting.
 documents.onDidChangeContent((event) => {
-	validateSingle(event.document);
+	if (settings.eslint.run === 'onType') {
+		validateSingle(event.document);
+	}
+});
+// A text document has been saved. Validate the document according the run setting.
+documents.onDidSave((event) => {
+	if (settings.eslint.run === 'onSave') {
+		validateSingle(event.document);
+	}
 });
 
 // Clear diagnostics on close.
