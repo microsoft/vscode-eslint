@@ -49,6 +49,8 @@ export interface ESLintAutoFixEdit {
 export interface ESLintProblem {
 	line: number;
 	column: number;
+	endLine?: number;
+	endColumn?: number;
 	severity: number;
 	ruleId: string;
 	message: string;
@@ -73,13 +75,17 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	let message = (problem.ruleId != null)
 		? `${problem.message} (${problem.ruleId})`
 		: `${problem.message}`;
+	let startLine = problem.line - 1;
+	let startChar = problem.column - 1;
+	let endLine = ("endLine" in problem) ? problem.endLine - 1 : startLine;
+	let endChar = ("endColumn" in problem) ? problem.endColumn - 1 : startChar;
 	return {
 		message: message,
 		severity: convertSeverity(problem.severity),
 		source: 'eslint',
 		range: {
-			start: { line: problem.line - 1, character: problem.column - 1 },
-			end: { line: problem.line - 1, character: problem.column - 1 }
+			start: { line: startLine, character: startChar },
+			end: { line: endLine, character: endChar }
 		},
 		code: problem.ruleId
 	};
