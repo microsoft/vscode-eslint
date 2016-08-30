@@ -236,11 +236,29 @@ function validate(document: TextDocument): void {
 	return connection.sendDiagnostics({ uri, diagnostics });
 }
 
+let ignoreNoConfigFound: boolean = false;
+
+interface ESLintError extends Error {
+	messageTemplate?: string;
+}
+
+function isNoConfigFoundError(err: any): boolean {
+	let candidate = err as ESLintError;
+	return candidate.messageTemplate === 'no-config-found' || candidate.message === 'No ESLint configuration found.';
+}
+
 function validateSingle(document: TextDocument): void {
 	try {
 		validate(document);
 	} catch (err) {
-		connection.window.showErrorMessage(getMessage(err, document));
+		if (isNoConfigFoundError(err)) {
+			if (!ignoreNoConfigFound) {
+				ignoreNoConfigFound = true;
+				connection.window.showErrorMessage(getMessage(err, document));
+			}
+		} else {
+			connection.window.showErrorMessage(getMessage(err, document));
+		}
 	}
 }
 
@@ -250,7 +268,14 @@ function validateMany(documents: TextDocument[]): void {
 		try {
 			validate(document);
 		} catch (err) {
-			tracker.add(getMessage(err, document));
+			if (isNoConfigFoundError(err)) {
+				if (!ignoreNoConfigFound) {
+					ignoreNoConfigFound = true;
+					tracker.add(getMessage(err, document));
+				}
+			} else {
+				tracker.add(getMessage(err, document));
+			}
 		}
 	});
 	tracker.sendErrors(connection);
