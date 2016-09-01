@@ -31,6 +31,7 @@ const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCal
 export function activate(context: ExtensionContext) {
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
+	// serverModule
 	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
 	let debugOptions = { execArgv: ["--nolazy", "--debug=6004"] };
 	let serverOptions = {
@@ -49,6 +50,13 @@ export function activate(context: ExtensionContext) {
 				workspace.createFileSystemWatcher('**/package.json')
 			]
 		},
+		initializationOptions: () => {
+			let configuration = workspace.getConfiguration('eslint');
+			return {
+				legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
+				nodePath: configuration ? configuration.get('nodePath', undefined) : undefined
+			};
+		},
 		errorHandler: {
 			error: (error, message, count): ErrorAction => {
 				return defaultErrorHandler.error(error, message, count);
@@ -61,12 +69,6 @@ export function activate(context: ExtensionContext) {
 			}
 		}
 	};
-
-	let configuration = workspace.getConfiguration('eslint');
-	clientOptions.initializationOptions = {
-		legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
-		nodePath: configuration ? configuration.get('nodePath', undefined) : undefined
-	}
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
 	defaultErrorHandler = client.createDefaultErrorHandler();
@@ -94,7 +96,7 @@ export function activate(context: ExtensionContext) {
 		}
 	}
 
-	function fixAllProblems() {
+	function runAutoFix() {
 		let textEditor = window.activeTextEditor;
 		if (!textEditor) {
 			return;
@@ -114,6 +116,6 @@ export function activate(context: ExtensionContext) {
 		commands.registerCommand('eslint.applySingleFix', applyTextEdits),
 		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
 		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),
-		commands.registerCommand('eslint.fixAllProblems', fixAllProblems)
+		commands.registerCommand('eslint.executeAutofix', runAutoFix)
 	);
 }

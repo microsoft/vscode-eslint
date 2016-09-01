@@ -69,7 +69,7 @@
 			{
 				"title": "Fix all auto-fixable problems",
 				"category": "ESLint",
-				"command": "eslint.fixAllProblems"
+				"command": "eslint.executeAutofix"
 			}
 		],
 		"jsonValidation": [
