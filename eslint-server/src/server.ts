@@ -129,6 +129,20 @@ function convertSeverity(severity: number): number {
 	}
 }
 
+interface NoConfigParams {
+	message: string;
+	document: TextDocumentIdentifier;
+}
+
+interface NoConfigResult {
+}
+
+namespace NoConfigRequest {
+	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
+}
+
+let noConfigRepoerted: Map<boolean> = Object.create(null);
+
 const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
 
 const nodeExit = process.exit;
@@ -142,6 +156,7 @@ process.exit = (code?: number) => {
 
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 let lib: any = null;
+let eslintModulePath: string = null;
 let settings: Settings = null;
 let options: any = null;
 let documents: TextDocuments = new TextDocuments();
@@ -177,25 +192,38 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 		legacyModuleResolve: boolean;
 		nodePath: string;
 	} = params.initializationOptions;
-	let noCLIEngine = new ResponseError(99, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
+	let noEslintLib = new ResponseError<InitializeError>(100,
+		'Failed to load eslint library.',
+		{ retry: false }
+	);
+	let noCLIEngine = new ResponseError(101, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
 	let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
 	let legacyModuleResolve = initOptions ? !!initOptions.legacyModuleResolve : false;
-	let nodePath = initOptions ? (initOptions.nodePath ? initOptions.nodePath : undefined) : undefined;
-	let resolve = legacyModuleResolve ? Files.resolveModule : Files.resolveModule2;
+	if (legacyModuleResolve) {
+		return Files.resolveModule(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
+			if (!value.CLIEngine) {
+				return noCLIEngine;
+			}
+			lib = value;
+			return result;
+		}, (error) => {
+			return noEslintLib;
+		});
+	} else {
+		let nodePath = initOptions ? (initOptions.nodePath ? initOptions.nodePath : undefined) : undefined;
+		let resolve = legacyModuleResolve ? Files.resolveModule : Files.resolveModule2;
 
-	return resolve(rootPath, 'eslint', nodePath, trace).then((value): InitializeResult | ResponseError<InitializeError> => {
-		if (!value.CLIEngine) {
-			return noCLIEngine;
-		}
-		lib = value;
-		return result;
-	}, (error) => {
-		return Promise.reject(
-			new ResponseError<InitializeError>(99,
-				'Failed to load eslint library. Please install eslint in your workspace folder using \'npm install eslint\' or globally using \'npm install -g eslint\' and then press Retry.',
-				{ retry: true }));
-	});
-})
+		return Files.resolveModule2(rootPath, 'eslint', nodePath, trace).then((value) => {
+			if (!value.CLIEngine) {
+				return noCLIEngine;
+			}
+			lib = value;
+			return result;
+		}, (error) => {
+			return noEslintLib;
+		});
+	}
+});
 
 function getMessage(err: any, document: TextDocument): string {
 	let result: string = null;
@@ -236,8 +264,6 @@ function validate(document: TextDocument): void {
 	return connection.sendDiagnostics({ uri, diagnostics });
 }
 
-let ignoreNoConfigFound: boolean = false;
-
 interface ESLintError extends Error {
 	messageTemplate?: string;
 }
@@ -247,15 +273,27 @@ function isNoConfigFoundError(err: any): boolean {
 	return candidate.messageTemplate === 'no-config-found' || candidate.message === 'No ESLint configuration found.';
 }
 
+function handleNoConfig(error: any, document: TextDocument): void {
+	if (!noConfigRepoerted[document.uri]) {
+		connection.sendRequest(
+			NoConfigRequest.type,
+			{
+				message: getMessage(error, document),
+				document: {
+					uri: document.uri
+				}
+			})
+		.then(undefined, (error) => { });
+		noConfigRepoerted[document.uri] = true;
+	}
+}
+
 function validateSingle(document: TextDocument): void {
 	try {
 		validate(document);
 	} catch (err) {
 		if (isNoConfigFoundError(err)) {
-			if (!ignoreNoConfigFound) {
-				ignoreNoConfigFound = true;
-				connection.window.showErrorMessage(getMessage(err, document));
-			}
+			handleNoConfig(err, document);
 		} else {
 			connection.window.showErrorMessage(getMessage(err, document));
 		}
@@ -269,10 +307,7 @@ function validateMany(documents: TextDocument[]): void {
 			validate(document);
 		} catch (err) {
 			if (isNoConfigFoundError(err)) {
-				if (!ignoreNoConfigFound) {
-					ignoreNoConfigFound = true;
-					tracker.add(getMessage(err, document));
-				}
+				handleNoConfig(err, document);
 			} else {
 				tracker.add(getMessage(err, document));
 			}
@@ -293,6 +328,7 @@ connection.onDidChangeConfiguration((params) => {
 connection.onDidChangeWatchedFiles((params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
+	noConfigRepoerted = Object.create(null);
 	validateMany(documents.all());
 });
 
