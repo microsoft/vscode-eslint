@@ -24,3 +24,12 @@ This extension contributes the following commands to the Command palette.
 
 - `Create '.eslintrc.json' file`: creates a new `.eslintrc.json` file.
 - `Fix all auto-fixable problems`: applies ESLint auto-fix resolutions to all fixable problems.
+
+## Release Notes:
+
+### 1.0.2
+
+- Added a status bar item to inform the user about problems with ESLint. A message box only appears if the user attention is required.
+- Improved handling of missing corrupted configuration files.
+- The ESLint package is now loaded from parent folders as well.
+- Added an action to create a .eslintrc.json file.
