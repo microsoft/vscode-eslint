@@ -129,20 +129,6 @@ function convertSeverity(severity: number): number {
 	}
 }
 
-interface NoConfigParams {
-	message: string;
-	document: TextDocumentIdentifier;
-}
-
-interface NoConfigResult {
-}
-
-namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
-}
-
-let noConfigRepoerted: Map<boolean> = Object.create(null);
-
 const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
 
 const nodeExit = process.exit;
@@ -268,13 +254,30 @@ interface ESLintError extends Error {
 	messageTemplate?: string;
 }
 
-function isNoConfigFoundError(err: any): boolean {
-	let candidate = err as ESLintError;
+interface NoConfigParams {
+	message: string;
+	document: TextDocumentIdentifier;
+}
+
+interface NoConfigResult {
+}
+
+namespace NoConfigRequest {
+	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
+}
+
+let noConfigReported: Map<boolean> = Object.create(null);
+
+function isNoConfigFoundError(error: any): boolean {
+	let candidate = error as ESLintError;
 	return candidate.messageTemplate === 'no-config-found' || candidate.message === 'No ESLint configuration found.';
 }
 
-function handleNoConfig(error: any, document: TextDocument): void {
-	if (!noConfigRepoerted[document.uri]) {
+function tryHandleNoConfig(error: any, document: TextDocument): boolean {
+	if (!isNoConfigFoundError(error)) {
+		return false;
+	}
+	if (!noConfigReported[document.uri]) {
 		connection.sendRequest(
 			NoConfigRequest.type,
 			{
@@ -284,21 +287,63 @@ function handleNoConfig(error: any, document: TextDocument): void {
 				}
 			})
 		.then(undefined, (error) => { });
-		noConfigRepoerted[document.uri] = true;
+		noConfigReported[document.uri] = true;
 	}
+	return true;
 }
+
+let configSyntaxErrorReported: Map<boolean> = Object.create(null);
+
+function isConfigSyntaxError(err: any): boolean {
+	return err.message && /^Cannot read config file:/.test(err.message);
+}
+
+function tryHandleConfigSyntaxError(error: any, document: TextDocument): boolean {
+	if (!error.message) {
+		return false;
+	}
+	let matches = /Cannot read config file:\s+(.*)\nError:\s+(.*)/.exec(error.message);
+	if (!matches || matches.length < 3) {
+		return;
+	}
+	let filename = matches[1];
+	let syntaxError = matches[2];
+
+	if (!configSyntaxErrorReported[filename]) {
+		connection.window.showErrorMessage(error.message);
+		configSyntaxErrorReported[filename] = true;
+	}
+
+	return true;
+}
+
+function showErrorMessage(error: any, document: TextDocument): boolean {
+	connection.window.showErrorMessage(getMessage(error, document));
+	return true;
+}
+
+const singleErrorHandlers: ((error: any, document: TextDocument) => boolean)[] = [
+	tryHandleNoConfig,
+	tryHandleConfigSyntaxError,
+	showErrorMessage
+];
 
 function validateSingle(document: TextDocument): void {
 	try {
 		validate(document);
 	} catch (err) {
-		if (isNoConfigFoundError(err)) {
-			handleNoConfig(err, document);
-		} else {
-			connection.window.showErrorMessage(getMessage(err, document));
+		for (let handler of singleErrorHandlers) {
+			if (handler(err, document)) {
+				break;
+			}
 		}
 	}
 }
+
+const manyErrorHandlers: ((error: any, document: TextDocument) => boolean)[] = [
+	tryHandleNoConfig,
+	tryHandleConfigSyntaxError
+];
 
 function validateMany(documents: TextDocument[]): void {
 	let tracker = new ErrorMessageTracker();
@@ -306,9 +351,14 @@ function validateMany(documents: TextDocument[]): void {
 		try {
 			validate(document);
 		} catch (err) {
-			if (isNoConfigFoundError(err)) {
-				handleNoConfig(err, document);
-			} else {
+			let handled = false;
+			for (let handler of manyErrorHandlers) {
+				if (handler(err, document)) {
+					handled = true;
+					break;
+				}
+			}
+			if (!handled) {
 				tracker.add(getMessage(err, document));
 			}
 		}
@@ -328,7 +378,11 @@ connection.onDidChangeConfiguration((params) => {
 connection.onDidChangeWatchedFiles((params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
-	noConfigRepoerted = Object.create(null);
+	noConfigReported = Object.create(null);
+	params.changes.forEach((change) => {
+		let fspath = Files.uriToFilePath(change.uri);
+		delete configSyntaxErrorReported[fspath];
+	});
 	validateMany(documents.all());
 });
 
