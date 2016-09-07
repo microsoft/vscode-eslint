@@ -160,7 +160,7 @@ export function activate(context: ExtensionContext) {
 					const key = 'noESLintMessageShown';
 					let state = context.globalState.get<NoESLintState>(key, {});
 					if (workspace.rootPath) {
-						client.warn([
+						client.info([
 							'Failed to load the ESLint library.',
 							'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
 							'You need to reopen the workspace after installing eslint.',
@@ -174,7 +174,7 @@ export function activate(context: ExtensionContext) {
 							context.globalState.update(key, state);
 						}
 					} else {
-						client.warn([
+						client.info([
 							'Failed to load the ESLint library.',
 							'To use ESLint for single JavaScript files install eslint globally using \'npm install -g eslint\'.',
 							'You need to reopen VS Code after installing eslint.',
