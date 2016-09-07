@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { workspace, window, commands, Disposable, ExtensionContext, Command, Uri } from 'vscode';
+import { workspace, window, commands, languages, Disposable, ExtensionContext, Command, Uri, StatusBarAlignment, TextEditor } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, TextEdit, Protocol2Code, NotificationType, ErrorHandler,
@@ -28,26 +28,21 @@ const eslintrc: string = [
 '        "sourceType": "module"',
 '    },',
 '    "rules": {',
-'        "no-const-assign": 1,',
-'        "no-extra-semi": 0,',
-'        "semi": 0,',
-'        "no-fallthrough": 0,',
-'        "no-empty": 0,',
-'        "no-mixed-spaces-and-tabs": 0,',
-'        "no-redeclare": 0,',
-'        "no-this-before-super": 1,',
-'        "no-undef": 1,',
-'        "no-unreachable": 1,',
-'        "no-unused-vars": 1,',
-'        "no-use-before-define": 0,',
-'        "constructor-super": 1,',
-'        "curly": 0,',
-'        "eqeqeq": 0,',
-'        "func-names": 0,',
-'        "valid-typeof": 1',
+'        "no-const-assign": "warn",',
+'        "no-this-before-super": "warn",',
+'        "no-undef": "warn",',
+'        "no-unreachable": "warn",',
+'        "no-unused-vars": "warn",',
+'        "constructor-super": "warn",',
+'        "valid-typeof": "warn"',
 '    }',
 '}'
 ].join(process.platform === 'win32' ? '\r\n' : '\n');
+
+interface NoESLintState {
+	global?: boolean;
+	workspaces?: { [key: string]: boolean };
+}
 
 interface AllFixesParams {
 	textDocument: TextDocumentIdentifier;
@@ -75,9 +70,61 @@ namespace NoConfigRequest {
 	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
 }
 
+enum Status {
+	ok = 1,
+	warn = 2,
+	error = 3
+}
+
+interface StatusParams {
+	state: Status
+}
+
+namespace StatusNotification {
+	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; } };
+}
+
 const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
 
 export function activate(context: ExtensionContext) {
+
+	let statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 0);
+	let eslintStatus: Status = Status.ok;
+
+	statusBarItem.text = 'ESLint';
+	statusBarItem.command = 'eslint.showOutputChannel';
+
+	function showStatusBarItem(show: boolean): void {
+		if (show) {
+			statusBarItem.show();
+		} else {
+			statusBarItem.hide();
+		}
+	}
+
+	function updateStatus(status: Status) {
+		switch (status) {
+			case Status.ok:
+				statusBarItem.color = undefined;
+				break;
+			case Status.warn:
+				statusBarItem.color = 'yellow';
+				break;
+			case Status.error:
+				statusBarItem.color = 'darkred';
+				break;
+		}
+		eslintStatus = status;
+		udpateStatusBarVisibility(window.activeTextEditor);
+	}
+
+	function udpateStatusBarVisibility(editor: TextEditor): void {
+		showStatusBarItem(eslintStatus !== Status.ok || (editor && (editor.document.languageId === 'javascript' || editor.document.languageId === 'javascriptreact')));
+	}
+
+	window.onDidChangeActiveTextEditor(udpateStatusBarVisibility);
+	udpateStatusBarVisibility(window.activeTextEditor);
+
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	// serverModule
@@ -110,23 +157,33 @@ export function activate(context: ExtensionContext) {
 			if (error instanceof ResponseError) {
 				let responseError = (error as ResponseError<InitializeError>);
 				if (responseError.code === 100) {
+					const key = 'noESLintMessageShown';
+					let state = context.globalState.get<NoESLintState>(key, {});
 					if (workspace.rootPath) {
 						client.warn([
 							'Failed to load the ESLint library.',
 							'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
 							'You need to reopen the workspace after installing eslint.',
 						].join('\n'));
+						if (!state.workspaces) {
+							state.workspaces = Object.create(null);
+						}
+						if (!state.workspaces[workspace.rootPath]) {
+							state.workspaces[workspace.rootPath] = true;
+							client.outputChannel.show();
+							context.globalState.update(key, state);
+						}
 					} else {
 						client.warn([
 							'Failed to load the ESLint library.',
 							'To use ESLint for single JavaScript files install eslint globally using \'npm install -g eslint\'.',
 							'You need to reopen VS Code after installing eslint.',
 						].join('\n'));
-					}
-					const key = 'noESLintMessageShown';
-					if (!context.globalState.get(key, false)) {
-						// context.globalState.update(key, true);
-						client.outputChannel.show();
+						if (!state.global) {
+							state.global = true;
+							client.outputChannel.show();
+							context.globalState.update(key, state);
+						}
 					}
 				} else {
 					client.error('Server initialization failed.', error);
@@ -150,26 +207,29 @@ export function activate(context: ExtensionContext) {
 	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	client.onNotification(StatusNotification.type, (params) => {
+		updateStatus(params.state);
+	});
+
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	client.onNotification(exitCalled, (params) => {
 		serverCalledProcessExit = true;
 		client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
 		window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`);
 	});
+
 	client.onRequest(NoConfigRequest.type, (params) => {
 		let document = Uri.parse(params.document.uri);
 		let location = document.fsPath;
 		if (workspace.rootPath && document.fsPath.indexOf(workspace.rootPath) === 0) {
 			location = document.fsPath.substr(workspace.rootPath.length + 1);
 		}
-		client.info([
+		client.warn([
 			`No ESLint configuration (e.g .eslintrc) found for file: ${location}`,
 			`File will not be validated. Consider running the 'Create .eslintrc.json file' command.`
 		].join('\n'));
-		if (!noConfigShown) {
-			client.outputChannel.show();
-			noConfigShown = true;
-		}
+		eslintStatus = Status.warn;
+		udpateStatusBarVisibility(window.activeTextEditor);
 		return {};
 	});
 
@@ -222,6 +282,8 @@ export function activate(context: ExtensionContext) {
 		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
 		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),
 		commands.registerCommand('eslint.executeAutofix', runAutoFix),
-		commands.registerCommand('eslint.createConfig', createDefaultConfiguration)
+		commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
+		commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
+		statusBarItem
 	);
 }

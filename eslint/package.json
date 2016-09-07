@@ -18,12 +18,13 @@
 		"Linters"
 	],
 	"engines": {
-		"vscode": "^1.1.0"
+		"vscode": "^1.0.0"
 	},
 	"activationEvents": [
 		"onLanguage:javascript",
 		"onLanguage:javascriptreact",
-		"onCommand:eslint.executeAutofix"
+		"onCommand:eslint.executeAutofix",
+		"onCommand:eslint.createConfig"
 	],
 	"main": "./out/extension",
 	"contributes": {

@@ -227,7 +227,7 @@ function getMessage(err: any, document: TextDocument): string {
 
 function validate(document: TextDocument): void {
 	let CLIEngine = lib.CLIEngine;
-	var cli = new CLIEngine(options);
+	let cli = new CLIEngine(options);
 	let content = document.getText();
 	let uri = document.uri;
 	// Clean previously computed code actions.
@@ -254,6 +254,20 @@ interface ESLintError extends Error {
 	messageTemplate?: string;
 }
 
+enum Status {
+	ok = 1,
+	warn = 2,
+	error = 3
+}
+
+interface StatusParams {
+	state: Status
+}
+
+namespace StatusNotification {
+	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; } };
+}
+
 interface NoConfigParams {
 	message: string;
 	document: TextDocumentIdentifier;
@@ -273,9 +287,9 @@ function isNoConfigFoundError(error: any): boolean {
 	return candidate.messageTemplate === 'no-config-found' || candidate.message === 'No ESLint configuration found.';
 }
 
-function tryHandleNoConfig(error: any, document: TextDocument): boolean {
+function tryHandleNoConfig(error: any, document: TextDocument): Status {
 	if (!isNoConfigFoundError(error)) {
-		return false;
+		return undefined;
 	}
 	if (!noConfigReported[document.uri]) {
 		connection.sendRequest(
@@ -289,71 +303,86 @@ function tryHandleNoConfig(error: any, document: TextDocument): boolean {
 		.then(undefined, (error) => { });
 		noConfigReported[document.uri] = true;
 	}
-	return true;
+	return Status.warn;
 }
 
-let configSyntaxErrorReported: Map<boolean> = Object.create(null);
+let configErrorReported: Map<boolean> = Object.create(null);
 
 function isConfigSyntaxError(err: any): boolean {
 	return err.message && /^Cannot read config file:/.test(err.message);
 }
 
-function tryHandleConfigSyntaxError(error: any, document: TextDocument): boolean {
+function tryHandleConfigError(error: any, document: TextDocument): Status {
 	if (!error.message) {
-		return false;
+		return undefined;
 	}
 	let matches = /Cannot read config file:\s+(.*)\nError:\s+(.*)/.exec(error.message);
-	if (!matches || matches.length < 3) {
-		return;
-	}
-	let filename = matches[1];
-	let syntaxError = matches[2];
-
-	if (!configSyntaxErrorReported[filename]) {
-		connection.window.showErrorMessage(error.message);
-		configSyntaxErrorReported[filename] = true;
+	if (matches && matches.length === 3) {
+		let filename = matches[1];
+		if (!configErrorReported[filename]) {
+			connection.window.showInformationMessage(getMessage(error, document));
+			configErrorReported[filename] = true;
+		}
+		return Status.warn;
 	}
 
-	return true;
+	matches = /(.*):\n\s*Configuration for rule \"(.*)\" is /.exec(error.message);
+	if (matches && matches.length === 3) {
+		let filename = matches[1];
+		if (!configErrorReported[filename]) {
+			connection.window.showInformationMessage(getMessage(error, document));
+			configErrorReported[filename] = true;
+		}
+		return Status.warn;
+	}
+
+	return undefined;
 }
 
-function showErrorMessage(error: any, document: TextDocument): boolean {
+function showErrorMessage(error: any, document: TextDocument): Status {
 	connection.window.showErrorMessage(getMessage(error, document));
-	return true;
+	return Status.error;
 }
 
-const singleErrorHandlers: ((error: any, document: TextDocument) => boolean)[] = [
+const singleErrorHandlers: ((error: any, document: TextDocument) => Status)[] = [
 	tryHandleNoConfig,
-	tryHandleConfigSyntaxError,
+	tryHandleConfigError,
 	showErrorMessage
 ];
 
 function validateSingle(document: TextDocument): void {
 	try {
 		validate(document);
+		connection.sendNotification(StatusNotification.type, { state: Status.ok });
 	} catch (err) {
+		let status = undefined;
 		for (let handler of singleErrorHandlers) {
-			if (handler(err, document)) {
+			status = handler(err, document);
+			if (status) {
 				break;
 			}
 		}
+		status = status || Status.error;
+		connection.sendNotification(StatusNotification.type, { state: status });
 	}
 }
 
-const manyErrorHandlers: ((error: any, document: TextDocument) => boolean)[] = [
+const manyErrorHandlers: ((error: any, document: TextDocument) => Status)[] = [
 	tryHandleNoConfig,
-	tryHandleConfigSyntaxError
+	tryHandleConfigError
 ];
 
 function validateMany(documents: TextDocument[]): void {
 	let tracker = new ErrorMessageTracker();
+	let status = Status.ok;
 	documents.forEach(document => {
 		try {
 			validate(document);
 		} catch (err) {
 			let handled = false;
 			for (let handler of manyErrorHandlers) {
-				if (handler(err, document)) {
+				status = handler(err, document);
+				if (status) {
 					handled = true;
 					break;
 				}
@@ -364,6 +393,8 @@ function validateMany(documents: TextDocument[]): void {
 		}
 	});
 	tracker.sendErrors(connection);
+	status = status || Status.error;
+	connection.sendNotification(StatusNotification.type, { state: status });
 }
 
 connection.onDidChangeConfiguration((params) => {
@@ -381,7 +412,16 @@ connection.onDidChangeWatchedFiles((params) => {
 	noConfigReported = Object.create(null);
 	params.changes.forEach((change) => {
 		let fspath = Files.uriToFilePath(change.uri);
-		delete configSyntaxErrorReported[fspath];
+		let dirname = path.dirname(fspath);
+		if (dirname) {
+			let CLIEngine = lib.CLIEngine;
+			let cli = new CLIEngine(options);
+			try {
+				cli.executeOnText("", path.join(dirname, "___test___.js"));
+				delete configErrorReported[fspath];
+			} catch (error) {
+			}
+		}
 	});
 	validateMany(documents.all());
 });
