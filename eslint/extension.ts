@@ -10,7 +10,7 @@ import { workspace, window, commands, languages, Disposable, ExtensionContext, C
 import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, TextEdit, Protocol2Code, NotificationType, ErrorHandler,
-	ErrorAction, CloseAction, ResponseError, InitializeError, ErrorCodes
+	ErrorAction, CloseAction, ResponseError, InitializeError, ErrorCodes, State as ClientState
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -90,6 +90,7 @@ export function activate(context: ExtensionContext) {
 
 	let statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 0);
 	let eslintStatus: Status = Status.ok;
+	let serverRunning: boolean = false;
 
 	statusBarItem.text = 'ESLint';
 	statusBarItem.command = 'eslint.showOutputChannel';
@@ -119,7 +120,13 @@ export function activate(context: ExtensionContext) {
 	}
 
 	function udpateStatusBarVisibility(editor: TextEditor): void {
-		showStatusBarItem(eslintStatus !== Status.ok || (editor && (editor.document.languageId === 'javascript' || editor.document.languageId === 'javascriptreact')));
+		showStatusBarItem(
+			serverRunning &&
+			(
+				eslintStatus !== Status.ok ||
+				(editor && (editor.document.languageId === 'javascript' || editor.document.languageId === 'javascriptreact'))
+			)
+		);
 	}
 
 	window.onDidChangeActiveTextEditor(udpateStatusBarVisibility);
@@ -187,9 +194,11 @@ export function activate(context: ExtensionContext) {
 					}
 				} else {
 					client.error('Server initialization failed.', error);
+					client.outputChannel.show();
 				}
 			} else {
 				client.error('Server initialization failed.', error);
+				client.outputChannel.show();
 			}
 			return false;
 		},
@@ -207,6 +216,15 @@ export function activate(context: ExtensionContext) {
 	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	client.onDidChangeState((event) => {
+		if (event.newState === ClientState.Running) {
+			serverRunning = true;
+		} else {
+			serverRunning = false;
+		}
+		udpateStatusBarVisibility(window.activeTextEditor);
+	});
+
 	client.onNotification(StatusNotification.type, (params) => {
 		updateStatus(params.state);
 	});
