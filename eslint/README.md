@@ -28,6 +28,10 @@ This extension contributes the following commands to the Command palette.
 
 ## Release Notes:
 
+### 1.0.3
+
+- Errors in configuration files are only shown in a status message if the file is not open in the editor. Otherwise message are shown in the output channel only.
+
 ### 1.0.2
 
 - Added a status bar item to inform the user about problems with ESLint. A message box only appears if the user attention is required.
