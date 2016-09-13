@@ -14,6 +14,8 @@ import {
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
 } from 'vscode-languageserver';
 
+import Uri from 'vscode-uri';
+
 import fs = require('fs');
 import path = require('path');
 
@@ -320,7 +322,10 @@ function tryHandleConfigError(error: any, document: TextDocument): Status {
 	if (matches && matches.length === 3) {
 		let filename = matches[1];
 		if (!configErrorReported[filename]) {
-			connection.window.showInformationMessage(getMessage(error, document));
+			connection.console.warn(getMessage(error, document));
+			if (!documents.get(Uri.file(filename).toString())) {
+				connection.window.showInformationMessage(getMessage(error, document));
+			}
 			configErrorReported[filename] = true;
 		}
 		return Status.warn;
@@ -330,7 +335,10 @@ function tryHandleConfigError(error: any, document: TextDocument): Status {
 	if (matches && matches.length === 3) {
 		let filename = matches[1];
 		if (!configErrorReported[filename]) {
-			connection.window.showInformationMessage(getMessage(error, document));
+			connection.console.warn(getMessage(error, document));
+			if (!documents.get(Uri.file(filename).toString())) {
+				connection.window.showInformationMessage(getMessage(error, document));
+			}
 			configErrorReported[filename] = true;
 		}
 		return Status.warn;

@@ -120,6 +120,7 @@ export function activate(context: ExtensionContext) {
 	}
 
 	function udpateStatusBarVisibility(editor: TextEditor): void {
+		statusBarItem.text = eslintStatus === Status.ok ? 'ESLint' : 'ESLint!';
 		showStatusBarItem(
 			serverRunning &&
 			(
@@ -151,7 +152,14 @@ export function activate(context: ExtensionContext) {
 			fileEvents: [
 				workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
 				workspace.createFileSystemWatcher('**/package.json')
-			]
+			],
+			textDocumentFilter: (textDocument) => {
+				let fsPath = textDocument.fileName;
+				if (fsPath) {
+					let basename = path.basename(fsPath);
+					return /^\.eslintrc\./.test(basename) || /^package.json$/.test(basename);
+				}
+			}
 		},
 		initializationOptions: () => {
 			let configuration = workspace.getConfiguration('eslint');
@@ -216,10 +224,16 @@ export function activate(context: ExtensionContext) {
 	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	const running = 'ESLint server is running.';
+	const stopped = 'ESLint server stopped.'
 	client.onDidChangeState((event) => {
 		if (event.newState === ClientState.Running) {
+			client.info(running);
+			statusBarItem.tooltip = running;
 			serverRunning = true;
 		} else {
+			client.info(stopped);
+			statusBarItem.tooltip = stopped;
 			serverRunning = false;
 		}
 		udpateStatusBarVisibility(window.activeTextEditor);
