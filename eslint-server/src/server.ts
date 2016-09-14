@@ -149,6 +149,11 @@ let settings: Settings = null;
 let options: any = null;
 let documents: TextDocuments = new TextDocuments();
 
+let supportedLanguages: Map<boolean> = {
+	'javascript': true,
+	'javascriptreact': true
+}
+
 // The documents manager listen for text document create, change
 // and close on the connection
 documents.listen(connection);
@@ -359,6 +364,9 @@ const singleErrorHandlers: ((error: any, document: TextDocument) => Status)[] = 
 ];
 
 function validateSingle(document: TextDocument): void {
+	if (!supportedLanguages[document.languageId]) {
+		return;
+	}
 	try {
 		validate(document);
 		connection.sendNotification(StatusNotification.type, { state: Status.ok });
