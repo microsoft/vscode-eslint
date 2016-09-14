@@ -323,9 +323,8 @@ function tryHandleConfigError(error: any, document: TextDocument): Status {
 	if (!error.message) {
 		return undefined;
 	}
-	let matches = /Cannot read config file:\s+(.*)\nError:\s+(.*)/.exec(error.message);
-	if (matches && matches.length === 3) {
-		let filename = matches[1];
+
+	function handleFileName(filename: string): Status {
 		if (!configErrorReported[filename]) {
 			connection.console.warn(getMessage(error, document));
 			if (!documents.get(Uri.file(filename).toString())) {
@@ -336,17 +335,20 @@ function tryHandleConfigError(error: any, document: TextDocument): Status {
 		return Status.warn;
 	}
 
+	let filename: string = undefined;
+	let matches = /Cannot read config file:\s+(.*)\nError:\s+(.*)/.exec(error.message);
+	if (matches && matches.length === 3) {
+		return handleFileName(matches[1]);
+	}
+
 	matches = /(.*):\n\s*Configuration for rule \"(.*)\" is /.exec(error.message);
 	if (matches && matches.length === 3) {
-		let filename = matches[1];
-		if (!configErrorReported[filename]) {
-			connection.console.warn(getMessage(error, document));
-			if (!documents.get(Uri.file(filename).toString())) {
-				connection.window.showInformationMessage(getMessage(error, document));
-			}
-			configErrorReported[filename] = true;
-		}
-		return Status.warn;
+		return handleFileName(matches[1]);
+	}
+
+	matches = /Cannot find module '([^']*)'\nReferenced from:\s+(.*)/.exec(error.message);
+	if (matches && matches.length === 3) {
+		return handleFileName(matches[2]);
 	}
 
 	return undefined;
