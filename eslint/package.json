@@ -101,6 +101,6 @@
 		"typescript": "^1.8.10"
 	},
 	"dependencies": {
-		"vscode-languageclient": "^2.4.2-next.4"
+		"vscode-languageclient": "^2.5.0"
 	}
 }
