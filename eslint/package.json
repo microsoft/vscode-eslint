@@ -1,106 +1,113 @@
 {
-	"name": "vscode-eslint",
-	"displayName": "ESLint",
-	"description": "Integrates ESLint into VS Code.",
-	"version": "1.0.4",
-	"author": "Microsoft Corporation",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Microsoft/vscode-eslint.git"
-	},
-	"bugs": {
-		"url": "https://github.com/Microsoft/vscode-eslint/issues"
-	},
-	"publisher": "dbaeumer",
-	"icon": "eslint_icon.svg",
-	"categories": [
-		"Linters"
-	],
-	"engines": {
-		"vscode": "^1.0.0"
-	},
-	"activationEvents": [
-		"onLanguage:javascript",
-		"onLanguage:javascriptreact",
-		"onCommand:eslint.executeAutofix",
-		"onCommand:eslint.createConfig"
-	],
-	"main": "./out/extension",
-	"contributes": {
-		"configuration": {
-			"type": "object",
-			"title": "ESLint configuration",
-			"properties": {
-				"eslint.enable": {
-					"type": "boolean",
-					"default": true,
-					"description": "Controls whether eslint is enabled for JavaScript files or not."
-				},
-				"eslint.nodePath": {
-					"type": "string",
-					"default": null,
-					"description": "A path added to NODE_PATH when resolving the eslint module."
-				},
-				"eslint._legacyModuleResolve" : {
-					"type": "boolean",
-					"default": false,
-					"description": "Uses the legacy module resolving."
-				},
-				"eslint.options": {
-					"type": "object",
-					"default": {},
-					"description": "The eslint options object to provide args to the eslint command."
-				},
-				"eslint.trace.server": {
-					"type": "string",
-					"enum": ["off", "messages", "verbose"],
-					"default": "off",
-					"description": "Traces the communication between VSCode and the eslint linter service."
-				},
-				"eslint.run": {
-					"type": "string",
-					"enum": ["onSave", "onType"],
-					"default": "onType",
-					"description": "Run the linter on save (onSave) or on type (onType)"
-				}
-			}
-		},
-		"commands": [
-			{
-				"title": "Fix all auto-fixable problems",
-				"category": "ESLint",
-				"command": "eslint.executeAutofix"
-			},
-			{
-				"title": "Create '.eslintrc.json' file",
-				"category": "ESLint",
-				"command": "eslint.createConfig"
-			}
-		],
-		"jsonValidation": [
-			{
-				"fileMatch": ".eslintrc",
-				"url": "http://json.schemastore.org/eslintrc"
-			},
-			{
-				"fileMatch": ".eslintrc.json",
-				"url": "http://json.schemastore.org/eslintrc"
-			}
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run update-vscode && cd ../eslint-server && npm run compile && cd ../eslint && npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"update-vscode": "node ./node_modules/vscode/bin/install",
-		"postinstall": "node ./node_modules/vscode/bin/install"
-	},
-	"devDependencies": {
-		"vscode": "^0.11.10",
-		"typescript": "^1.8.10"
-	},
-	"dependencies": {
-		"vscode-languageclient": "^2.5.0"
-	}
+  "name": "vscode-eslint",
+  "displayName": "ESLint",
+  "description": "Integrates ESLint into VS Code.",
+  "version": "1.0.5",
+  "author": "Microsoft Corporation",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Microsoft/vscode-eslint.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Microsoft/vscode-eslint/issues"
+  },
+  "publisher": "dbaeumer",
+  "icon": "eslint_icon.svg",
+  "categories": [
+    "Linters"
+  ],
+  "engines": {
+    "vscode": "^1.0.0"
+  },
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onCommand:eslint.executeAutofix",
+    "onCommand:eslint.createConfig"
+  ],
+  "main": "./out/extension",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "ESLint configuration",
+      "properties": {
+        "eslint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Controls whether eslint is enabled for JavaScript files or not."
+        },
+        "eslint.nodePath": {
+          "type": "string",
+          "default": null,
+          "description": "A path added to NODE_PATH when resolving the eslint module."
+        },
+        "eslint._legacyModuleResolve": {
+          "type": "boolean",
+          "default": false,
+          "description": "Uses the legacy module resolving."
+        },
+        "eslint.options": {
+          "type": "object",
+          "default": {},
+          "description": "The eslint options object to provide args to the eslint command."
+        },
+        "eslint.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VSCode and the eslint linter service."
+        },
+        "eslint.run": {
+          "type": "string",
+          "enum": [
+            "onSave",
+            "onType"
+          ],
+          "default": "onType",
+          "description": "Run the linter on save (onSave) or on type (onType)"
+        }
+      }
+    },
+    "commands": [
+      {
+        "title": "Fix all auto-fixable problems",
+        "category": "ESLint",
+        "command": "eslint.executeAutofix"
+      },
+      {
+        "title": "Create '.eslintrc.json' file",
+        "category": "ESLint",
+        "command": "eslint.createConfig"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": ".eslintrc",
+        "url": "http://json.schemastore.org/eslintrc"
+      },
+      {
+        "fileMatch": ".eslintrc.json",
+        "url": "http://json.schemastore.org/eslintrc"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run update-vscode && cd ../eslint-server && npm run compile && cd ../eslint && npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "update-vscode": "node ./node_modules/vscode/bin/install",
+    "postinstall": "node ./node_modules/vscode/bin/install"
+  },
+  "devDependencies": {
+    "vscode": "^0.11.10",
+    "typescript": "^1.8.10"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^2.5.0"
+  }
 }
