@@ -28,6 +28,10 @@ This extension contributes the following commands to the Command palette.
 
 ## Release Notes:
 
+### 1.0.7
+
+- Fixed problem with validating package.json when editing .eslintrc.* files.
+
 ### 1.0.5
 
 - Moving to official 2.5.0 language server libraries.

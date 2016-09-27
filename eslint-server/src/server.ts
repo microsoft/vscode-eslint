@@ -233,6 +233,9 @@ function getMessage(err: any, document: TextDocument): string {
 }
 
 function validate(document: TextDocument): void {
+	if (!supportedLanguages[document.languageId]) {
+		return;
+	}
 	let CLIEngine = lib.CLIEngine;
 	let cli = new CLIEngine(options);
 	let content = document.getText();
@@ -366,9 +369,6 @@ const singleErrorHandlers: ((error: any, document: TextDocument) => Status)[] = 
 ];
 
 function validateSingle(document: TextDocument): void {
-	if (!supportedLanguages[document.languageId]) {
-		return;
-	}
 	try {
 		validate(document);
 		connection.sendNotification(StatusNotification.type, { state: Status.ok });
