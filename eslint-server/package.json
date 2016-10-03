@@ -18,7 +18,7 @@
 		"vscode-uri": "^0.0.7"
 	},
 	"devDependencies": {
-		"typescript": "^1.8.10"
+		"typescript": "^2.0.3"
 	},
 	"scripts": {
 		"compile": "installServerIntoExtension ../eslint ./package.json ./src/tsconfig.json && tsc -p ./src",

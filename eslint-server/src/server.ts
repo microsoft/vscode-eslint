@@ -527,8 +527,17 @@ connection.onCodeAction((params) => {
 	let textDocument = documents.get(uri);
 	let documentVersion: number = -1;
 	let ruleId: string;
+
 	function createTextEdit(editInfo: AutoFix): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
+	}
+
+	function getLastEdit(array: AutoFix[]): AutoFix {
+		let length = array.length;
+		if (length === 0) {
+			return undefined;
+		}
+		return array[length - 1];
 	}
 
 	for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
@@ -543,13 +552,6 @@ connection.onCodeAction((params) => {
 		let same: AutoFix[] = [];
 		let all: AutoFix[] = [];
 
-		function getLastEdit(array: AutoFix[]): AutoFix {
-			let length = array.length;
-			if (length === 0) {
-				return undefined;
-			}
-			return array[length - 1];
-		}
 
 		for (let editInfo of fixes.getAllSorted()) {
 			if (documentVersion === -1) {
