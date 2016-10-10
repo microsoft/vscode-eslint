@@ -77,10 +77,10 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	let message = (problem.ruleId != null)
 		? `${problem.message} (${problem.ruleId})`
 		: `${problem.message}`;
-	let startLine = problem.line - 1;
-	let startChar = problem.column - 1;
-	let endLine = problem.endLine ? problem.endLine - 1 : startLine;
-	let endChar = problem.endColumn ? problem.endColumn - 1 : startChar;
+	let startLine = Math.max(0, problem.line - 1);
+	let startChar = Math.max(0, problem.column - 1);
+	let endLine = problem.endLine != null ? Math.max(0, problem.endLine - 1) : startLine;
+	let endChar = problem.endColumn != null ? Math.max(0, problem.endColumn - 1) : startChar;
 	return {
 		message: message,
 		severity: convertSeverity(problem.severity),
