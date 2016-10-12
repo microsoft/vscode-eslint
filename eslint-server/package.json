@@ -14,11 +14,12 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-languageserver": "^2.5.0",
-		"vscode-uri": "^0.0.7"
+		"vscode-uri": "^1.0.0",
+		"vscode-languageserver": "^3.0.0-alpha.1"
 	},
 	"devDependencies": {
-		"typescript": "^2.0.3"
+		"typescript": "^2.0.3",
+		"@types/node": "^6.0.45"
 	},
 	"scripts": {
 		"compile": "installServerIntoExtension ../eslint ./package.json ./src/tsconfig.json && tsc -p ./src",

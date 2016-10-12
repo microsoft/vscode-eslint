@@ -2,7 +2,7 @@
   "name": "vscode-eslint",
   "displayName": "ESLint",
   "description": "Integrates ESLint into VS Code.",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "author": "Microsoft Corporation",
   "license": "MIT",
   "repository": {
@@ -18,7 +18,7 @@
     "Linters"
   ],
   "engines": {
-    "vscode": "^1.0.0"
+    "vscode": "^1.6.0"
   },
   "activationEvents": [
     "onLanguage:javascript",
@@ -70,6 +70,15 @@
           ],
           "default": "onType",
           "description": "Run the linter on save (onSave) or on type (onType)"
+        },
+        "eslint.autoFix": {
+          "type": "string",
+          "enum": [
+            "off",
+            "onSave"
+          ],
+          "default": "off",
+          "description": "Run auto fix on save."
         }
       }
     },
@@ -109,6 +118,6 @@
     "@types/node": "^6.0.40"
   },
   "dependencies": {
-    "vscode-languageclient": "^2.5.0"
+    "vscode-languageclient": "^3.0.0-alpha.2"
   }
 }
