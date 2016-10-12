@@ -131,7 +131,7 @@ function convertSeverity(severity: number): number {
 	}
 }
 
-const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled', _: undefined };
+const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
 
 const nodeExit = process.exit;
 process.exit = (code?: number) => {
@@ -206,7 +206,7 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 		let nodePath = initOptions ? (initOptions.nodePath ? initOptions.nodePath : undefined) : undefined;
 		let resolve = legacyModuleResolve ? Files.resolveModule : Files.resolveModule2;
 
-		return Files.resolveModule2(rootPath, 'eslint', nodePath, trace).then((value) => {
+		return Files.resolveModule2(rootPath, 'eslint', nodePath, trace).then((value): any => {
 			if (!value.CLIEngine) {
 				return noCLIEngine;
 			}
@@ -275,7 +275,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; }, _: undefined };
+	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; } };
 }
 
 interface NoConfigParams {
@@ -287,7 +287,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; }, _: undefined };
+	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
 }
 
 let noConfigReported: Map<boolean> = Object.create(null);
@@ -584,7 +584,7 @@ interface AllFixesResult {
 }
 
 namespace AllFixesRequest {
-	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; }, _: undefined };
+	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
 }
 
 connection.onRequest(AllFixesRequest.type, (params) => {

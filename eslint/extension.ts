@@ -6,11 +6,12 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { workspace, window, commands, languages, Disposable, ExtensionContext, Command, Uri, StatusBarAlignment, TextEditor } from 'vscode';
+import { workspace, window, commands, languages, Disposable, ExtensionContext, Command, Uri, StatusBarAlignment, TextEditor, TextDocumentSaveReason } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, TextEdit, NotificationType, ErrorHandler,
-	ErrorAction, CloseAction, ResponseError, InitializeError, ErrorCodes, State as ClientState
+	ErrorAction, CloseAction, ResponseError, InitializeError, ErrorCodes, State as ClientState,
+	Protocol2Code
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -54,7 +55,7 @@ interface AllFixesResult {
 }
 
 namespace AllFixesRequest {
-	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; }, _: undefined };
+	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
 }
 
 let noConfigShown: boolean = false;
@@ -67,7 +68,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; }, _: undefined };
+	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
 }
 
 enum Status {
@@ -81,10 +82,10 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; }, _: undefined };
+	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; } };
 }
 
-const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled', _: undefined };
+const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
 
 let willSaveTextDocument: Disposable;
 
@@ -277,7 +278,7 @@ export function activate(context: ExtensionContext) {
 			}
 			textEditor.edit(mutator => {
 				for(let edit of edits) {
-					mutator.replace(client.protocol2CodeConverter.asRange(edit.range), edit.newText);
+					mutator.replace(Protocol2Code.asRange(edit.range), edit.newText);
 				}
 			}).then((success) => {
 				if (!success) {
@@ -314,25 +315,25 @@ export function activate(context: ExtensionContext) {
 
 	function configurationChanged() {
 		let config = workspace.getConfiguration('eslint');
-		let autoFix = config.get('autoFix', 'off');
-		if (autoFix === 'onSave' && !willSaveTextDocument) {
+		let autoFix = config.get('autoFixOnSave', false);
+		if (autoFix && !willSaveTextDocument) {
 			willSaveTextDocument = workspace.onWillSaveTextDocument((event) => {
 				let document = event.document;
-				if (!languageIds.has(document.languageId)) {
+				if (!languageIds.has(document.languageId) || event.reason === TextDocumentSaveReason.AfterDelay) {
 					return;
 				}
 				const version = document.version;
 				event.waitUntil(
 					client.sendRequest(AllFixesRequest.type, { textDocument: { uri: document.uri.toString() }}).then((result) => {
 						if (result && version === result.documentVersion) {
-							return client.protocol2CodeConverter.asTextEdits(result.edits);
+							return Protocol2Code.asTextEdits(result.edits);
 						} else {
 							return [];
 						}
 					})
 				);
 			});
-		} else if (autoFix === 'off' && willSaveTextDocument) {
+		} else if (!autoFix && willSaveTextDocument) {
 			willSaveTextDocument.dispose();
 			willSaveTextDocument = undefined;
 		}
@@ -351,4 +352,11 @@ export function activate(context: ExtensionContext) {
 		commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
 		statusBarItem
 	);
+}
+
+export function deactivate() {
+	if (willSaveTextDocument) {
+		willSaveTextDocument.dispose();
+		willSaveTextDocument = undefined;
+	}
 }

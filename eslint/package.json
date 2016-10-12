@@ -71,14 +71,10 @@
           "default": "onType",
           "description": "Run the linter on save (onSave) or on type (onType)"
         },
-        "eslint.autoFix": {
-          "type": "string",
-          "enum": [
-            "off",
-            "onSave"
-          ],
-          "default": "off",
-          "description": "Run auto fix on save."
+        "eslint.autoFixOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Turns auto fix on save on or off."
         }
       }
     },
@@ -118,6 +114,6 @@
     "@types/node": "^6.0.40"
   },
   "dependencies": {
-    "vscode-languageclient": "^3.0.0-alpha.2"
+    "vscode-languageclient": "^2.5.0"
   }
 }

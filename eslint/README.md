@@ -28,6 +28,11 @@ This extension contributes the following commands to the Command palette.
 
 ## Release Notes:
 
+### 1.0.8
+
+- Supports auto fix on save. Needs to be enabled via `"eslint.autoFixOnSave": true`. Please note that auto fix on save will only happen
+  if the save happened manually or via focus lost. This is consistent with VS Code's format on save behaviour.
+
 ### 1.0.7
 
 - Fixed problem with validating package.json when editing .eslintrc.* files.
