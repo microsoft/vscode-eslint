@@ -31,8 +31,8 @@ This extension contributes the following commands to the Command palette.
 ### 1.0.8
 
 - Supports auto fix on save. Needs to be enabled via `"eslint.autoFixOnSave": true`. Please note that auto fix on save will only happen
-  if the save happened manually or via focus lost. This is consistent with VS Code's format on save behaviour. Auto fix on save requires
-  VS Code version 1.6 or newer.
+if the save happened manually or via focus lost. This is consistent with VS Code's format on save behaviour. Auto fix on save requires
+VS Code version 1.6 or newer.
 
 ### 1.0.7
 

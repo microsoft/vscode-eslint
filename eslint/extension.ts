@@ -152,6 +152,7 @@ export function activate(context: ExtensionContext) {
 	let languageIds = new Set<string>(languages);
 	let clientOptions: LanguageClientOptions = {
 		documentSelector: languages,
+		diagnosticCollectionName: 'eslint',
 		synchronize: {
 			configurationSection: 'eslint',
 			fileEvents: [
