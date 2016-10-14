@@ -191,7 +191,7 @@ export function activate(context: ExtensionContext) {
 						}
 						if (!state.workspaces[workspace.rootPath]) {
 							state.workspaces[workspace.rootPath] = true;
-							client.outputChannel.show();
+							client.outputChannel.show(true);
 							context.globalState.update(key, state);
 						}
 					} else {
@@ -202,17 +202,17 @@ export function activate(context: ExtensionContext) {
 						].join('\n'));
 						if (!state.global) {
 							state.global = true;
-							client.outputChannel.show();
+							client.outputChannel.show(true);
 							context.globalState.update(key, state);
 						}
 					}
 				} else {
 					client.error('Server initialization failed.', error);
-					client.outputChannel.show();
+					client.outputChannel.show(true);
 				}
 			} else {
 				client.error('Server initialization failed.', error);
-				client.outputChannel.show();
+				client.outputChannel.show(true);
 			}
 			return false;
 		},
