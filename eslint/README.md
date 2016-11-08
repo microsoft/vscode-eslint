@@ -28,6 +28,11 @@ This extension contributes the following commands to the Command palette.
 
 ## Release Notes:
 
+### 1.1.0
+
+- Supports more than one ESLint module installation in a workspace. This eases working with typical client / server setups where ESLint is installed
+in a `node_modules` folder in the `server` and the `client` directory.
+
 ### 1.0.8
 
 - Supports auto fix on save. Needs to be enabled via `"eslint.autoFixOnSave": true`. Please note that auto fix on save will only happen

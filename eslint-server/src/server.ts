@@ -23,6 +23,47 @@ interface Map<V> {
 	[key: string]: V;
 }
 
+interface ESLintError extends Error {
+	messageTemplate?: string;
+}
+
+enum Status {
+	ok = 1,
+	warn = 2,
+	error = 3
+}
+
+interface StatusParams {
+	state: Status
+}
+
+namespace StatusNotification {
+	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/status'; } };
+}
+
+interface NoConfigParams {
+	message: string;
+	document: TextDocumentIdentifier;
+}
+
+interface NoConfigResult {
+}
+
+namespace NoConfigRequest {
+	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
+}
+
+interface NoESLintLibraryParams {
+	source: TextDocumentIdentifier;
+}
+
+interface NoESLintLibraryResult {
+}
+
+namespace NoESLintLibraryRequest {
+	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void> = { get method() { return 'eslint/noLibrary'; } };
+}
+
 class ID {
 	private static base: string = `${Date.now().toString()}-`;
 	private static counter: number = 0;
@@ -43,12 +84,12 @@ interface Settings {
 	[key: string]: any;
 }
 
-export interface ESLintAutoFixEdit {
+interface ESLintAutoFixEdit {
 	range: [number, number];
 	text: string;
 }
 
-export interface ESLintProblem {
+interface ESLintProblem {
 	line: number;
 	column: number;
 	endLine?: number;
@@ -59,7 +100,7 @@ export interface ESLintProblem {
 	fix?: ESLintAutoFixEdit;
 }
 
-export interface ESLintDocumentReport {
+interface ESLintDocumentReport {
 	filePath: string;
 	errorCount: number;
 	warningCount: number;
@@ -67,10 +108,23 @@ export interface ESLintDocumentReport {
 	output?: string;
 }
 
-export interface ESLintReport {
+interface ESLintReport {
 	errorCount: number;
 	warningCount: number;
 	results: ESLintDocumentReport[];
+}
+
+interface CLIEngine {
+	executeOnText(content: string, file?:string): ESLintReport;
+}
+
+interface CLIEngineConstructor {
+	new (options: any): CLIEngine;
+}
+
+
+interface ESLintModule {
+	CLIEngine: CLIEngineConstructor;
 }
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
@@ -143,8 +197,6 @@ process.exit = (code?: number) => {
 }
 
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-let lib: any = null;
-let eslintModulePath: string = null;
 let settings: Settings = null;
 let options: any = null;
 let documents: TextDocuments = new TextDocuments();
@@ -154,24 +206,80 @@ let supportedLanguages: Map<boolean> = {
 	'javascriptreact': true
 }
 
+let globalNodePath: string = undefined;
+let nodePath: string = undefined;
+let workspaceRoot: string = undefined;
+
+let path2Library: Map<ESLintModule> = Object.create(null);
+let document2Library: Map<Thenable<ESLintModule>> = Object.create(null);
+
+function ignoreTextDocument(document: TextDocument): boolean {
+	return !supportedLanguages[document.languageId] || !document2Library[document.uri];
+}
+
 // The documents manager listen for text document create, change
 // and close on the connection
 documents.listen(connection);
-// A text document has changed. Validate the document according the run setting.
-documents.onDidChangeContent((event) => {
-	if (settings.eslint.run === 'onType') {
-		validateSingle(event.document);
+documents.onDidOpen((event) => {
+	if (!supportedLanguages[event.document.languageId]) {
+		return;
 	}
-});
-// A text document has been saved. Validate the document according the run setting.
-documents.onDidSave((event) => {
-	if (settings.eslint.run === 'onSave') {
-		validateSingle(event.document);
+
+	if (!document2Library[event.document.uri]) {
+		let uri = Uri.parse(event.document.uri);
+		let promise: Thenable<string>
+		if (uri.scheme === 'file') {
+			let file = uri.fsPath;
+			let directory = path.dirname(file);
+			if (nodePath) {
+				 promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string>(undefined, (error) => {
+					 return Files.resolve('eslint', globalNodePath, directory, trace);
+				 });
+			} else {
+				promise = Files.resolve('eslint', globalNodePath, directory, trace);
+			}
+		} else {
+			promise = Files.resolve('eslint', globalNodePath, workspaceRoot, trace);
+		}
+		document2Library[event.document.uri] = promise.then((path) => {
+			let library = path2Library[path];
+			if (!library) {
+				library = require(path);
+				path2Library[path] = library;
+			}
+			if (!library.CLIEngine) {
+				throw new Error(`The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
+			}
+			connection.console.info(`ESLint library loaded from: ${path}`);
+			return library;
+		}, (error) => {
+			connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: event.document.uri } });
+			return null;
+		});
 	}
 });
 
-// Clear diagnostics on close.
+// A text document has changed. Validate the document according the run setting.
+documents.onDidChangeContent((event) => {
+	if (settings.eslint.run !== 'onType' || ignoreTextDocument(event.document)) {
+		return;
+	}
+	validateSingle(event.document);
+});
+
+// A text document has been saved. Validate the document according the run setting.
+documents.onDidSave((event) => {
+	if (settings.eslint.run !== 'onSave' || ignoreTextDocument(event.document)) {
+		return;
+	}
+	validateSingle(event.document);
+});
+
 documents.onDidClose((event) => {
+	if (ignoreTextDocument(event.document)) {
+		return;
+	}
+	delete document2Library[event.document.uri];
 	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
@@ -180,42 +288,14 @@ function trace(message: string, verbose?: string): void {
 }
 
 connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>>  | InitializeResult | ResponseError<InitializeError> => {
-	let rootPath = params.rootPath;
 	let initOptions: {
 		legacyModuleResolve: boolean;
 		nodePath: string;
 	} = params.initializationOptions;
-	let noEslintLib = new ResponseError<InitializeError>(100,
-		'Failed to load eslint library.',
-		{ retry: false }
-	);
-	let noCLIEngine = new ResponseError(101, 'The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0', { retry: false });
-	let result: InitializeResult = { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true }};
-	let legacyModuleResolve = initOptions ? !!initOptions.legacyModuleResolve : false;
-	if (legacyModuleResolve) {
-		return Files.resolveModule(rootPath, 'eslint').then((value): InitializeResult | ResponseError<InitializeError> => {
-			if (!value.CLIEngine) {
-				return noCLIEngine;
-			}
-			lib = value;
-			return result;
-		}, (error) => {
-			return noEslintLib;
-		});
-	} else {
-		let nodePath = initOptions ? (initOptions.nodePath ? initOptions.nodePath : undefined) : undefined;
-		let resolve = legacyModuleResolve ? Files.resolveModule : Files.resolveModule2;
-
-		return Files.resolveModule2(rootPath, 'eslint', nodePath, trace).then((value): any => {
-			if (!value.CLIEngine) {
-				return noCLIEngine;
-			}
-			lib = value;
-			return result;
-		}, (error) => {
-			return noEslintLib;
-		});
-	}
+	workspaceRoot = params.rootPath;
+	nodePath = initOptions.nodePath;
+	globalNodePath = Files.resolveGlobalNodePath();
+	return { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true } };
 });
 
 function getMessage(err: any, document: TextDocument): string {
@@ -232,12 +312,8 @@ function getMessage(err: any, document: TextDocument): string {
 	return result;
 }
 
-function validate(document: TextDocument): void {
-	if (!supportedLanguages[document.languageId]) {
-		return;
-	}
-	let CLIEngine = lib.CLIEngine;
-	let cli = new CLIEngine(options);
+function validate(document: TextDocument, library: ESLintModule): void {
+	let cli = new library.CLIEngine(options);
 	let content = document.getText();
 	let uri = document.uri;
 	// Clean previously computed code actions.
@@ -257,47 +333,17 @@ function validate(document: TextDocument): void {
 		}
 	}
 	// Publish the diagnostics
-	return connection.sendDiagnostics({ uri, diagnostics });
+	connection.sendDiagnostics({ uri, diagnostics });
 }
 
-interface ESLintError extends Error {
-	messageTemplate?: string;
-}
-
-enum Status {
-	ok = 1,
-	warn = 2,
-	error = 3
-}
-
-interface StatusParams {
-	state: Status
-}
-
-namespace StatusNotification {
-	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; } };
-}
-
-interface NoConfigParams {
-	message: string;
-	document: TextDocumentIdentifier;
-}
-
-interface NoConfigResult {
-}
-
-namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
-}
-
-let noConfigReported: Map<boolean> = Object.create(null);
+let noConfigReported: Map<ESLintModule> = Object.create(null);
 
 function isNoConfigFoundError(error: any): boolean {
 	let candidate = error as ESLintError;
 	return candidate.messageTemplate === 'no-config-found' || candidate.message === 'No ESLint configuration found.';
 }
 
-function tryHandleNoConfig(error: any, document: TextDocument): Status {
+function tryHandleNoConfig(error: any, document: TextDocument, library: ESLintModule): Status {
 	if (!isNoConfigFoundError(error)) {
 		return undefined;
 	}
@@ -311,18 +357,18 @@ function tryHandleNoConfig(error: any, document: TextDocument): Status {
 				}
 			})
 		.then(undefined, (error) => { });
-		noConfigReported[document.uri] = true;
+		noConfigReported[document.uri] = library;
 	}
 	return Status.warn;
 }
 
-let configErrorReported: Map<boolean> = Object.create(null);
+let configErrorReported: Map<ESLintModule> = Object.create(null);
 
 function isConfigSyntaxError(err: any): boolean {
 	return err.message && /^Cannot read config file:/.test(err.message);
 }
 
-function tryHandleConfigError(error: any, document: TextDocument): Status {
+function tryHandleConfigError(error: any, document: TextDocument, library: ESLintModule): Status {
 	if (!error.message) {
 		return undefined;
 	}
@@ -333,7 +379,7 @@ function tryHandleConfigError(error: any, document: TextDocument): Status {
 			if (!documents.get(Uri.file(filename).toString())) {
 				connection.window.showInformationMessage(getMessage(error, document));
 			}
-			configErrorReported[filename] = true;
+			configErrorReported[filename] = library;
 		}
 		return Status.warn;
 	}
@@ -357,62 +403,83 @@ function tryHandleConfigError(error: any, document: TextDocument): Status {
 	return undefined;
 }
 
-function showErrorMessage(error: any, document: TextDocument): Status {
+function showErrorMessage(error: any, document: TextDocument, library: ESLintModule): Status {
 	connection.window.showErrorMessage(getMessage(error, document));
 	return Status.error;
 }
 
-const singleErrorHandlers: ((error: any, document: TextDocument) => Status)[] = [
+const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
 	tryHandleNoConfig,
 	tryHandleConfigError,
 	showErrorMessage
 ];
 
 function validateSingle(document: TextDocument): void {
-	try {
-		validate(document);
-		connection.sendNotification(StatusNotification.type, { state: Status.ok });
-	} catch (err) {
-		let status = undefined;
-		for (let handler of singleErrorHandlers) {
-			status = handler(err, document);
-			if (status) {
-				break;
-			}
+	document2Library[document.uri].then((library) => {
+		if (!library) {
+			return;
 		}
-		status = status || Status.error;
-		connection.sendNotification(StatusNotification.type, { state: status });
-	}
+		try {
+			validate(document, library);
+			connection.sendNotification(StatusNotification.type, { state: Status.ok });
+		} catch (err) {
+			let status = undefined;
+			for (let handler of singleErrorHandlers) {
+				status = handler(err, document, library);
+				if (status) {
+					break;
+				}
+			}
+			status = status || Status.error;
+			connection.sendNotification(StatusNotification.type, { state: status });
+		}
+	});
 }
 
-const manyErrorHandlers: ((error: any, document: TextDocument) => Status)[] = [
+const manyErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
 	tryHandleNoConfig,
 	tryHandleConfigError
 ];
 
 function validateMany(documents: TextDocument[]): void {
 	let tracker = new ErrorMessageTracker();
-	let status = Status.ok;
+	let status = undefined;
+	let promises: Thenable<void>[] = [];
 	documents.forEach(document => {
-		try {
-			validate(document);
-		} catch (err) {
-			let handled = false;
-			for (let handler of manyErrorHandlers) {
-				status = handler(err, document);
-				if (status) {
-					handled = true;
-					break;
+		if (ignoreTextDocument(document)) {
+			return;
+		}
+		promises.push(document2Library[document.uri].then((library) => {
+			if (!library) {
+				return;
+			}
+			try {
+				validate(document, library);
+			} catch (err) {
+				let handled = false;
+				for (let handler of manyErrorHandlers) {
+					status = handler(err, document, library);
+					if (status) {
+						handled = true;
+						break;
+					}
+				}
+				if (!handled) {
+					status = Status.error;
+					tracker.add(getMessage(err, document));
 				}
 			}
-			if (!handled) {
-				tracker.add(getMessage(err, document));
-			}
-		}
+		}));
 	});
-	tracker.sendErrors(connection);
-	status = status || Status.error;
-	connection.sendNotification(StatusNotification.type, { state: status });
+	Promise.all(promises).then(() => {
+		tracker.sendErrors(connection);
+		status = status || Status.ok;
+		connection.sendNotification(StatusNotification.type, { state: status });
+	}, (error) => {
+		tracker.sendErrors(connection);
+		connection.console.warn('Validating all open documents failed.');
+		connection.sendNotification(StatusNotification.type, { state: Status.error });
+	})
 }
 
 connection.onDidChangeConfiguration((params) => {
@@ -432,12 +499,14 @@ connection.onDidChangeWatchedFiles((params) => {
 		let fspath = Files.uriToFilePath(change.uri);
 		let dirname = path.dirname(fspath);
 		if (dirname) {
-			let CLIEngine = lib.CLIEngine;
-			let cli = new CLIEngine(options);
-			try {
-				cli.executeOnText("", path.join(dirname, "___test___.js"));
-				delete configErrorReported[fspath];
-			} catch (error) {
+			let library = configErrorReported[fspath];
+			if (library) {
+				let cli = new library.CLIEngine(options);
+				try {
+					cli.executeOnText("", path.join(dirname, "___test___.js"));
+					delete configErrorReported[fspath];
+				} catch (error) {
+				}
 			}
 		}
 	});

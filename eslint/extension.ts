@@ -58,6 +58,20 @@ namespace AllFixesRequest {
 	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
 }
 
+enum Status {
+	ok = 1,
+	warn = 2,
+	error = 3
+}
+
+interface StatusParams {
+	state: Status
+}
+
+namespace StatusNotification {
+	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/status'; } };
+}
+
 let noConfigShown: boolean = false;
 interface NoConfigParams {
 	message: string;
@@ -71,18 +85,16 @@ namespace NoConfigRequest {
 	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
 }
 
-enum Status {
-	ok = 1,
-	warn = 2,
-	error = 3
+
+interface NoESLintLibraryParams {
+	source: TextDocumentIdentifier;
 }
 
-interface StatusParams {
-	state: Status
+interface NoESLintLibraryResult {
 }
 
-namespace StatusNotification {
-	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/noConfig'; } };
+namespace NoESLintLibraryRequest {
+	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void> = { get method() { return 'eslint/noLibrary'; } };
 }
 
 const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
@@ -175,45 +187,8 @@ export function activate(context: ExtensionContext) {
 			};
 		},
 		initializationFailedHandler: (error) => {
-			if (error instanceof ResponseError) {
-				let responseError = (error as ResponseError<InitializeError>);
-				if (responseError.code === 100) {
-					const key = 'noESLintMessageShown';
-					let state = context.globalState.get<NoESLintState>(key, {});
-					if (workspace.rootPath) {
-						client.info([
-							'Failed to load the ESLint library.',
-							'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
-							'You need to reopen the workspace after installing eslint.',
-						].join('\n'));
-						if (!state.workspaces) {
-							state.workspaces = Object.create(null);
-						}
-						if (!state.workspaces[workspace.rootPath]) {
-							state.workspaces[workspace.rootPath] = true;
-							client.outputChannel.show(true);
-							context.globalState.update(key, state);
-						}
-					} else {
-						client.info([
-							'Failed to load the ESLint library.',
-							'To use ESLint for single JavaScript files install eslint globally using \'npm install -g eslint\'.',
-							'You need to reopen VS Code after installing eslint.',
-						].join('\n'));
-						if (!state.global) {
-							state.global = true;
-							client.outputChannel.show(true);
-							context.globalState.update(key, state);
-						}
-					}
-				} else {
-					client.error('Server initialization failed.', error);
-					client.outputChannel.show(true);
-				}
-			} else {
-				client.error('Server initialization failed.', error);
-				client.outputChannel.show(true);
-			}
+			client.error('Server initialization failed.', error);
+			client.outputChannel.show(true);
 			return false;
 		},
 		errorHandler: {
@@ -268,6 +243,39 @@ export function activate(context: ExtensionContext) {
 		].join('\n'));
 		eslintStatus = Status.warn;
 		udpateStatusBarVisibility(window.activeTextEditor);
+		return {};
+	});
+
+	client.onRequest(NoESLintLibraryRequest.type, (params) => {
+		const key = 'noESLintMessageShown';
+		let state = context.globalState.get<NoESLintState>(key, {});
+		let uri: Uri = Uri.parse(params.source.uri);
+		if (workspace.rootPath) {
+			client.info([
+				`Failed to load the ESLint library for the document ${uri.fsPath}`,
+				'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
+				'You need to reopen the workspace after installing eslint.',
+			].join('\n'));
+			if (!state.workspaces) {
+				state.workspaces = Object.create(null);
+			}
+			if (!state.workspaces[workspace.rootPath]) {
+				state.workspaces[workspace.rootPath] = true;
+				client.outputChannel.show(true);
+				context.globalState.update(key, state);
+			}
+		} else {
+			client.info([
+				`Failed to load the ESLint library for the document ${uri.fsPath}`,
+				'To use ESLint for single JavaScript file install eslint globally using \'npm install -g eslint\'.',
+				'You need to reopen VS Code after installing eslint.',
+			].join('\n'));
+			if (!state.global) {
+				state.global = true;
+				client.outputChannel.show(true);
+				context.globalState.update(key, state);
+			}
+		}
 		return {};
 	});
 

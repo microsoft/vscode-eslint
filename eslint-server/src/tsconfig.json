@@ -1,10 +1,11 @@
 {
 	"compilerOptions": {
-		"target": "ES5",
+		"target": "es6",
 		"module": "commonjs",
 		"moduleResolution": "node",
 		"sourceMap": true,
-		"outDir": "../../eslint/server"
+		"outDir": "../../eslint/server",
+		"lib": [ "es6" ]
 	},
 	"exclude": [
 		"node_modules"

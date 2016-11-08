@@ -15,7 +15,7 @@
 	},
 	"dependencies": {
 		"vscode-uri": "^1.0.0",
-		"vscode-languageserver": "^2.5.0"
+		"vscode-languageserver": "^2.6.1-alpha.1"
 	},
 	"devDependencies": {
 		"typescript": "^2.0.3",
