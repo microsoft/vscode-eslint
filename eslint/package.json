@@ -30,7 +30,7 @@
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "ESLint configuration",
+      "title": "ESLint",
       "properties": {
         "eslint.enable": {
           "type": "boolean",
