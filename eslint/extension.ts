@@ -11,7 +11,7 @@ import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, TextEdit, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, ResponseError, InitializeError, ErrorCodes, State as ClientState,
-	Protocol2Code
+	Protocol2Code, RevealOutputChannelOn
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -165,6 +165,7 @@ export function activate(context: ExtensionContext) {
 	let clientOptions: LanguageClientOptions = {
 		documentSelector: languages,
 		diagnosticCollectionName: 'eslint',
+		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		synchronize: {
 			configurationSection: 'eslint',
 			fileEvents: [
@@ -238,8 +239,10 @@ export function activate(context: ExtensionContext) {
 			location = document.fsPath.substr(workspace.rootPath.length + 1);
 		}
 		client.warn([
+			'',
 			`No ESLint configuration (e.g .eslintrc) found for file: ${location}`,
-			`File will not be validated. Consider running the 'Create .eslintrc.json file' command.`
+			`File will not be validated. Consider running the 'Create .eslintrc.json file' command.`,
+			`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
 		].join('\n'));
 		eslintStatus = Status.warn;
 		udpateStatusBarVisibility(window.activeTextEditor);
@@ -252,9 +255,13 @@ export function activate(context: ExtensionContext) {
 		let uri: Uri = Uri.parse(params.source.uri);
 		if (workspace.rootPath) {
 			client.info([
+				'',
 				`Failed to load the ESLint library for the document ${uri.fsPath}`,
+				'',
 				'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
 				'You need to reopen the workspace after installing eslint.',
+				'',
+				`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
 			].join('\n'));
 			if (!state.workspaces) {
 				state.workspaces = Object.create(null);
@@ -278,6 +285,22 @@ export function activate(context: ExtensionContext) {
 		}
 		return {};
 	});
+
+	function enable() {
+		if (!workspace.rootPath) {
+			window.showErrorMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
+			return;
+		}
+		workspace.getConfiguration('eslint').update('enable', true, false);
+	}
+
+	function disable() {
+		if (!workspace.rootPath) {
+			window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
+			return;
+		}
+		workspace.getConfiguration('eslint').update('enable', false, false);
+	}
 
 	function applyTextEdits(uri: string, documentVersion: number, edits: TextEdit[]) {
 		let textEditor = window.activeTextEditor;
@@ -314,7 +337,8 @@ export function activate(context: ExtensionContext) {
 
 	function createDefaultConfiguration(): void {
 		if (!workspace.rootPath) {
-			window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a folder.');
+			window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
+			return;
 		}
 		let eslintConfigFile = path.join(workspace.rootPath, '.eslintrc.json');
 		if (!fs.existsSync(eslintConfigFile)) {
@@ -358,6 +382,8 @@ export function activate(context: ExtensionContext) {
 		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),
 		commands.registerCommand('eslint.executeAutofix', runAutoFix),
 		commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
+		commands.registerCommand('eslint.enable', enable),
+		commands.registerCommand('eslint.disable', disable),
 		commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
 		statusBarItem
 	);

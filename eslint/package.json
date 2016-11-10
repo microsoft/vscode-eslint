@@ -24,7 +24,10 @@
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
     "onCommand:eslint.executeAutofix",
-    "onCommand:eslint.createConfig"
+    "onCommand:eslint.createConfig",
+    "onCommand:eslint.enable",
+    "onCommand:eslint.disable",
+    "onCommand:eslint.showOutputChannel"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -80,14 +83,29 @@
     },
     "commands": [
       {
-        "title": "Fix all auto-fixable problems",
+        "title": "Fix all auto-fixable Problems",
         "category": "ESLint",
         "command": "eslint.executeAutofix"
       },
       {
-        "title": "Create '.eslintrc.json' file",
+        "title": "Create '.eslintrc.json' File",
         "category": "ESLint",
         "command": "eslint.createConfig"
+      },
+      {
+        "title": "Enable ESLint for this Workspace",
+        "category": "ESLint",
+        "command": "eslint.enable"
+      },
+      {
+        "title": "Disable ESLint for this Workspace",
+        "category": "ESLint",
+        "command": "eslint.disable"
+      },
+      {
+        "title": "Show Output Channel",
+        "category": "ESLint",
+        "command": "eslint.showOutputChannel"
       }
     ],
     "jsonValidation": [
@@ -114,6 +132,6 @@
     "@types/node": "^6.0.40"
   },
   "dependencies": {
-    "vscode-languageclient": "^2.5.0"
+    "vscode-languageclient": "^2.6.2"
   }
 }

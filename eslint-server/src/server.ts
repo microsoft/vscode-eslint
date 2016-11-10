@@ -25,6 +25,9 @@ interface Map<V> {
 
 interface ESLintError extends Error {
 	messageTemplate?: string;
+	messageData?: {
+		pluginName?: string;
+	}
 }
 
 enum Status {
@@ -364,10 +367,6 @@ function tryHandleNoConfig(error: any, document: TextDocument, library: ESLintMo
 
 let configErrorReported: Map<ESLintModule> = Object.create(null);
 
-function isConfigSyntaxError(err: any): boolean {
-	return err.message && /^Cannot read config file:/.test(err.message);
-}
-
 function tryHandleConfigError(error: any, document: TextDocument, library: ESLintModule): Status {
 	if (!error.message) {
 		return undefined;
@@ -375,7 +374,7 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 
 	function handleFileName(filename: string): Status {
 		if (!configErrorReported[filename]) {
-			connection.console.warn(getMessage(error, document));
+			connection.console.error(getMessage(error, document));
 			if (!documents.get(Uri.file(filename).toString())) {
 				connection.window.showInformationMessage(getMessage(error, document));
 			}
@@ -403,6 +402,47 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 	return undefined;
 }
 
+let missingModuleReported: Map<ESLintModule> = Object.create(null);
+
+function tryHandleMissingModule(error: any, document: TextDocument, library: ESLintModule): Status {
+	if (!error.message) {
+		return undefined;
+	}
+
+	function handleMissingModule(plugin: string, module: string, error: ESLintError): Status {
+		if (!missingModuleReported[plugin]) {
+			let fsPath = Files.uriToFilePath(document.uri);
+			missingModuleReported[plugin] = library;
+			if (error.messageTemplate === 'plugin-missing') {
+				connection.console.error([
+					'',
+					`${error.message.toString()}`,
+					`Happend while validating ${fsPath ? fsPath : document.uri}`,
+					`This can happen for a couple of reasons:`,
+					`1. The plugin name is spelled incorrectly in an ESLint configuration file (e.g. .eslintrc).`,
+					`2. If ESLint is installed globally, then make sure ${module} is installed globally as well.`,
+					`3. If ESLint is installed locally, then ${module} isn't installed correctly.`,
+					'',
+					`Consider running eslint --debug ${fsPath ? fsPath : document.uri} from a terminal to obtain a trace about the configuration files used.`
+				].join('\n'));
+			} else {
+				connection.console.error([
+					`${error.message.toString()}`,
+					`Happend while validating ${fsPath ? fsPath : document.uri}`
+				].join('\n'));
+			}
+		}
+		return Status.warn;
+	}
+
+	let matches = /Failed to load plugin (.*): Cannot find module (.*)/.exec(error.message);
+	if (matches && matches.length === 3) {
+		return handleMissingModule(matches[1], matches[2], error);
+	}
+
+	return undefined;
+}
+
 function showErrorMessage(error: any, document: TextDocument, library: ESLintModule): Status {
 	connection.window.showErrorMessage(getMessage(error, document));
 	return Status.error;
@@ -411,6 +451,7 @@ function showErrorMessage(error: any, document: TextDocument, library: ESLintMod
 const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
 	tryHandleNoConfig,
 	tryHandleConfigError,
+	tryHandleMissingModule,
 	showErrorMessage
 ];
 
@@ -438,7 +479,8 @@ function validateSingle(document: TextDocument): void {
 
 const manyErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
 	tryHandleNoConfig,
-	tryHandleConfigError
+	tryHandleConfigError,
+	tryHandleMissingModule
 ];
 
 function validateMany(documents: TextDocument[]): void {
@@ -495,6 +537,7 @@ connection.onDidChangeWatchedFiles((params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	noConfigReported = Object.create(null);
+	missingModuleReported = Object.create(null);
 	params.changes.forEach((change) => {
 		let fspath = Files.uriToFilePath(change.uri);
 		let dirname = path.dirname(fspath);
