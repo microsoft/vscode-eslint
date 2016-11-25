@@ -41,7 +41,7 @@
           "description": "Controls whether eslint is enabled for JavaScript files or not."
         },
         "eslint.nodePath": {
-          "type": "string",
+          "type": ["string", "null"],
           "default": null,
           "description": "A path added to NODE_PATH when resolving the eslint module."
         },
