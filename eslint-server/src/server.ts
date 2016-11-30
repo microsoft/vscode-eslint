@@ -9,15 +9,24 @@ import {
 	ResponseError, RequestType, RequestHandler, NotificationType, NotificationHandler,
 	InitializeResult, InitializeError,
 	Diagnostic, DiagnosticSeverity, Position, Range, Files,
-	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier,
+	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
 	Command,
-	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter
+	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, Disposable, WillSaveTextDocumentWaitUntilRequest,
+	WorkspaceEdit, WorkspaceChange,
+	ExecuteCommandRequest, ExecuteCommandParams, ExecuteCommandResponse, VersionedTextDocumentIdentifier
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
 
 import fs = require('fs');
 import path = require('path');
+
+namespace CommandIds {
+	export const applySingleFix: string = 'eslint.applySingleFix';
+	export const applySameFixes: string = 'eslint.applySameFixes';
+	export const applyAllFixes: string = 'eslint.applyAllFixes';
+	export const applyAutoFix: string = 'eslint.applyAutoFix';
+}
 
 interface Map<V> {
 	[key: string]: V;
@@ -41,7 +50,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/status'; } };
+	export const type: NotificationType<StatusParams, void> = { get method() { return 'eslint/status'; }, _: undefined };
 }
 
 interface NoConfigParams {
@@ -53,7 +62,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
+	export const type: RequestType<NoConfigParams, NoConfigResult, void, void> = { get method() { return 'eslint/noConfig'; }, _: undefined };
 }
 
 interface NoESLintLibraryParams {
@@ -64,7 +73,7 @@ interface NoESLintLibraryResult {
 }
 
 namespace NoESLintLibraryRequest {
-	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void> = { get method() { return 'eslint/noLibrary'; } };
+	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void> = { get method() { return 'eslint/noLibrary'; }, _: undefined };
 }
 
 class ID {
@@ -80,7 +89,7 @@ type RunValues = 'onType' | 'onSave';
 interface Settings {
 	eslint: {
 		enable: boolean;
-		enableAutofixOnSave: boolean;
+		autoFixOnSave: boolean;
 		options: any;
 		run: RunValues;
 	}
@@ -188,7 +197,7 @@ function convertSeverity(severity: number): number {
 	}
 }
 
-const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
+const exitCalled: NotificationType<[number, string], void> = { method: 'eslint/exitCalled', _: undefined };
 
 const nodeExit = process.exit;
 process.exit = (code?: number) => {
@@ -203,6 +212,7 @@ let connection: IConnection = createConnection(new IPCMessageReader(process), ne
 let settings: Settings = null;
 let options: any = null;
 let documents: TextDocuments = new TextDocuments();
+let willSaveListener: Thenable<Disposable>;
 
 let supportedLanguages: Map<boolean> = {
 	'javascript': true,
@@ -270,6 +280,27 @@ documents.onDidChangeContent((event) => {
 	validateSingle(event.document);
 });
 
+documents.onWillSaveWaitUntil((event) => {
+	if (event.reason === TextDocumentSaveReason.AfterDelay) {
+		return [];
+	}
+
+	let textDocument = event.document;
+	let uri = textDocument.uri
+	let edits = codeActions[uri];
+	function createTextEdit(editInfo: AutoFix): TextEdit {
+		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
+	}
+	if (edits) {
+		let fixes = new Fixes(edits);
+		if (fixes.isEmpty() || event.document.version !== fixes.getDocumentVersion()) {
+			return [];
+		}
+		return fixes.getOverlapFree().map(createTextEdit);
+	}
+	return [];
+});
+
 // A text document has been saved. Validate the document according the run setting.
 documents.onDidSave((event) => {
 	if (settings.eslint.run !== 'onSave' || ignoreTextDocument(event.document)) {
@@ -298,7 +329,30 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 	workspaceRoot = params.rootPath;
 	nodePath = initOptions.nodePath;
 	globalNodePath = Files.resolveGlobalNodePath();
-	return { capabilities: { textDocumentSync: documents.syncKind, codeActionProvider: true } };
+	return {
+		capabilities: {
+			textDocumentSync: documents.syncKind,
+			codeActionProvider: true,
+			executeCommandProvider: {
+				commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
+			}
+		}
+	};
+});
+
+connection.onDidChangeConfiguration((params) => {
+	settings = params.settings;
+	if (settings.eslint) {
+		options = settings.eslint.options || {};
+	}
+	if (settings.eslint.autoFixOnSave && !willSaveListener) {
+		willSaveListener = connection.client.register(WillSaveTextDocumentWaitUntilRequest.type, {});
+	} else if (!settings.eslint.autoFixOnSave && willSaveListener) {
+		willSaveListener.then((disposable) => disposable.dispose());
+		willSaveListener = null;
+	}
+	// Settings have changed. Revalidate all documents.
+	validateMany(documents.all());
 });
 
 function getMessage(err: any, document: TextDocument): string {
@@ -524,15 +578,6 @@ function validateMany(documents: TextDocument[]): void {
 	})
 }
 
-connection.onDidChangeConfiguration((params) => {
-	settings = params.settings;
-	if (settings.eslint) {
-		options = settings.eslint.options || {};
-	}
-	// Settings have changed. Revalidate all documents.
-	validateMany(documents.all());
-});
-
 connection.onDidChangeWatchedFiles((params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
@@ -623,7 +668,9 @@ class Fixes {
 	}
 }
 
+let commands: Map<WorkspaceChange> = Object.create(null);
 connection.onCodeAction((params) => {
+	commands = Object.create(null);
 	let result: Command[] = [];
 	let uri = params.textDocument.uri;
 	let edits = codeActions[uri];
@@ -655,9 +702,10 @@ connection.onCodeAction((params) => {
 	for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
 		documentVersion = editInfo.documentVersion;
 		ruleId = editInfo.ruleId;
-		result.push(Command.create(editInfo.label, 'eslint.applySingleFix', uri, documentVersion, [
-			createTextEdit(editInfo)
-		]));
+		let workspaceChange = new WorkspaceChange();
+		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
+		commands[CommandIds.applySingleFix] = workspaceChange;
+		result.push(Command.create(editInfo.label, CommandIds.applySingleFix));
 	};
 
 	if (result.length > 0) {
@@ -677,32 +725,29 @@ connection.onCodeAction((params) => {
 			}
 		}
 		if (same.length > 1) {
-			result.push(Command.create(`Fix all ${ruleId} problems`, 'eslint.applySameFixes', uri, documentVersion, same.map(createTextEdit)));
+			let sameFixes: WorkspaceChange = new WorkspaceChange();
+			let sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
+			same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
+			commands[CommandIds.applySameFixes] = sameFixes;
+			result.push(Command.create(`Fix all ${ruleId} problems`, CommandIds.applySameFixes));
 		}
 		if (all.length > 1) {
-			result.push(Command.create(`Fix all auto-fixable problems`, 'eslint.applyAllFixes', uri, documentVersion, all.map(createTextEdit)));
+			let allFixes: WorkspaceChange = new WorkspaceChange();
+			let allTextChange = allFixes.getTextEditChange({uri, version: documentVersion});
+			all.map(createTextEdit).forEach(edit => allTextChange.add(edit));
+			commands[CommandIds.applyAllFixes] = allFixes;
+			result.push(Command.create(`Fix all auto-fixable problems`, CommandIds.applyAllFixes));
 		}
 	}
 	return result;
 });
 
-interface AllFixesParams {
-	textDocument: TextDocumentIdentifier;
-}
-
-interface AllFixesResult {
-	documentVersion: number,
-	edits: TextEdit[]
-}
-
-namespace AllFixesRequest {
-	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
-}
-
-connection.onRequest(AllFixesRequest.type, (params) => {
-	let result: AllFixesResult = null;
-	let uri = params.textDocument.uri;
+function computeAllFixes(identifier: VersionedTextDocumentIdentifier): TextEdit[] {
+	let uri = identifier.uri;
 	let textDocument = documents.get(uri);
+	if (identifier.version !== textDocument.version) {
+		return undefined;
+	}
 	let edits = codeActions[uri];
 	function createTextEdit(editInfo: AutoFix): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
@@ -711,13 +756,36 @@ connection.onRequest(AllFixesRequest.type, (params) => {
 	if (edits) {
 		let fixes = new Fixes(edits);
 		if (!fixes.isEmpty()) {
-			result = {
-				documentVersion: fixes.getDocumentVersion(),
-				edits: fixes.getOverlapFree().map(createTextEdit)
-			}
+			return fixes.getOverlapFree().map(createTextEdit);
 		}
 	}
-	return result;
-});
+	return undefined;
+};
 
+connection.onExecuteCommand((params) => {
+	let workspaceChange: WorkspaceChange;
+	if (params.command === CommandIds.applyAutoFix) {
+		let identifier: VersionedTextDocumentIdentifier = params.arguments[0];
+		let edits = computeAllFixes(identifier);
+		if (edits) {
+			workspaceChange = new WorkspaceChange();
+			let textChange = workspaceChange.getTextEditChange(identifier);
+			edits.forEach(edit => textChange.add(edit));
+		}
+	} else {
+		workspaceChange = commands[params.command];
+	}
+
+	if (!workspaceChange) {
+		return {};
+	}
+	return connection.workspace.applyEdit(workspaceChange.edit).then((response) => {
+		if (!response.applied) {
+			connection.console.error(`Failed to apply command: ${params.command}`);
+		}
+		return {};
+	}, (error) => {
+		connection.console.error(`Failed to apply command: ${params.command}`);
+	});
+})
 connection.listen();

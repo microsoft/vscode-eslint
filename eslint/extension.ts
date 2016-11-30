@@ -11,7 +11,7 @@ import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, TextEdit, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, ResponseError, InitializeError, ErrorCodes, State as ClientState,
-	Protocol2Code, RevealOutputChannelOn
+	RevealOutputChannelOn, DocumentSelector, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -45,19 +45,6 @@ interface NoESLintState {
 	workspaces?: { [key: string]: boolean };
 }
 
-interface AllFixesParams {
-	textDocument: TextDocumentIdentifier;
-}
-
-interface AllFixesResult {
-	documentVersion: number,
-	edits: TextEdit[]
-}
-
-namespace AllFixesRequest {
-	export const type: RequestType<AllFixesParams, AllFixesResult, void> = { get method() { return 'textDocument/eslint/allFixes'; } };
-}
-
 enum Status {
 	ok = 1,
 	warn = 2,
@@ -69,7 +56,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type: NotificationType<StatusParams> = { get method() { return 'eslint/status'; } };
+	export const type: NotificationType<StatusParams, void> = { get method() { return 'eslint/status'; }, _: undefined };
 }
 
 let noConfigShown: boolean = false;
@@ -82,7 +69,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void> = { get method() { return 'eslint/noConfig'; } };
+	export const type: RequestType<NoConfigParams, NoConfigResult, void, void> = { get method() { return 'eslint/noConfig'; }, _: undefined };
 }
 
 
@@ -94,10 +81,10 @@ interface NoESLintLibraryResult {
 }
 
 namespace NoESLintLibraryRequest {
-	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void> = { get method() { return 'eslint/noLibrary'; } };
+	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void> = { get method() { return 'eslint/noLibrary'; }, _: undefined };
 }
 
-const exitCalled: NotificationType<[number, string]> = { method: 'eslint/exitCalled' };
+const exitCalled: NotificationType<[number, string], void> = { method: 'eslint/exitCalled', _: undefined };
 
 let willSaveTextDocument: Disposable;
 
@@ -160,10 +147,11 @@ export function activate(context: ExtensionContext) {
 
 	let defaultErrorHandler: ErrorHandler;
 	let serverCalledProcessExit: boolean = false;
+	let documentSelector: DocumentSelector = ['javascript', 'javascriptreact', { scheme: 'file', pattern: '**/package.json'}, { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'}];
 	let languages = ['javascript', 'javascriptreact']
 	let languageIds = new Set<string>(languages);
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: languages,
+		documentSelector: documentSelector,
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		synchronize: {
@@ -171,14 +159,7 @@ export function activate(context: ExtensionContext) {
 			fileEvents: [
 				workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
 				workspace.createFileSystemWatcher('**/package.json')
-			],
-			textDocumentFilter: (textDocument) => {
-				let fsPath = textDocument.fileName;
-				if (fsPath) {
-					let basename = path.basename(fsPath);
-					return /^\.eslintrc\./.test(basename) || /^package.json$/.test(basename);
-				}
-			}
+			]
 		},
 		initializationOptions: () => {
 			let configuration = workspace.getConfiguration('eslint');
@@ -206,6 +187,7 @@ export function activate(context: ExtensionContext) {
 	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	defaultErrorHandler = client.createDefaultErrorHandler();
 	const running = 'ESLint server is running.';
 	const stopped = 'ESLint server stopped.'
 	client.onDidChangeState((event) => {
@@ -220,70 +202,70 @@ export function activate(context: ExtensionContext) {
 		}
 		udpateStatusBarVisibility(window.activeTextEditor);
 	});
+	client.onReady().then(() => {
+		client.onNotification(StatusNotification.type, (params) => {
+			updateStatus(params.state);
+		});
 
-	client.onNotification(StatusNotification.type, (params) => {
-		updateStatus(params.state);
-	});
+		client.onNotification(exitCalled, (params) => {
+			serverCalledProcessExit = true;
+			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
+			window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`);
+		});
 
-	defaultErrorHandler = client.createDefaultErrorHandler();
-	client.onNotification(exitCalled, (params) => {
-		serverCalledProcessExit = true;
-		client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
-		window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`);
-	});
-
-	client.onRequest(NoConfigRequest.type, (params) => {
-		let document = Uri.parse(params.document.uri);
-		let location = document.fsPath;
-		if (workspace.rootPath && document.fsPath.indexOf(workspace.rootPath) === 0) {
-			location = document.fsPath.substr(workspace.rootPath.length + 1);
-		}
-		client.warn([
-			'',
-			`No ESLint configuration (e.g .eslintrc) found for file: ${location}`,
-			`File will not be validated. Consider running the 'Create .eslintrc.json file' command.`,
-			`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
-		].join('\n'));
-		eslintStatus = Status.warn;
-		udpateStatusBarVisibility(window.activeTextEditor);
-		return {};
-	});
-
-	client.onRequest(NoESLintLibraryRequest.type, (params) => {
-		const key = 'noESLintMessageShown';
-		let state = context.globalState.get<NoESLintState>(key, {});
-		let uri: Uri = Uri.parse(params.source.uri);
-		if (workspace.rootPath) {
-			client.info([
+		client.onRequest(NoConfigRequest.type, (params) => {
+			let document = Uri.parse(params.document.uri);
+			let location = document.fsPath;
+			if (workspace.rootPath && document.fsPath.indexOf(workspace.rootPath) === 0) {
+				location = document.fsPath.substr(workspace.rootPath.length + 1);
+			}
+			client.warn([
 				'',
-				`Failed to load the ESLint library for the document ${uri.fsPath}`,
-				'',
-				'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
-				'You need to reopen the workspace after installing eslint.',
-				'',
+				`No ESLint configuration (e.g .eslintrc) found for file: ${location}`,
+				`File will not be validated. Consider running the 'Create .eslintrc.json file' command.`,
 				`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
 			].join('\n'));
-			if (!state.workspaces) {
-				state.workspaces = Object.create(null);
+			eslintStatus = Status.warn;
+			udpateStatusBarVisibility(window.activeTextEditor);
+			return {};
+		});
+
+		client.onRequest(NoESLintLibraryRequest.type, (params) => {
+			const key = 'noESLintMessageShown';
+			let state = context.globalState.get<NoESLintState>(key, {});
+			let uri: Uri = Uri.parse(params.source.uri);
+			if (workspace.rootPath) {
+				client.info([
+					'',
+					`Failed to load the ESLint library for the document ${uri.fsPath}`,
+					'',
+					'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
+					'You need to reopen the workspace after installing eslint.',
+					'',
+					`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
+				].join('\n'));
+				if (!state.workspaces) {
+					state.workspaces = Object.create(null);
+				}
+				if (!state.workspaces[workspace.rootPath]) {
+					state.workspaces[workspace.rootPath] = true;
+					client.outputChannel.show(true);
+					context.globalState.update(key, state);
+				}
+			} else {
+				client.info([
+					`Failed to load the ESLint library for the document ${uri.fsPath}`,
+					'To use ESLint for single JavaScript file install eslint globally using \'npm install -g eslint\'.',
+					'You need to reopen VS Code after installing eslint.',
+				].join('\n'));
+				if (!state.global) {
+					state.global = true;
+					client.outputChannel.show(true);
+					context.globalState.update(key, state);
+				}
 			}
-			if (!state.workspaces[workspace.rootPath]) {
-				state.workspaces[workspace.rootPath] = true;
-				client.outputChannel.show(true);
-				context.globalState.update(key, state);
-			}
-		} else {
-			client.info([
-				`Failed to load the ESLint library for the document ${uri.fsPath}`,
-				'To use ESLint for single JavaScript file install eslint globally using \'npm install -g eslint\'.',
-				'You need to reopen VS Code after installing eslint.',
-			].join('\n'));
-			if (!state.global) {
-				state.global = true;
-				client.outputChannel.show(true);
-				context.globalState.update(key, state);
-			}
-		}
-		return {};
+			return {};
+		});
 	});
 
 	function enable() {
@@ -302,39 +284,6 @@ export function activate(context: ExtensionContext) {
 		workspace.getConfiguration('eslint').update('enable', false, false);
 	}
 
-	function applyTextEdits(uri: string, documentVersion: number, edits: TextEdit[]) {
-		let textEditor = window.activeTextEditor;
-		if (textEditor && textEditor.document.uri.toString() === uri) {
-			if (textEditor.document.version !== documentVersion) {
-				window.showInformationMessage(`ESLint fixes are outdated and can't be applied to the document.`);
-			}
-			textEditor.edit(mutator => {
-				for(let edit of edits) {
-					mutator.replace(Protocol2Code.asRange(edit.range), edit.newText);
-				}
-			}).then((success) => {
-				if (!success) {
-					window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
-				}
-			});
-		}
-	}
-
-	function runAutoFix() {
-		let textEditor = window.activeTextEditor;
-		if (!textEditor) {
-			return;
-		}
-		let uri: string = textEditor.document.uri.toString();
-		client.sendRequest(AllFixesRequest.type, { textDocument: { uri }}).then((result) => {
-			if (result) {
-				applyTextEdits(uri, result.documentVersion, result.edits);
-			}
-		}, (error) => {
-			window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
-		});
-	}
-
 	function createDefaultConfiguration(): void {
 		if (!workspace.rootPath) {
 			window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
@@ -346,41 +295,25 @@ export function activate(context: ExtensionContext) {
 		}
 	}
 
-	function configurationChanged() {
-		let config = workspace.getConfiguration('eslint');
-		let autoFix = config.get('autoFixOnSave', false);
-		if (autoFix && !willSaveTextDocument) {
-			willSaveTextDocument = workspace.onWillSaveTextDocument((event) => {
-				let document = event.document;
-				if (!languageIds.has(document.languageId) || event.reason === TextDocumentSaveReason.AfterDelay) {
-					return;
-				}
-				const version = document.version;
-				event.waitUntil(
-					client.sendRequest(AllFixesRequest.type, { textDocument: { uri: document.uri.toString() }}).then((result) => {
-						if (result && version === result.documentVersion) {
-							return Protocol2Code.asTextEdits(result.edits);
-						} else {
-							return [];
-						}
-					})
-				);
-			});
-		} else if (!autoFix && willSaveTextDocument) {
-			willSaveTextDocument.dispose();
-			willSaveTextDocument = undefined;
-		}
-	}
-
-	workspace.onDidChangeConfiguration(configurationChanged);
-	configurationChanged();
-
 	context.subscriptions.push(
 		new SettingMonitor(client, 'eslint.enable').start(),
-		commands.registerCommand('eslint.applySingleFix', applyTextEdits),
-		commands.registerCommand('eslint.applySameFixes', applyTextEdits),
-		commands.registerCommand('eslint.applyAllFixes', applyTextEdits),
-		commands.registerCommand('eslint.executeAutofix', runAutoFix),
+		commands.registerCommand('eslint.executeAutofix', () => {
+			let textEditor = window.activeTextEditor;
+			if (!textEditor) {
+				return;
+			}
+			let textDocument: VersionedTextDocumentIdentifier = {
+				uri: textEditor.document.uri.toString(),
+				version: textEditor.document.version
+			};
+			let params: ExecuteCommandParams = {
+				command: 'eslint.applyAutoFix',
+				arguments: [textDocument]
+			}
+			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, (error) => {
+				window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
+			});
+		}),
 		commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
 		commands.registerCommand('eslint.enable', enable),
 		commands.registerCommand('eslint.disable', disable),
