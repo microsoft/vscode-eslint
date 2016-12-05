@@ -86,9 +86,37 @@ namespace NoESLintLibraryRequest {
 
 const exitCalled: NotificationType<[number, string], void> = { method: 'eslint/exitCalled', _: undefined };
 
-let willSaveTextDocument: Disposable;
-
 export function activate(context: ExtensionContext) {
+	let supportedLanguages: Set<string>;
+	function configurationChanged() {
+		supportedLanguages = new Set<string>();
+		let settings = workspace.getConfiguration('eslint');
+		if (settings) {
+			let toValidate = settings.get('validate', undefined);
+			if (toValidate && Array.isArray(toValidate)) {
+				toValidate.forEach(language => {
+					if (language && Object.prototype.toString.call(language)  === '[object String]') {
+						supportedLanguages.add(language);
+					}
+				});
+			}
+		}
+	}
+	configurationChanged();
+	const configurationListener = workspace.onDidChangeConfiguration(configurationChanged);
+
+	function didOpenTextDocument(textDocument) {
+		if (supportedLanguages.has(textDocument.languageId)) {
+			configurationListener.dispose();
+			openListener.dispose();
+			realActivate(context);
+		}
+	};
+	const openListener = workspace.onDidOpenTextDocument(didOpenTextDocument);
+	workspace.textDocuments.forEach(textDocument => didOpenTextDocument(textDocument));
+}
+
+export function realActivate(context: ExtensionContext) {
 
 	let statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 0);
 	let eslintStatus: Status = Status.ok;
@@ -139,7 +167,7 @@ export function activate(context: ExtensionContext) {
 	// the output folder.
 	// serverModule
 	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
-	let debugOptions = { execArgv: ["--nolazy", "--debug=6004"] };
+	let debugOptions = { execArgv: ["--nolazy", "--debug=6009"] };
 	let serverOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc },
 		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions}
@@ -147,11 +175,10 @@ export function activate(context: ExtensionContext) {
 
 	let defaultErrorHandler: ErrorHandler;
 	let serverCalledProcessExit: boolean = false;
-	let documentSelector: DocumentSelector = ['javascript', 'javascriptreact', { scheme: 'file', pattern: '**/package.json'}, { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'}];
+	let staticDocuments: DocumentSelector = [{ scheme: 'file', pattern: '**/package.json'}, { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'}];
 	let languages = ['javascript', 'javascriptreact']
-	let languageIds = new Set<string>(languages);
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: documentSelector,
+		documentSelector: staticDocuments,
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		synchronize: {
@@ -165,7 +192,8 @@ export function activate(context: ExtensionContext) {
 			let configuration = workspace.getConfiguration('eslint');
 			return {
 				legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
-				nodePath: configuration ? configuration.get('nodePath', undefined) : undefined
+				nodePath: configuration ? configuration.get('nodePath', undefined) : undefined,
+				languageIds: configuration ? configuration.get('valiadate', languages) : languages
 			};
 		},
 		initializationFailedHandler: (error) => {
@@ -323,8 +351,4 @@ export function activate(context: ExtensionContext) {
 }
 
 export function deactivate() {
-	if (willSaveTextDocument) {
-		willSaveTextDocument.dispose();
-		willSaveTextDocument = undefined;
-	}
 }

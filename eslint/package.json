@@ -2,7 +2,7 @@
   "name": "vscode-eslint",
   "displayName": "ESLint",
   "description": "Integrates ESLint into VS Code.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Microsoft Corporation",
   "license": "MIT",
   "repository": {
@@ -21,13 +21,7 @@
     "vscode": "^1.6.0"
   },
   "activationEvents": [
-    "onLanguage:javascript",
-    "onLanguage:javascriptreact",
-    "onCommand:eslint.executeAutofix",
-    "onCommand:eslint.createConfig",
-    "onCommand:eslint.enable",
-    "onCommand:eslint.disable",
-    "onCommand:eslint.showOutputChannel"
+    "*"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -78,6 +72,14 @@
           "type": "boolean",
           "default": false,
           "description": "Turns auto fix on save on or off."
+        },
+        "eslint.validate": {
+          "type": "array",
+          "items": [
+            { "type": "string" }
+          ],
+          "default": ["javascript", "javascriptreact"],
+          "description": "An array of language ids which should be validated by ESLint"
         }
       }
     },

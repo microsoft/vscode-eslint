@@ -10,9 +10,12 @@ import {
 	InitializeResult, InitializeError,
 	Diagnostic, DiagnosticSeverity, Position, Range, Files,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
-	Command,
-	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, Disposable, WillSaveTextDocumentWaitUntilRequest,
+	Command, BulkRegistration, BulkUnregistration,
+	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, Disposable,
 	WorkspaceEdit, WorkspaceChange,
+	DocumentOptions, DidChangeTextDocumentOptions,
+	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
+	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest,
 	ExecuteCommandRequest, ExecuteCommandParams, ExecuteCommandResponse, VersionedTextDocumentIdentifier
 } from 'vscode-languageserver';
 
@@ -92,6 +95,7 @@ interface Settings {
 		autoFixOnSave: boolean;
 		options: any;
 		run: RunValues;
+		validate: string[];
 	}
 	[key: string]: any;
 }
@@ -212,12 +216,12 @@ let connection: IConnection = createConnection(new IPCMessageReader(process), ne
 let settings: Settings = null;
 let options: any = null;
 let documents: TextDocuments = new TextDocuments();
-let willSaveListener: Thenable<Disposable>;
 
-let supportedLanguages: Map<boolean> = {
-	'javascript': true,
-	'javascriptreact': true
-}
+let supportedLanguages: Map<Thenable<BulkUnregistration>> = Object.create(null);
+let autoSaveRegistered: boolean = false;
+let supportedAutoFixLanguages: Set<string> = new Set<string>();
+supportedAutoFixLanguages.add('javascript');
+supportedAutoFixLanguages.add('javascriptreact');
 
 let globalNodePath: string = undefined;
 let nodePath: string = undefined;
@@ -258,12 +262,12 @@ documents.onDidOpen((event) => {
 			let library = path2Library[path];
 			if (!library) {
 				library = require(path);
+				if (!library.CLIEngine) {
+					throw new Error(`The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
+				}
+				connection.console.info(`ESLint library loaded from: ${path}`);
 				path2Library[path] = library;
 			}
-			if (!library.CLIEngine) {
-				throw new Error(`The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
-			}
-			connection.console.info(`ESLint library loaded from: ${path}`);
 			return library;
 		}, (error) => {
 			connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: event.document.uri } });
@@ -331,8 +335,7 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 	globalNodePath = Files.resolveGlobalNodePath();
 	return {
 		capabilities: {
-			textDocumentSync: documents.syncKind,
-			codeActionProvider: true,
+			textDocumentSync: TextDocumentSyncKind.None,
 			executeCommandProvider: {
 				commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
 			}
@@ -345,12 +348,67 @@ connection.onDidChangeConfiguration((params) => {
 	if (settings.eslint) {
 		options = settings.eslint.options || {};
 	}
-	if (settings.eslint.autoFixOnSave && !willSaveListener) {
-		willSaveListener = connection.client.register(WillSaveTextDocumentWaitUntilRequest.type, {});
-	} else if (!settings.eslint.autoFixOnSave && willSaveListener) {
-		willSaveListener.then((disposable) => disposable.dispose());
-		willSaveListener = null;
+	if (settings.eslint.autoFixOnSave && !autoSaveRegistered) {
+		Object.keys(supportedLanguages).forEach(languageId => {
+			if (!supportedAutoFixLanguages.has(languageId)) {
+				return;
+			}
+			let resolve = supportedLanguages[languageId];
+			resolve.then(unregistration => {
+				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, { documentSelector: [languageId] });
+			});
+		});
+		autoSaveRegistered = true;
+	} else if (!settings.eslint.autoFixOnSave && autoSaveRegistered) {
+		Object.keys(supportedLanguages).forEach(languageId => {
+			let resolve = supportedLanguages[languageId];
+			resolve.then(unregistration => {
+				unregistration.disposeSingle(WillSaveTextDocumentWaitUntilRequest.type.method);
+			});
+		});
+		autoSaveRegistered = false;
 	}
+	let toValidate: string[] = settings.eslint.validate;
+	let toRemove: Map<boolean> = Object.create(null);
+	let toAdd: Map<boolean> = Object.create(null);
+	Object.keys(supportedLanguages).forEach(key => toRemove[key] = true);
+	toValidate.forEach(languageId => {
+		if (toRemove[languageId]) {
+			delete toRemove[languageId];
+		} else {
+			toAdd[languageId] = true;
+		}
+	});
+	Object.keys(toRemove).forEach(languageId => {
+		let resolve = supportedLanguages[languageId];
+		delete supportedLanguages[languageId];
+		resolve.then((disposable) => {
+			documents.all().forEach((textDocument) => {
+				if (languageId === textDocument.languageId) {
+					delete document2Library[textDocument.uri];
+					connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: [] });
+				}
+			});
+			disposable.dispose();
+		});
+	});
+	Object.keys(toAdd).forEach(languageId => {
+		let registration = BulkRegistration.create();
+		let documentOptions: DocumentOptions = { documentSelector: [languageId]}
+		registration.add(DidOpenTextDocumentNotification.type, documentOptions);
+		let didChangeOptions: DidChangeTextDocumentOptions = { documentSelector: [languageId], syncKind: TextDocumentSyncKind.Full };
+		registration.add(DidChangeTextDocumentNotification.type, didChangeOptions);
+		if (settings.eslint.autoFixOnSave && supportedAutoFixLanguages.has(languageId)) {
+			registration.add(WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
+		}
+		registration.add(DidSaveTextDocumentNotification.type, documentOptions);
+		registration.add(DidCloseTextDocumentNotification.type, documentOptions);
+		if (supportedAutoFixLanguages.has(languageId)) {
+			registration.add(CodeActionRequest.type, documentOptions);
+		}
+		supportedLanguages[languageId] = connection.client.register(registration);
+	});
+
 	// Settings have changed. Revalidate all documents.
 	validateMany(documents.all());
 });
@@ -384,7 +442,9 @@ function validate(document: TextDocument, library: ESLintModule): void {
 				if (problem) {
 					let diagnostic = makeDiagnostic(problem);
 					diagnostics.push(diagnostic);
-					recordCodeAction(document, diagnostic, problem);
+					if (supportedAutoFixLanguages.has(document.languageId)) {
+						recordCodeAction(document, diagnostic, problem);
+					}
 				}
 			});
 		}

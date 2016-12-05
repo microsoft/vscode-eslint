@@ -16,6 +16,12 @@ This extension contributes the following variables to the [settings](https://cod
 
 - `eslint.enable`: enable/disable eslint. Is enabled by default.
 - `eslint.options`: options to configure how eslint is started using the [ESLint CLI Engine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengin). Defaults to an empty option bag.
+  An example to point to a custom `.eslintrc.json` file is:
+```json
+{
+	"eslint.options": { "configFile": "C:/mydirectory/.eslintrc.json" }
+}
+```
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
 

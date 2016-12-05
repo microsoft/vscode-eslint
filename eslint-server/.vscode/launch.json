@@ -9,9 +9,9 @@
 			// TCP/IP address. Default is "localhost".
 			"address": "localhost",
 			// Port to attach to.
-			"port": 6004,
-			"sourceMaps": true,
-			"outDir": "${workspaceRoot}/../eslint/server"
+			"port": 6009,
+			"sourceMaps": false,
+			"outFiles": ["${workspaceRoot}/../eslint/server/**/*.js"]
 		}
 	]
 }
