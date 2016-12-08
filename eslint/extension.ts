@@ -86,6 +86,35 @@ namespace NoESLintLibraryRequest {
 
 const exitCalled: NotificationType<[number, string], void> = { method: 'eslint/exitCalled', _: undefined };
 
+function enable() {
+	if (!workspace.rootPath) {
+		window.showErrorMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
+		return;
+	}
+	workspace.getConfiguration('eslint').update('enable', true, false);
+}
+
+function disable() {
+	if (!workspace.rootPath) {
+		window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
+		return;
+	}
+	workspace.getConfiguration('eslint').update('enable', false, false);
+}
+
+function createDefaultConfiguration(): void {
+	if (!workspace.rootPath) {
+		window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
+		return;
+	}
+	let eslintConfigFile = path.join(workspace.rootPath, '.eslintrc.json');
+	if (!fs.existsSync(eslintConfigFile)) {
+		fs.writeFileSync(eslintConfigFile, eslintrc, { encoding: 'utf8' });
+	}
+}
+
+let dummyCommands: [Disposable];
+
 export function activate(context: ExtensionContext) {
 	let supportedLanguages: Set<string>;
 	function configurationChanged() {
@@ -105,15 +134,33 @@ export function activate(context: ExtensionContext) {
 	configurationChanged();
 	const configurationListener = workspace.onDidChangeConfiguration(configurationChanged);
 
+	let activated: boolean;
+	let notValidating = () => window.showInformationMessage('ESLint is not validating any files yet.');
+	dummyCommands = [
+		commands.registerCommand('eslint.executeAutofix', notValidating),
+		commands.registerCommand('eslint.showOutputChannel', notValidating)
+	];
 	function didOpenTextDocument(textDocument) {
 		if (supportedLanguages.has(textDocument.languageId)) {
 			configurationListener.dispose();
 			openListener.dispose();
+			activated = true;
 			realActivate(context);
 		}
 	};
 	const openListener = workspace.onDidOpenTextDocument(didOpenTextDocument);
-	workspace.textDocuments.forEach(textDocument => didOpenTextDocument(textDocument));
+	for (let textDocument of workspace.textDocuments) {
+		if (activated) {
+			break;
+		}
+		didOpenTextDocument(textDocument);
+	}
+
+	context.subscriptions.push(
+		commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
+		commands.registerCommand('eslint.enable', enable),
+		commands.registerCommand('eslint.disable', disable)
+	);
 }
 
 export function realActivate(context: ExtensionContext) {
@@ -296,33 +343,10 @@ export function realActivate(context: ExtensionContext) {
 		});
 	});
 
-	function enable() {
-		if (!workspace.rootPath) {
-			window.showErrorMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
-			return;
-		}
-		workspace.getConfiguration('eslint').update('enable', true, false);
+	if (dummyCommands) {
+		dummyCommands.forEach(command => command.dispose());
+		dummyCommands = undefined;
 	}
-
-	function disable() {
-		if (!workspace.rootPath) {
-			window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
-			return;
-		}
-		workspace.getConfiguration('eslint').update('enable', false, false);
-	}
-
-	function createDefaultConfiguration(): void {
-		if (!workspace.rootPath) {
-			window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
-			return;
-		}
-		let eslintConfigFile = path.join(workspace.rootPath, '.eslintrc.json');
-		if (!fs.existsSync(eslintConfigFile)) {
-			fs.writeFileSync(eslintConfigFile, eslintrc, { encoding: 'utf8' });
-		}
-	}
-
 	context.subscriptions.push(
 		new SettingMonitor(client, 'eslint.enable').start(),
 		commands.registerCommand('eslint.executeAutofix', () => {
@@ -342,13 +366,13 @@ export function realActivate(context: ExtensionContext) {
 				window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});
 		}),
-		commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
-		commands.registerCommand('eslint.enable', enable),
-		commands.registerCommand('eslint.disable', disable),
 		commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
 		statusBarItem
 	);
 }
 
 export function deactivate() {
+	if (dummyCommands) {
+		dummyCommands.forEach(command => command.dispose());
+	}
 }
