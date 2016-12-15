@@ -39,10 +39,10 @@ This extension contributes the following commands to the Command palette.
 
 - Added support to validate file types other than JavaScript. To enable this, you need to do the following:
   - Configure ESLint with an additional plugin to do the actual validation. For example, to validate HTML files install
-  `eslint-plugin-html` using `npm install eslint-plugin-html --save-dev` and update the eslint configuration (e.g. .eslintrc.json file)
-  with `"plugin": [ "html" ]`.
+`eslint-plugin-html` using `npm install eslint-plugin-html --save-dev` and update the eslint configuration (e.g. .eslintrc.json file)
+with `"plugin": [ "html" ]`.
   - Add the corresponding language identifier to the `eslint.validate` setting. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`.
-  If the setting is missing, it defaults to `["javascript", "javascriptreact"]`
+If the setting is missing, it defaults to `["javascript", "javascriptreact"]`
 
 ### 1.1.0
 
