@@ -39,9 +39,9 @@ This extension contributes the following commands to the Command palette.
 
 ### 1.2.2
 
-- Added configuration options to enbale code actions and auto fix on save selectively per language. In release 1.2.1 code actions and auto fix on save very still only
+- Added configuration options to enable code actions and auto fix on save selectively per language. In release 1.2.1 code actions and auto fix on save very still only
 available for JavaScript. In 1.2.2 you can now enable this selectively per language. For compatibility it is enabled by default for JavaScript and disabled by default for all
-other langauge. The reason is that I encounter cases for non JavaScript file types where the computed fixes had wrong positions resulting in 'broken' documents. To enable it simply
+other languages. The reason is that I encounter cases for non JavaScript file types where the computed fixes had wrong positions resulting in 'broken' documents. To enable it simply
 provide an object literal in the validate setting with the properties `language` and `autoFix` instead of a simple `string`. An example is:
 ```json
 "eslint.validate": [ "javascript", "javascriptreact", { "language": "html", "autoFix": true } ]
