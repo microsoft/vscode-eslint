@@ -32,8 +32,20 @@ This extension contributes the following commands to the Command palette.
 
 - `Create '.eslintrc.json' file`: creates a new `.eslintrc.json` file.
 - `Fix all auto-fixable problems`: applies ESLint auto-fix resolutions to all fixable problems.
+- `Disable ESLint for this Workspace`: disables ESLint extension for this workspace.
+- `Enable ESLint for this Workspace`: enable ESLint extension for this workspace.
 
 ## Release Notes:
+
+### 1.2.2
+
+- Added configuration options to enbale code actions and auto fix on save selectively per language. In release 1.2.1 code actions and auto fix on save very still only
+available for JavaScript. In 1.2.2 you can now enable this selectively per language. For compatibility it is enabled by default for JavaScript and disabled by default for all
+other langauge. The reason is that I encounter cases for non JavaScript file types where the computed fixes had wrong positions resulting in 'broken' documents. To enable it simply
+provide an object literal in the validate setting with the properties `language` and `autoFix` instead of a simple `string`. An example is:
+```json
+"eslint.validate": [ "javascript", "javascriptreact", { "language": "html", "autoFix": true } ]
+```
 
 ### <a name="RN121"></a>1.2.1
 
@@ -43,6 +55,9 @@ This extension contributes the following commands to the Command palette.
 with `"plugin": [ "html" ]`.
   - Add the corresponding language identifier to the `eslint.validate` setting. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`.
 If the setting is missing, it defaults to `["javascript", "javascriptreact"]`
+
+Please note that code actions and auto fix on save is still only available for JavaScript. The reason is that I detected position problems with fixes contributed by plugins
+resulting in broken source code when applied.
 
 ### 1.1.0
 

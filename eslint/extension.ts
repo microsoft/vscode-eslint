@@ -6,11 +6,11 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { workspace, window, commands, languages, Disposable, ExtensionContext, Command, Uri, StatusBarAlignment, TextEditor, TextDocumentSaveReason } from 'vscode';
+import { workspace, window, commands, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextEditor, TextDocument } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
-	TextDocumentIdentifier, TextEdit, NotificationType, ErrorHandler,
-	ErrorAction, CloseAction, ResponseError, InitializeError, ErrorCodes, State as ClientState,
+	TextDocumentIdentifier, NotificationType, ErrorHandler,
+	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, DocumentSelector, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams
 } from 'vscode-languageclient';
 
@@ -40,6 +40,30 @@ const eslintrc: string = [
 '}'
 ].join(process.platform === 'win32' ? '\r\n' : '\n');
 
+namespace Is {
+	const toString = Object.prototype.toString;
+
+	export function boolean(value: any): value is boolean {
+		return value === true || value === false;
+	}
+
+	export function string(value: any): value is string {
+		return toString.call(value) === '[object String]';
+	}
+}
+
+interface ValidateItem {
+	language: string;
+	autoFix?: boolean;
+}
+
+namespace ValidateItem {
+	export function is(item: any): item is ValidateItem {
+		let candidate = item as ValidateItem;
+		return candidate && Is.string(candidate.language) && (Is.boolean(candidate.autoFix) || candidate.autoFix === void 0);
+	}
+}
+
 interface NoESLintState {
 	global?: boolean;
 	workspaces?: { [key: string]: boolean };
@@ -59,7 +83,6 @@ namespace StatusNotification {
 	export const type: NotificationType<StatusParams, void> = { get method() { return 'eslint/status'; }, _: undefined };
 }
 
-let noConfigShown: boolean = false;
 interface NoConfigParams {
 	message: string;
 	document: TextDocumentIdentifier;
@@ -123,9 +146,11 @@ export function activate(context: ExtensionContext) {
 		if (settings) {
 			let toValidate = settings.get('validate', undefined);
 			if (toValidate && Array.isArray(toValidate)) {
-				toValidate.forEach(language => {
-					if (language && Object.prototype.toString.call(language)  === '[object String]') {
-						supportedLanguages.add(language);
+				toValidate.forEach(item => {
+					if (Is.string(item)) {
+						supportedLanguages.add(item);
+					} else if (ValidateItem.is(item)) {
+						supportedLanguages.add(item.language);
 					}
 				});
 			}
@@ -140,7 +165,7 @@ export function activate(context: ExtensionContext) {
 		commands.registerCommand('eslint.executeAutofix', notValidating),
 		commands.registerCommand('eslint.showOutputChannel', notValidating)
 	];
-	function didOpenTextDocument(textDocument) {
+	function didOpenTextDocument(textDocument: TextDocument) {
 		if (supportedLanguages.has(textDocument.languageId)) {
 			configurationListener.dispose();
 			openListener.dispose();
@@ -362,7 +387,7 @@ export function realActivate(context: ExtensionContext) {
 				command: 'eslint.applyAutoFix',
 				arguments: [textDocument]
 			}
-			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, (error) => {
+			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
 				window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});
 		}),

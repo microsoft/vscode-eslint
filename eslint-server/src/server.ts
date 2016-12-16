@@ -6,23 +6,30 @@
 
 import {
 	createConnection, IConnection,
-	ResponseError, RequestType, RequestHandler, NotificationType, NotificationHandler,
-	InitializeResult, InitializeError,
-	Diagnostic, DiagnosticSeverity, Position, Range, Files,
+	ResponseError, RequestType, NotificationType, InitializeResult, InitializeError,
+	Diagnostic, DiagnosticSeverity, Range, Files,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
 	Command, BulkRegistration, BulkUnregistration,
-	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, Disposable,
-	WorkspaceEdit, WorkspaceChange,
+	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
 	DocumentOptions, DidChangeTextDocumentOptions,
 	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
-	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest,
-	ExecuteCommandRequest, ExecuteCommandParams, ExecuteCommandResponse, VersionedTextDocumentIdentifier
+	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
-
-import fs = require('fs');
 import path = require('path');
+
+namespace Is {
+	const toString = Object.prototype.toString;
+
+	export function boolean(value: any): value is boolean {
+		return value === true || value === false;
+	}
+
+	export function string(value: any): value is string {
+		return toString.call(value) === '[object String]';
+	}
+}
 
 namespace CommandIds {
 	export const applySingleFix: string = 'eslint.applySingleFix';
@@ -89,13 +96,25 @@ class ID {
 
 type RunValues = 'onType' | 'onSave';
 
+interface ValidateItem {
+	language: string;
+	autoFix?: boolean;
+}
+
+namespace ValidateItem {
+	export function is(item: any): item is ValidateItem {
+		let candidate = item as ValidateItem;
+		return candidate && Is.string(candidate.language) && (Is.boolean(candidate.autoFix) || candidate.autoFix === void 0);
+	}
+}
+
 interface Settings {
 	eslint: {
-		enable: boolean;
-		autoFixOnSave: boolean;
-		options: any;
-		run: RunValues;
-		validate: string[];
+		enable?: boolean;
+		autoFixOnSave?: boolean;
+		options?: any;
+		run?: RunValues;
+		validate?: (string | ValidateItem)[];
 	}
 	[key: string]: any;
 }
@@ -218,10 +237,8 @@ let options: any = null;
 let documents: TextDocuments = new TextDocuments();
 
 let supportedLanguages: Map<Thenable<BulkUnregistration>> = Object.create(null);
-let autoSaveRegistered: boolean = false;
+let willSaveRegistered: boolean = false;
 let supportedAutoFixLanguages: Set<string> = new Set<string>();
-supportedAutoFixLanguages.add('javascript');
-supportedAutoFixLanguages.add('javascriptreact');
 
 let globalNodePath: string = undefined;
 let nodePath: string = undefined;
@@ -249,7 +266,7 @@ documents.onDidOpen((event) => {
 			let file = uri.fsPath;
 			let directory = path.dirname(file);
 			if (nodePath) {
-				 promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string>(undefined, (error) => {
+				 promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string>(undefined, () => {
 					 return Files.resolve('eslint', globalNodePath, directory, trace);
 				 });
 			} else {
@@ -269,7 +286,7 @@ documents.onDidOpen((event) => {
 				path2Library[path] = library;
 			}
 			return library;
-		}, (error) => {
+		}, () => {
 			connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: event.document.uri } });
 			return null;
 		});
@@ -344,13 +361,31 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 });
 
 connection.onDidChangeConfiguration((params) => {
-	settings = params.settings;
-	if (settings.eslint) {
-		options = settings.eslint.options || {};
+	settings = params.settings || {};
+	settings.eslint = settings.eslint || {};
+	options = settings.eslint.options || {};
+
+	let toValidate: string[] = [];
+	let toSupportAutoFix = new Set<string>();
+	if (settings.eslint.validate) {
+		for (const item of settings.eslint.validate) {
+			if (Is.string(item)) {
+				toValidate.push(item);
+				if (item === 'javascript' || item === 'javascriptreact') {
+					toSupportAutoFix.add(item);
+				}
+			} else if (ValidateItem.is(item)) {
+				toValidate.push(item.language);
+				if (item.autoFix) {
+					toSupportAutoFix.add(item.language);
+				}
+			}
+		}
 	}
-	if (settings.eslint.autoFixOnSave && !autoSaveRegistered) {
+
+	if (settings.eslint.autoFixOnSave && !willSaveRegistered) {
 		Object.keys(supportedLanguages).forEach(languageId => {
-			if (!supportedAutoFixLanguages.has(languageId)) {
+			if (!toSupportAutoFix.has(languageId)) {
 				return;
 			}
 			let resolve = supportedLanguages[languageId];
@@ -358,27 +393,43 @@ connection.onDidChangeConfiguration((params) => {
 				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, { documentSelector: [languageId] });
 			});
 		});
-		autoSaveRegistered = true;
-	} else if (!settings.eslint.autoFixOnSave && autoSaveRegistered) {
+		willSaveRegistered = true;
+	} else if (!settings.eslint.autoFixOnSave && willSaveRegistered) {
 		Object.keys(supportedLanguages).forEach(languageId => {
+			if (!supportedAutoFixLanguages.has(languageId)) {
+				return;
+			}
 			let resolve = supportedLanguages[languageId];
 			resolve.then(unregistration => {
 				unregistration.disposeSingle(WillSaveTextDocumentWaitUntilRequest.type.method);
 			});
 		});
-		autoSaveRegistered = false;
+		willSaveRegistered = false;
 	}
-	let toValidate: string[] = settings.eslint.validate;
 	let toRemove: Map<boolean> = Object.create(null);
 	let toAdd: Map<boolean> = Object.create(null);
 	Object.keys(supportedLanguages).forEach(key => toRemove[key] = true);
+
+	let toRemoveAutoFix: Map<boolean> = Object.create(null);
+	let toAddAutoFix: Map<boolean> = Object.create(null);
+
 	toValidate.forEach(languageId => {
 		if (toRemove[languageId]) {
+			// The language is past and future
 			delete toRemove[languageId];
+			// Check if the autoFix has changed.
+			if (supportedAutoFixLanguages.has(languageId) && !toSupportAutoFix.has(languageId)) {
+				toRemoveAutoFix[languageId] = true;
+			} else if (!supportedAutoFixLanguages.has(languageId) && toSupportAutoFix.has(languageId)) {
+				toAddAutoFix[languageId] = true;
+			}
 		} else {
 			toAdd[languageId] = true;
 		}
 	});
+	supportedAutoFixLanguages = toSupportAutoFix;
+
+	// Remove old language
 	Object.keys(toRemove).forEach(languageId => {
 		let resolve = supportedLanguages[languageId];
 		delete supportedLanguages[languageId];
@@ -392,6 +443,8 @@ connection.onDidChangeConfiguration((params) => {
 			disposable.dispose();
 		});
 	});
+
+	// Add new languages
 	Object.keys(toAdd).forEach(languageId => {
 		let registration = BulkRegistration.create();
 		let documentOptions: DocumentOptions = { documentSelector: [languageId]}
@@ -407,6 +460,27 @@ connection.onDidChangeConfiguration((params) => {
 			registration.add(CodeActionRequest.type, documentOptions);
 		}
 		supportedLanguages[languageId] = connection.client.register(registration);
+	});
+
+	// Handle change autofix for stable langauges
+	Object.keys(toRemoveAutoFix).forEach(languageId => {
+		let resolve = supportedLanguages[languageId];
+		resolve.then(unregistration => {
+			unregistration.disposeSingle(CodeActionRequest.type.method);
+			if (willSaveRegistered) {
+				unregistration.disposeSingle(WillSaveTextDocumentWaitUntilRequest.type.method);
+			}
+		})
+	});
+	Object.keys(toAddAutoFix).forEach(languageId => {
+		let resolve = supportedLanguages[languageId];
+		resolve.then(unregistration => {
+			let documentOptions: DocumentOptions = { documentSelector: [languageId] };
+			connection.client.register(unregistration, CodeActionRequest.type, documentOptions);
+			if (willSaveRegistered) {
+				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
+			}
+		})
 	});
 
 	// Settings have changed. Revalidate all documents.
@@ -473,7 +547,7 @@ function tryHandleNoConfig(error: any, document: TextDocument, library: ESLintMo
 					uri: document.uri
 				}
 			})
-		.then(undefined, (error) => { });
+		.then(undefined, () => { });
 		noConfigReported[document.uri] = library;
 	}
 	return Status.warn;
@@ -497,7 +571,6 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 		return Status.warn;
 	}
 
-	let filename: string = undefined;
 	let matches = /Cannot read config file:\s+(.*)\nError:\s+(.*)/.exec(error.message);
 	if (matches && matches.length === 3) {
 		return handleFileName(matches[1]);
@@ -557,7 +630,7 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 	return undefined;
 }
 
-function showErrorMessage(error: any, document: TextDocument, library: ESLintModule): Status {
+function showErrorMessage(error: any, document: TextDocument): Status {
 	connection.window.showErrorMessage(getMessage(error, document));
 	return Status.error;
 }
@@ -599,7 +672,7 @@ const manyErrorHandlers: ((error: any, document: TextDocument, library: ESLintMo
 
 function validateMany(documents: TextDocument[]): void {
 	let tracker = new ErrorMessageTracker();
-	let status = undefined;
+	let status: Status = undefined;
 	let promises: Thenable<void>[] = [];
 	documents.forEach(document => {
 		if (ignoreTextDocument(document)) {
@@ -631,7 +704,7 @@ function validateMany(documents: TextDocument[]): void {
 		tracker.sendErrors(connection);
 		status = status || Status.ok;
 		connection.sendNotification(StatusNotification.type, { state: status });
-	}, (error) => {
+	}, () => {
 		tracker.sendErrors(connection);
 		connection.console.warn('Validating all open documents failed.');
 		connection.sendNotification(StatusNotification.type, { state: Status.error });
@@ -844,7 +917,7 @@ connection.onExecuteCommand((params) => {
 			connection.console.error(`Failed to apply command: ${params.command}`);
 		}
 		return {};
-	}, (error) => {
+	}, () => {
 		connection.console.error(`Failed to apply command: ${params.command}`);
 	});
 })
