@@ -15,7 +15,7 @@ command `Create '.eslintrc.json' file`.
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
 - `eslint.enable`: enable/disable eslint. Is enabled by default.
-- `eslint.options`: options to configure how eslint is started using the [ESLint CLI Engine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengin). Defaults to an empty option bag.
+- `eslint.options`: options to configure how eslint is started using the [ESLint CLI Engine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengine). Defaults to an empty option bag.
   An example to point to a custom `.eslintrc.json` file is:
 ```json
 {
