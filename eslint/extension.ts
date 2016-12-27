@@ -80,7 +80,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type: NotificationType<StatusParams, void> = { get method() { return 'eslint/status'; }, _: undefined };
+	export const type = new NotificationType<StatusParams, void>('eslint/status');
 }
 
 interface NoConfigParams {
@@ -92,7 +92,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void, void> = { get method() { return 'eslint/noConfig'; }, _: undefined };
+	export const type = new RequestType<NoConfigParams, NoConfigResult, void, void>('eslint/noConfig');
 }
 
 
@@ -104,10 +104,10 @@ interface NoESLintLibraryResult {
 }
 
 namespace NoESLintLibraryRequest {
-	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void> = { get method() { return 'eslint/noLibrary'; }, _: undefined };
+	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
 }
 
-const exitCalled: NotificationType<[number, string], void> = { method: 'eslint/exitCalled', _: undefined };
+const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
 function enable() {
 	if (!workspace.rootPath) {

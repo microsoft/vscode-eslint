@@ -60,7 +60,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type: NotificationType<StatusParams, void> = { get method() { return 'eslint/status'; }, _: undefined };
+	export const type = new NotificationType<StatusParams, void>('eslint/status');
 }
 
 interface NoConfigParams {
@@ -72,7 +72,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type: RequestType<NoConfigParams, NoConfigResult, void, void> = { get method() { return 'eslint/noConfig'; }, _: undefined };
+	export const type = new RequestType<NoConfigParams, NoConfigResult, void, void>('eslint/noConfig');
 }
 
 interface NoESLintLibraryParams {
@@ -83,7 +83,7 @@ interface NoESLintLibraryResult {
 }
 
 namespace NoESLintLibraryRequest {
-	export const type: RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void> = { get method() { return 'eslint/noLibrary'; }, _: undefined };
+	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
 }
 
 class ID {
@@ -220,7 +220,7 @@ function convertSeverity(severity: number): number {
 	}
 }
 
-const exitCalled: NotificationType<[number, string], void> = { method: 'eslint/exitCalled', _: undefined };
+const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
 const nodeExit = process.exit;
 process.exit = (code?: number) => {
@@ -390,7 +390,8 @@ connection.onDidChangeConfiguration((params) => {
 			}
 			let resolve = supportedLanguages[languageId];
 			resolve.then(unregistration => {
-				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, { documentSelector: [languageId] });
+				let documentOptions: DocumentOptions = { documentSelector: [languageId] };
+				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
 			});
 		});
 		willSaveRegistered = true;
@@ -447,7 +448,7 @@ connection.onDidChangeConfiguration((params) => {
 	// Add new languages
 	Object.keys(toAdd).forEach(languageId => {
 		let registration = BulkRegistration.create();
-		let documentOptions: DocumentOptions = { documentSelector: [languageId]}
+		let documentOptions: DocumentOptions = { documentSelector: [languageId] };
 		registration.add(DidOpenTextDocumentNotification.type, documentOptions);
 		let didChangeOptions: DidChangeTextDocumentOptions = { documentSelector: [languageId], syncKind: TextDocumentSyncKind.Full };
 		registration.add(DidChangeTextDocumentNotification.type, didChangeOptions);
