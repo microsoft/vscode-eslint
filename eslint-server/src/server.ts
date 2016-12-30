@@ -11,7 +11,7 @@ import {
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
 	Command, BulkRegistration, BulkUnregistration,
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
-	DocumentOptions, DidChangeTextDocumentOptions,
+	TextDocumentRegistrationOptions, TextDocumentChangeRegistrationOptions,
 	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
 	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier
 } from 'vscode-languageserver';
@@ -208,7 +208,7 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	edits[computeKey(diagnostic)] = { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix};
 }
 
-function convertSeverity(severity: number): number {
+function convertSeverity(severity: number): DiagnosticSeverity {
 	switch (severity) {
 		// Eslint 1 is warning
 		case 1:
@@ -390,7 +390,7 @@ connection.onDidChangeConfiguration((params) => {
 			}
 			let resolve = supportedLanguages[languageId];
 			resolve.then(unregistration => {
-				let documentOptions: DocumentOptions = { documentSelector: [languageId] };
+				let documentOptions: TextDocumentRegistrationOptions = { documentSelector: [languageId] };
 				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
 			});
 		});
@@ -448,9 +448,9 @@ connection.onDidChangeConfiguration((params) => {
 	// Add new languages
 	Object.keys(toAdd).forEach(languageId => {
 		let registration = BulkRegistration.create();
-		let documentOptions: DocumentOptions = { documentSelector: [languageId] };
+		let documentOptions: TextDocumentRegistrationOptions = { documentSelector: [languageId] };
 		registration.add(DidOpenTextDocumentNotification.type, documentOptions);
-		let didChangeOptions: DidChangeTextDocumentOptions = { documentSelector: [languageId], syncKind: TextDocumentSyncKind.Full };
+		let didChangeOptions: TextDocumentChangeRegistrationOptions = { documentSelector: [languageId], syncKind: TextDocumentSyncKind.Full };
 		registration.add(DidChangeTextDocumentNotification.type, didChangeOptions);
 		if (settings.eslint.autoFixOnSave && supportedAutoFixLanguages.has(languageId)) {
 			registration.add(WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
@@ -476,7 +476,7 @@ connection.onDidChangeConfiguration((params) => {
 	Object.keys(toAddAutoFix).forEach(languageId => {
 		let resolve = supportedLanguages[languageId];
 		resolve.then(unregistration => {
-			let documentOptions: DocumentOptions = { documentSelector: [languageId] };
+			let documentOptions: TextDocumentRegistrationOptions = { documentSelector: [languageId] };
 			connection.client.register(unregistration, CodeActionRequest.type, documentOptions);
 			if (willSaveRegistered) {
 				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
