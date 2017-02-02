@@ -291,6 +291,9 @@ documents.onDidOpen((event) => {
 			return null;
 		});
 	}
+	if (settings.eslint.run === 'onSave') {
+		validateSingle(event.document);
+	}
 });
 
 // A text document has changed. Validate the document according the run setting.
@@ -301,12 +304,7 @@ documents.onDidChangeContent((event) => {
 	validateSingle(event.document);
 });
 
-documents.onWillSaveWaitUntil((event) => {
-	if (event.reason === TextDocumentSaveReason.AfterDelay) {
-		return [];
-	}
-
-	let textDocument = event.document;
+function getFixes(textDocument: TextDocument): TextEdit[] {
 	let uri = textDocument.uri
 	let edits = codeActions[uri];
 	function createTextEdit(editInfo: AutoFix): TextEdit {
@@ -314,16 +312,34 @@ documents.onWillSaveWaitUntil((event) => {
 	}
 	if (edits) {
 		let fixes = new Fixes(edits);
-		if (fixes.isEmpty() || event.document.version !== fixes.getDocumentVersion()) {
+		if (fixes.isEmpty() || textDocument.version !== fixes.getDocumentVersion()) {
 			return [];
 		}
 		return fixes.getOverlapFree().map(createTextEdit);
 	}
 	return [];
+}
+
+documents.onWillSaveWaitUntil((event) => {
+	if (event.reason === TextDocumentSaveReason.AfterDelay) {
+		return [];
+	}
+
+	let document = event.document;
+
+	// If we validate on save and want to apply fixes on will save
+	// we need to validate the file.
+	if (settings.eslint.run === 'onSave') {
+		return validateSingle(document, false).then(() => getFixes(document));
+	} else {
+		return getFixes(document);
+	}
 });
 
 // A text document has been saved. Validate the document according the run setting.
 documents.onDidSave((event) => {
+	// We even validate onSave if we have validated on will save to compute fixes since the
+	// fixes will change the content of the document.
 	if (settings.eslint.run !== 'onSave' || ignoreTextDocument(event.document)) {
 		return;
 	}
@@ -502,7 +518,7 @@ function getMessage(err: any, document: TextDocument): string {
 	return result;
 }
 
-function validate(document: TextDocument, library: ESLintModule): void {
+function validate(document: TextDocument, library: ESLintModule, publishDiagnostics: boolean = true): void {
 	let cli = new library.CLIEngine(options);
 	let content = document.getText();
 	let uri = document.uri;
@@ -524,8 +540,9 @@ function validate(document: TextDocument, library: ESLintModule): void {
 			});
 		}
 	}
-	// Publish the diagnostics
-	connection.sendDiagnostics({ uri, diagnostics });
+	if (publishDiagnostics) {
+		connection.sendDiagnostics({ uri, diagnostics });
+	}
 }
 
 let noConfigReported: Map<ESLintModule> = Object.create(null);
@@ -643,13 +660,13 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 	showErrorMessage
 ];
 
-function validateSingle(document: TextDocument): void {
-	document2Library[document.uri].then((library) => {
+function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
+	return document2Library[document.uri].then((library) => {
 		if (!library) {
 			return;
 		}
 		try {
-			validate(document, library);
+			validate(document, library, publishDiagnostics);
 			connection.sendNotification(StatusNotification.type, { state: Status.ok });
 		} catch (err) {
 			let status = undefined;
