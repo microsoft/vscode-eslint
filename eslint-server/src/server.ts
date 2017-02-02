@@ -149,12 +149,16 @@ interface ESLintReport {
 	results: ESLintDocumentReport[];
 }
 
+interface CLIOptions {
+	cwd: string;
+}
+
 interface CLIEngine {
 	executeOnText(content: string, file?:string): ESLintReport;
 }
 
 interface CLIEngineConstructor {
-	new (options: any): CLIEngine;
+	new (options: CLIOptions): CLIEngine;
 }
 
 
@@ -519,12 +523,21 @@ function getMessage(err: any, document: TextDocument): string {
 }
 
 function validate(document: TextDocument, library: ESLintModule, publishDiagnostics: boolean = true): void {
-	let cli = new library.CLIEngine(options);
+	let newOptions: CLIOptions = Object.assign(Object.create(null), options);
 	let content = document.getText();
 	let uri = document.uri;
+	let file = Files.uriToFilePath(uri);
+	if (file) {
+		let directory = path.dirname(file);
+		if (directory) {
+			newOptions.cwd = directory;
+		}
+	}
+
+	let cli = new library.CLIEngine(newOptions);
 	// Clean previously computed code actions.
 	delete codeActions[uri];
-	let report: ESLintReport = cli.executeOnText(content, Files.uriToFilePath(uri));
+	let report: ESLintReport = cli.executeOnText(content, file);
 	let diagnostics: Diagnostic[] = [];
 	if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
 		let docReport = report.results[0];

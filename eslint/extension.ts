@@ -257,6 +257,7 @@ export function realActivate(context: ExtensionContext) {
 			configurationSection: 'eslint',
 			fileEvents: [
 				workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
+				workspace.createFileSystemWatcher('**/.eslintignore'),
 				workspace.createFileSystemWatcher('**/package.json')
 			]
 		},
