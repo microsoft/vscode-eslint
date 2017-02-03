@@ -47,7 +47,7 @@
         "eslint.options": {
           "type": "object",
           "default": {},
-          "description": "The eslint options object to provide args normally passed to eslint when executed from a command line."
+          "description": "The eslint options object to provide args normally passed to eslint when executed from a command line (see http://eslint.org/docs/developer-guide/nodejs-api#cliengine)."
         },
         "eslint.trace.server": {
           "type": "string",
