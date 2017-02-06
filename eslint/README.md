@@ -38,6 +38,14 @@ This extension contributes the following commands to the Command palette.
 
 ## Release Notes:
 
+### 1.2.3
+
+- Bug fixes:
+  - [Does not respect nested eslintignore files](https://github.com/Microsoft/vscode-eslint/issues/111)
+  - [eslintrc configuration cascading not being honored ](https://github.com/Microsoft/vscode-eslint/issues/97)
+  - [autoFixOnSave not working with eslint.run=onSave](https://github.com/Microsoft/vscode-eslint/issues/158)
+  - [autoFixOnSave not listed under Settings Options in Readme](https://github.com/Microsoft/vscode-eslint/issues/188)
+
 ### 1.2.2
 
 - Added configuration options to enable code actions and auto fix on save selectively per language. In release 1.2.1 code actions and auto fix on save very still only
