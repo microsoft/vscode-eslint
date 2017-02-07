@@ -38,6 +38,11 @@ This extension contributes the following commands to the Command palette.
 
 ## Release Notes:
 
+### 1.2.4
+
+- fixes [.eslintignore is completely ignored](https://github.com/Microsoft/vscode-eslint/issues/198)
+- reverted fix for [Does not respect nested eslintignore files](https://github.com/Microsoft/vscode-eslint/issues/111) since it broke the use case of a single global .eslintrc file
+
 ### 1.2.3
 
 - Bug fixes:

@@ -527,12 +527,14 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 	let content = document.getText();
 	let uri = document.uri;
 	let file = Files.uriToFilePath(uri);
+	/*
 	if (file) {
 		let directory = path.dirname(file);
 		if (directory) {
 			newOptions.cwd = directory;
 		}
 	}
+	*/
 
 	let cli = new library.CLIEngine(newOptions);
 	// Clean previously computed code actions.
