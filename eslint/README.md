@@ -25,7 +25,8 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.autoFixOnSave` - enables auto fix on save. Please note auto fix on save is only available if VS Code's `files.autoSave` is either `off`, `onFocusChange` or `onWindowChange`. It will not work with `afterDelay`.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
-- `eslint.validate` - an array of language identifiers specify the files to be validated. See [1.2.1 Release notes](#RN120) for details.
+- `eslint.validate` - an array of language identifiers specify the files to be validated. See [1.2.1 Release notes](#RN121) for details.
+- `eslint.workingDirectories` - an array for working directories to be used. See [1.2.5 Release notes](#RN125) for details.
 
 ## Commands:
 
@@ -37,6 +38,31 @@ This extension contributes the following commands to the Command palette.
 - `Enable ESLint for this Workspace`: enable ESLint extension for this workspace.
 
 ## Release Notes:
+
+### <a name="RN125"></a>1.2.5
+
+- Validdating a single file (no workspace folder open) will set the working directory to the directory containing the file.
+- Added support for working directories. ESLint resolves configuration files relative to a working directory. This new settings allows users to control which working directory is used for which files. Consider the following setups:
+
+```
+client/
+  .eslintignore
+  .eslintrc.json
+  client.js
+server/
+  .eslintignore
+  .eslintrc.json
+  server.js
+```
+
+Then using the setting:
+```json
+  "eslint.workingDirectories": [
+    "./client", "./server"
+  ]
+```
+will validate files inside the server directory with the server directory as the current working directory. Same for files in the client directory. If the setting is omitted the working directory is the workspace folder.
+
 
 ### 1.2.4
 

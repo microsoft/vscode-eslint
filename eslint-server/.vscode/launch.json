@@ -8,8 +8,10 @@
 			"request": "attach",
 			// TCP/IP address. Default is "localhost".
 			"address": "localhost",
+			"protocol": "legacy",
+			"trace": "all",
 			// Port to attach to.
-			"port": 6009,
+			"port": 6010,
 			"sourceMaps": false,
 			"outFiles": ["${workspaceRoot}/../eslint/server/**/*.js"]
 		}

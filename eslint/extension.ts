@@ -239,7 +239,7 @@ export function realActivate(context: ExtensionContext) {
 	// the output folder.
 	// serverModule
 	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
-	let debugOptions = { execArgv: ["--nolazy", "--debug=6009"] };
+	let debugOptions = { execArgv: ["--nolazy", "--debug=6010"] };
 	let serverOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc },
 		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions}

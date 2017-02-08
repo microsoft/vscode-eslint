@@ -115,6 +115,7 @@ interface Settings {
 		options?: any;
 		run?: RunValues;
 		validate?: (string | ValidateItem)[];
+		workingDirectories?: string[];
 	}
 	[key: string]: any;
 }
@@ -238,6 +239,7 @@ process.exit = (code?: number) => {
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 let settings: Settings = null;
 let options: any = null;
+let workingDirectories: string[];
 let documents: TextDocuments = new TextDocuments();
 
 let supportedLanguages: Map<Thenable<BulkUnregistration>> = Object.create(null);
@@ -384,6 +386,21 @@ connection.onDidChangeConfiguration((params) => {
 	settings = params.settings || {};
 	settings.eslint = settings.eslint || {};
 	options = settings.eslint.options || {};
+	if (Array.isArray(settings.eslint.workingDirectories)) {
+		workingDirectories = [];
+		for (let directory of settings.eslint.workingDirectories) {
+			if (path.isAbsolute(directory)) {
+				workingDirectories.push(directory);
+			} else if (workspaceRoot && directory) {
+				workingDirectories.push(path.join(workspaceRoot, directory));
+			} else if (directory) {
+				workingDirectories.push(path.join(process.cwd(), directory));
+			}
+		}
+		if (workingDirectories.length === 0) {
+			workingDirectories = undefined;
+		}
+	}
 
 	let toValidate: string[] = [];
 	let toSupportAutoFix = new Set<string>();
@@ -527,14 +544,21 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 	let content = document.getText();
 	let uri = document.uri;
 	let file = Files.uriToFilePath(uri);
-	/*
 	if (file) {
-		let directory = path.dirname(file);
-		if (directory) {
-			newOptions.cwd = directory;
+		if (workingDirectories) {
+			for (let directory of workingDirectories) {
+				if (file.startsWith(directory)) {
+					newOptions.cwd = directory;
+					break;
+				}
+			}
+		} else if (!workspaceRoot) {
+			let dirname = path.dirname(file);
+			if (dirname) {
+				newOptions.cwd = dirname;
+			}
 		}
 	}
-	*/
 
 	let cli = new library.CLIEngine(newOptions);
 	// Clean previously computed code actions.
