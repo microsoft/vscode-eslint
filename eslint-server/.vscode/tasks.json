@@ -1,5 +1,6 @@
 {
 	"version": "0.1.0",
+	"_runner": "terminal",
 	"command": "npm",
 	"isShellCommand": true,
 	"showOutput": "silent",

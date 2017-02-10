@@ -76,7 +76,24 @@
         "eslint.workingDirectories": {
           "type": "array",
           "items": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "directory": {
+                    "type": "string",
+                    "description": "The working directory to use if a file's path start with this directory."
+                  },
+                  "changeProcessCWD": {
+                    "type": "boolean",
+                    "description": "Whether the process's cwd should be changed as well."
+                  }
+                }
+              }
+            ]
           }
         },
         "eslint.validate": {

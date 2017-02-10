@@ -108,6 +108,18 @@ namespace ValidateItem {
 	}
 }
 
+interface DirectoryItem {
+	directory: string;
+	changeProcessCWD?: boolean;
+}
+
+namespace DirectoryItem {
+	export function is(item: any): item is DirectoryItem {
+		let candidate = item as DirectoryItem;
+		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate.changeProcessCWD) || candidate.changeProcessCWD === void 0);
+	}
+}
+
 interface Settings {
 	eslint: {
 		enable?: boolean;
@@ -115,7 +127,7 @@ interface Settings {
 		options?: any;
 		run?: RunValues;
 		validate?: (string | ValidateItem)[];
-		workingDirectories?: string[];
+		workingDirectories?: (string | DirectoryItem)[];
 	}
 	[key: string]: any;
 }
@@ -239,7 +251,7 @@ process.exit = (code?: number) => {
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 let settings: Settings = null;
 let options: any = null;
-let workingDirectories: string[];
+let workingDirectories: DirectoryItem[];
 let documents: TextDocuments = new TextDocuments();
 
 let supportedLanguages: Map<Thenable<BulkUnregistration>> = Object.create(null);
@@ -388,13 +400,26 @@ connection.onDidChangeConfiguration((params) => {
 	options = settings.eslint.options || {};
 	if (Array.isArray(settings.eslint.workingDirectories)) {
 		workingDirectories = [];
-		for (let directory of settings.eslint.workingDirectories) {
-			if (path.isAbsolute(directory)) {
-				workingDirectories.push(directory);
-			} else if (workspaceRoot && directory) {
-				workingDirectories.push(path.join(workspaceRoot, directory));
-			} else if (directory) {
-				workingDirectories.push(path.join(process.cwd(), directory));
+		for (let entry of settings.eslint.workingDirectories) {
+			let directory: string;
+			let changeProcessCWD = false;
+			if  (Is.string(entry)) {
+				directory = entry;
+			} else if (DirectoryItem.is(entry)) {
+				directory = entry.directory;
+				changeProcessCWD = !!entry.changeProcessCWD;
+			}
+			if (directory) {
+				let item: DirectoryItem;
+				if (path.isAbsolute(directory)) {
+					item = { directory };
+				} else if (workspaceRoot && directory) {
+					item = { directory: path.join(workspaceRoot, directory) };
+				} else {
+					item = { directory: path.join(process.cwd(), directory) };
+				}
+				item.changeProcessCWD = changeProcessCWD;
+				workingDirectories.push(item);
 			}
 		}
 		if (workingDirectories.length === 0) {
@@ -544,43 +569,55 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 	let content = document.getText();
 	let uri = document.uri;
 	let file = Files.uriToFilePath(uri);
-	if (file) {
-		if (workingDirectories) {
-			for (let directory of workingDirectories) {
-				if (file.startsWith(directory)) {
-					newOptions.cwd = directory;
-					break;
-				}
-			}
-		} else if (!workspaceRoot) {
-			let dirname = path.dirname(file);
-			if (dirname) {
-				newOptions.cwd = dirname;
-			}
-		}
-	}
-
-	let cli = new library.CLIEngine(newOptions);
-	// Clean previously computed code actions.
-	delete codeActions[uri];
-	let report: ESLintReport = cli.executeOnText(content, file);
-	let diagnostics: Diagnostic[] = [];
-	if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
-		let docReport = report.results[0];
-		if (docReport.messages && Array.isArray(docReport.messages)) {
-			docReport.messages.forEach((problem) => {
-				if (problem) {
-					let diagnostic = makeDiagnostic(problem);
-					diagnostics.push(diagnostic);
-					if (supportedAutoFixLanguages.has(document.languageId)) {
-						recordCodeAction(document, diagnostic, problem);
+	let cwd = process.cwd();
+	try {
+		if (file) {
+			if (workingDirectories) {
+				for (let item of workingDirectories) {
+					if (file.startsWith(item.directory)) {
+						newOptions.cwd = item.directory;
+						if (item.changeProcessCWD) {
+							process.chdir(item.directory);
+						}
+						break;
 					}
 				}
-			});
+			} else if (!workspaceRoot) {
+				let directory = path.dirname(file);
+				if (directory) {
+					if (path.isAbsolute(directory)) {
+						newOptions.cwd = directory;
+					}
+				}
+			}
 		}
-	}
-	if (publishDiagnostics) {
-		connection.sendDiagnostics({ uri, diagnostics });
+
+		let cli = new library.CLIEngine(newOptions);
+		// Clean previously computed code actions.
+		delete codeActions[uri];
+		let report: ESLintReport = cli.executeOnText(content, file);
+		let diagnostics: Diagnostic[] = [];
+		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
+			let docReport = report.results[0];
+			if (docReport.messages && Array.isArray(docReport.messages)) {
+				docReport.messages.forEach((problem) => {
+					if (problem) {
+						let diagnostic = makeDiagnostic(problem);
+						diagnostics.push(diagnostic);
+						if (supportedAutoFixLanguages.has(document.languageId)) {
+							recordCodeAction(document, diagnostic, problem);
+						}
+					}
+				});
+			}
+		}
+		if (publishDiagnostics) {
+			connection.sendDiagnostics({ uri, diagnostics });
+		}
+	} finally {
+		if (cwd !== process.cwd()) {
+			process.chdir(cwd);
+		}
 	}
 }
 
