@@ -39,6 +39,14 @@ This extension contributes the following commands to the Command palette.
 
 ## Release Notes:
 
+### 1.2.6
+
+#### Fixes:
+
+- [Do not always run eslint from the project's root directory](https://github.com/Microsoft/vscode-eslint/issues/196)
+- [baseDir should be an absolute path](https://github.com/Microsoft/vscode-eslint/issues/202)
+
+
 ### <a name="RN125"></a>1.2.5
 
 - Validdating a single file (no workspace folder open) will set the working directory to the directory containing the file.
