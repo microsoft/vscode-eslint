@@ -9,7 +9,7 @@
 			// TCP/IP address. Default is "localhost".
 			"address": "localhost",
 			"protocol": "legacy",
-			"trace": "all",
+			// "trace": "all",
 			// Port to attach to.
 			"port": 6010,
 			"sourceMaps": false,

@@ -237,6 +237,68 @@ function convertSeverity(severity: number): DiagnosticSeverity {
 	}
 }
 
+const enum CharCode {
+	/**
+	 * The `\` character.
+	 */
+	Backslash = 92,
+}
+
+/**
+ * Check if the path follows this pattern: `\\hostname\sharename`.
+ *
+ * @see https://msdn.microsoft.com/en-us/library/gg465305.aspx
+ * @return A boolean indication if the path is a UNC path, on none-windows
+ * always false.
+ */
+function isUNC(path: string): boolean {
+	if (process.platform !== 'win32') {
+		// UNC is a windows concept
+		return false;
+	}
+
+	if (!path || path.length < 5) {
+		// at least \\a\b
+		return false;
+	}
+
+	let code = path.charCodeAt(0);
+	if (code !== CharCode.Backslash) {
+		return false;
+	}
+	code = path.charCodeAt(1);
+	if (code !== CharCode.Backslash) {
+		return false;
+	}
+	let pos = 2;
+	let start = pos;
+	for (; pos < path.length; pos++) {
+		code = path.charCodeAt(pos);
+		if (code === CharCode.Backslash) {
+			break;
+		}
+	}
+	if (start === pos) {
+		return false;
+	}
+	code = path.charCodeAt(pos + 1);
+	if (isNaN(code) || code === CharCode.Backslash) {
+		return false;
+	}
+	return true;
+}
+
+function getFilePath(documentOrUri: string | TextDocument): string {
+	if (!documentOrUri) {
+		return undefined;
+	}
+	let uri = Is.string(documentOrUri) ? Uri.parse(documentOrUri) : Uri.parse(documentOrUri.uri);
+	if (uri.scheme !== 'file') {
+		return undefined;
+	}
+	return uri.fsPath;
+}
+
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
 const nodeExit = process.exit;
@@ -559,7 +621,7 @@ function getMessage(err: any, document: TextDocument): string {
 			result = result.substr(5);
 		}
 	} else {
-		result = `An unknown error occured while validating file: ${Files.uriToFilePath(document.uri)}`;
+		result = `An unknown error occured while validating document: ${document.uri}`;
 	}
 	return result;
 }
@@ -568,7 +630,7 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 	let newOptions: CLIOptions = Object.assign(Object.create(null), options);
 	let content = document.getText();
 	let uri = document.uri;
-	let file = Files.uriToFilePath(uri);
+	let file = getFilePath(document);
 	let cwd = process.cwd();
 	try {
 		if (file) {
@@ -582,7 +644,7 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 						break;
 					}
 				}
-			} else if (!workspaceRoot) {
+			} else if (!workspaceRoot && !isUNC(file)) {
 				let directory = path.dirname(file);
 				if (directory) {
 					if (path.isAbsolute(directory)) {
@@ -692,7 +754,7 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 
 	function handleMissingModule(plugin: string, module: string, error: ESLintError): Status {
 		if (!missingModuleReported[plugin]) {
-			let fsPath = Files.uriToFilePath(document.uri);
+			let fsPath = getFilePath(document);
 			missingModuleReported[plugin] = library;
 			if (error.messageTemplate === 'plugin-missing') {
 				connection.console.error([
@@ -811,15 +873,18 @@ connection.onDidChangeWatchedFiles((params) => {
 	noConfigReported = Object.create(null);
 	missingModuleReported = Object.create(null);
 	params.changes.forEach((change) => {
-		let fspath = Files.uriToFilePath(change.uri);
-		let dirname = path.dirname(fspath);
+		let fsPath = getFilePath(change.uri);
+		if (!fsPath || isUNC(fsPath)) {
+			return;
+		}
+		let dirname = path.dirname(fsPath);
 		if (dirname) {
-			let library = configErrorReported[fspath];
+			let library = configErrorReported[fsPath];
 			if (library) {
 				let cli = new library.CLIEngine(options);
 				try {
 					cli.executeOnText("", path.join(dirname, "___test___.js"));
-					delete configErrorReported[fspath];
+					delete configErrorReported[fsPath];
 				} catch (error) {
 				}
 			}
