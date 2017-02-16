@@ -214,7 +214,7 @@ export function realActivate(context: ExtensionContext) {
 				statusBarItem.color = 'yellow';
 				break;
 			case Status.error:
-				statusBarItem.color = 'darkred';
+				statusBarItem.color = '#aaa';
 				break;
 		}
 		eslintStatus = status;
@@ -365,6 +365,7 @@ export function realActivate(context: ExtensionContext) {
 					context.globalState.update(key, state);
 				}
 			}
+			updateStatus(3);
 			return {};
 		});
 	});
