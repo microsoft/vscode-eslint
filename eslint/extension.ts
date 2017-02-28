@@ -247,7 +247,10 @@ export function realActivate(context: ExtensionContext) {
 
 	let defaultErrorHandler: ErrorHandler;
 	let serverCalledProcessExit: boolean = false;
-	let staticDocuments: DocumentSelector = [{ scheme: 'file', pattern: '**/package.json'}, { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'}];
+	let staticDocuments: DocumentSelector = [
+		{ scheme: 'file', pattern: '**/package.json'},
+		{ scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'}
+	];
 	let languages = ['javascript', 'javascriptreact']
 	let clientOptions: LanguageClientOptions = {
 		documentSelector: staticDocuments,

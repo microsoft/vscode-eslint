@@ -13,7 +13,8 @@ import {
 	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
 	TextDocumentRegistrationOptions, TextDocumentChangeRegistrationOptions,
 	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
-	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier
+	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier,
+	DocumentSelector
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -327,15 +328,23 @@ let workspaceRoot: string = undefined;
 let path2Library: Map<ESLintModule> = Object.create(null);
 let document2Library: Map<Thenable<ESLintModule>> = Object.create(null);
 
+function isGitIndex(document: TextDocument): boolean {
+	if (!document.uri) {
+		return false;
+	}
+	let uri = Uri.parse(document.uri);
+	return uri.scheme === 'git';
+}
+
 function ignoreTextDocument(document: TextDocument): boolean {
-	return !supportedLanguages[document.languageId] || !document2Library[document.uri];
+	return !supportedLanguages[document.languageId] || !document2Library[document.uri] || isGitIndex(document);
 }
 
 // The documents manager listen for text document create, change
 // and close on the connection
 documents.listen(connection);
 documents.onDidOpen((event) => {
-	if (!supportedLanguages[event.document.languageId]) {
+	if (!supportedLanguages[event.document.languageId] || isGitIndex(event.document)) {
 		return;
 	}
 
@@ -572,9 +581,14 @@ connection.onDidChangeConfiguration((params) => {
 	// Add new languages
 	Object.keys(toAdd).forEach(languageId => {
 		let registration = BulkRegistration.create();
-		let documentOptions: TextDocumentRegistrationOptions = { documentSelector: [languageId] };
+		let documentSelector: DocumentSelector = [
+			{
+				language: languageId
+			}
+		];
+		let documentOptions: TextDocumentRegistrationOptions = { documentSelector: documentSelector };
 		registration.add(DidOpenTextDocumentNotification.type, documentOptions);
-		let didChangeOptions: TextDocumentChangeRegistrationOptions = { documentSelector: [languageId], syncKind: TextDocumentSyncKind.Full };
+		let didChangeOptions: TextDocumentChangeRegistrationOptions = { documentSelector: documentSelector, syncKind: TextDocumentSyncKind.Full };
 		registration.add(DidChangeTextDocumentNotification.type, didChangeOptions);
 		if (settings.eslint.autoFixOnSave && supportedAutoFixLanguages.has(languageId)) {
 			registration.add(WillSaveTextDocumentWaitUntilRequest.type, documentOptions);

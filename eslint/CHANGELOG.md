@@ -1,3 +1,9 @@
+### 1.2.7
+
+#### Fixes:
+
+- [Don't lint git diff.](https://github.com/Microsoft/vscode-eslint/issues/200)
+
 ### 1.2.6
 
 #### Fixes:
