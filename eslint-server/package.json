@@ -15,10 +15,10 @@
 	},
 	"dependencies": {
 		"vscode-uri": "^1.0.0",
-		"vscode-languageserver": "^3.0.4"
+		"vscode-languageserver": "3.2.0"
 	},
 	"devDependencies": {
-		"typescript": "^2.1.5",
+		"typescript": "^2.2.1",
 		"@types/node": "^6.0.45"
 	},
 	"scripts": {

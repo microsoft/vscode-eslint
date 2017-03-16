@@ -1,3 +1,9 @@
+### 1.2.8
+
+### Fixes:
+
+- [Linting is still enabled when viewing git diff.](https://github.com/Microsoft/vscode-eslint/issues/216)
+
 ### 1.2.7
 
 #### Fixes:

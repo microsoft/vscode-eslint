@@ -14,7 +14,7 @@ import {
 	TextDocumentRegistrationOptions, TextDocumentChangeRegistrationOptions,
 	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
 	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier,
-	DocumentSelector
+	DocumentFilter
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -328,23 +328,15 @@ let workspaceRoot: string = undefined;
 let path2Library: Map<ESLintModule> = Object.create(null);
 let document2Library: Map<Thenable<ESLintModule>> = Object.create(null);
 
-function isGitIndex(document: TextDocument): boolean {
-	if (!document.uri) {
-		return false;
-	}
-	let uri = Uri.parse(document.uri);
-	return uri.scheme === 'git';
-}
-
 function ignoreTextDocument(document: TextDocument): boolean {
-	return !supportedLanguages[document.languageId] || !document2Library[document.uri] || isGitIndex(document);
+	return !supportedLanguages[document.languageId] || !document2Library[document.uri];
 }
 
 // The documents manager listen for text document create, change
 // and close on the connection
 documents.listen(connection);
 documents.onDidOpen((event) => {
-	if (!supportedLanguages[event.document.languageId] || isGitIndex(event.document)) {
+	if (!supportedLanguages[event.document.languageId]) {
 		return;
 	}
 
@@ -516,14 +508,28 @@ connection.onDidChangeConfiguration((params) => {
 		}
 	}
 
+	function createDocumentSelector(language: string): DocumentFilter[] {
+		return [
+			{
+				scheme: 'file',
+				language: language
+			},
+			{
+				scheme: 'untitled',
+				language: language
+			}
+		];
+	}
+
 	if (settings.eslint.autoFixOnSave && !willSaveRegistered) {
 		Object.keys(supportedLanguages).forEach(languageId => {
 			if (!toSupportAutoFix.has(languageId)) {
 				return;
 			}
 			let resolve = supportedLanguages[languageId];
+			let documentSelector = createDocumentSelector(languageId);
 			resolve.then(unregistration => {
-				let documentOptions: TextDocumentRegistrationOptions = { documentSelector: [languageId] };
+				let documentOptions: TextDocumentRegistrationOptions = { documentSelector: documentSelector };
 				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
 			});
 		});
@@ -581,11 +587,7 @@ connection.onDidChangeConfiguration((params) => {
 	// Add new languages
 	Object.keys(toAdd).forEach(languageId => {
 		let registration = BulkRegistration.create();
-		let documentSelector: DocumentSelector = [
-			{
-				language: languageId
-			}
-		];
+		let documentSelector = createDocumentSelector(languageId);
 		let documentOptions: TextDocumentRegistrationOptions = { documentSelector: documentSelector };
 		registration.add(DidOpenTextDocumentNotification.type, documentOptions);
 		let didChangeOptions: TextDocumentChangeRegistrationOptions = { documentSelector: documentSelector, syncKind: TextDocumentSyncKind.Full };
@@ -613,8 +615,9 @@ connection.onDidChangeConfiguration((params) => {
 	});
 	Object.keys(toAddAutoFix).forEach(languageId => {
 		let resolve = supportedLanguages[languageId];
+		let documentSelector = createDocumentSelector(languageId);
 		resolve.then(unregistration => {
-			let documentOptions: TextDocumentRegistrationOptions = { documentSelector: [languageId] };
+			let documentOptions: TextDocumentRegistrationOptions = { documentSelector: documentSelector };
 			connection.client.register(unregistration, CodeActionRequest.type, documentOptions);
 			if (willSaveRegistered) {
 				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
