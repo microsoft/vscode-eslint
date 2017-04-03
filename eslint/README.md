@@ -53,3 +53,28 @@ This extension contributes the following commands to the Command palette.
 - `Fix all auto-fixable problems`: applies ESLint auto-fix resolutions to all fixable problems.
 - `Disable ESLint for this Workspace`: disables ESLint extension for this workspace.
 - `Enable ESLint for this Workspace`: enable ESLint extension for this workspace.
+
+## Using the extension with VS Code's task running
+
+The extension lints an individual file only. If you want to lint your entire workspace or project and want to see the warnings in the Problems panel, then you can define a VS Code task which extracts VS Code problems from the ESLint output. To do so use the following `tasks.json` and tweak the args (`*.js`) to your setup:
+
+```json
+{
+	"version": "0.1.0",
+	"windows": {
+		"command": ".\\node_modules\\.bin\\eslint"
+	},
+	"linux": {
+		"command": "./node_modules/.bin/eslint"
+	},
+	"osx": {
+		"command": "./node_modules/.bin/eslint"
+	},
+	"isShellCommand": true,
+	"args": ["*.js"],
+	"showOutput": "silent",
+	"problemMatcher": "$eslint-stylish"
+}
+```
+
+Please note that the above example assumes that ESLint is installed locally in your workspace.
