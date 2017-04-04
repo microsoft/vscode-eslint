@@ -10,11 +10,11 @@ import {
 	Diagnostic, DiagnosticSeverity, Range, Files,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
 	Command, BulkRegistration, BulkUnregistration,
-	ErrorMessageTracker, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
+	IPCMessageReader, IPCMessageWriter, WorkspaceChange,
 	TextDocumentRegistrationOptions, TextDocumentChangeRegistrationOptions,
 	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
 	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier,
-	DocumentFilter
+	DocumentFilter, ValidationQueue
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -332,6 +332,10 @@ function ignoreTextDocument(document: TextDocument): boolean {
 	return !supportedLanguages[document.languageId] || !document2Library[document.uri];
 }
 
+let validationQueue: ValidationQueue = new ValidationQueue((document) => {
+	return validateSingle(document);
+});
+
 // The documents manager listen for text document create, change
 // and close on the connection
 documents.listen(connection);
@@ -373,7 +377,7 @@ documents.onDidOpen((event) => {
 		});
 	}
 	if (settings.eslint.run === 'onSave') {
-		validateSingle(event.document);
+		validationQueue.add(event.document);
 	}
 });
 
@@ -382,7 +386,7 @@ documents.onDidChangeContent((event) => {
 	if (settings.eslint.run !== 'onType' || ignoreTextDocument(event.document)) {
 		return;
 	}
-	validateSingle(event.document);
+	validationQueue.add(event.document);
 });
 
 function getFixes(textDocument: TextDocument): TextEdit[] {
@@ -411,6 +415,7 @@ documents.onWillSaveWaitUntil((event) => {
 	// If we validate on save and want to apply fixes on will save
 	// we need to validate the file.
 	if (settings.eslint.run === 'onSave') {
+		// Do not queue this since we want to get the fixes as fast as possible.
 		return validateSingle(document, false).then(() => getFixes(document));
 	} else {
 		return getFixes(document);
@@ -424,13 +429,14 @@ documents.onDidSave((event) => {
 	if (settings.eslint.run !== 'onSave' || ignoreTextDocument(event.document)) {
 		return;
 	}
-	validateSingle(event.document);
+	validationQueue.add(event.document);
 });
 
 documents.onDidClose((event) => {
 	if (ignoreTextDocument(event.document)) {
 		return;
 	}
+	validationQueue.remove(event.document);
 	delete document2Library[event.document.uri];
 	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
@@ -629,6 +635,39 @@ connection.onDidChangeConfiguration((params) => {
 	validateMany(documents.all());
 });
 
+const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
+	tryHandleNoConfig,
+	tryHandleConfigError,
+	tryHandleMissingModule,
+	showErrorMessage
+];
+
+function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
+	return document2Library[document.uri].then((library) => {
+		if (!library) {
+			return;
+		}
+		try {
+			validate(document, library, publishDiagnostics);
+			connection.sendNotification(StatusNotification.type, { state: Status.ok });
+		} catch (err) {
+			let status = undefined;
+			for (let handler of singleErrorHandlers) {
+				status = handler(err, document, library);
+				if (status) {
+					break;
+				}
+			}
+			status = status || Status.error;
+			connection.sendNotification(StatusNotification.type, { state: status });
+		}
+	});
+}
+
+function validateMany(documents: TextDocument[]): void {
+	documents.forEach(document => validationQueue.add(document));
+}
+
 function getMessage(err: any, document: TextDocument): string {
 	let result: string = null;
 	if (typeof err.message === 'string' || err.message instanceof String) {
@@ -806,82 +845,6 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 function showErrorMessage(error: any, document: TextDocument): Status {
 	connection.window.showErrorMessage(getMessage(error, document));
 	return Status.error;
-}
-
-const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
-	tryHandleNoConfig,
-	tryHandleConfigError,
-	tryHandleMissingModule,
-	showErrorMessage
-];
-
-function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
-	return document2Library[document.uri].then((library) => {
-		if (!library) {
-			return;
-		}
-		try {
-			validate(document, library, publishDiagnostics);
-			connection.sendNotification(StatusNotification.type, { state: Status.ok });
-		} catch (err) {
-			let status = undefined;
-			for (let handler of singleErrorHandlers) {
-				status = handler(err, document, library);
-				if (status) {
-					break;
-				}
-			}
-			status = status || Status.error;
-			connection.sendNotification(StatusNotification.type, { state: status });
-		}
-	});
-}
-
-const manyErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
-	tryHandleNoConfig,
-	tryHandleConfigError,
-	tryHandleMissingModule
-];
-
-function validateMany(documents: TextDocument[]): void {
-	let tracker = new ErrorMessageTracker();
-	let status: Status = undefined;
-	let promises: Thenable<void>[] = [];
-	documents.forEach(document => {
-		if (ignoreTextDocument(document)) {
-			return;
-		}
-		promises.push(document2Library[document.uri].then((library) => {
-			if (!library) {
-				return;
-			}
-			try {
-				validate(document, library);
-			} catch (err) {
-				let handled = false;
-				for (let handler of manyErrorHandlers) {
-					status = handler(err, document, library);
-					if (status) {
-						handled = true;
-						break;
-					}
-				}
-				if (!handled) {
-					status = Status.error;
-					tracker.add(getMessage(err, document));
-				}
-			}
-		}));
-	});
-	Promise.all(promises).then(() => {
-		tracker.sendErrors(connection);
-		status = status || Status.ok;
-		connection.sendNotification(StatusNotification.type, { state: status });
-	}, () => {
-		tracker.sendErrors(connection);
-		connection.console.warn('Validating all open documents failed.');
-		connection.sendNotification(StatusNotification.type, { state: Status.error });
-	})
 }
 
 connection.onDidChangeWatchedFiles((params) => {
