@@ -6,7 +6,10 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { workspace, window, commands, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextEditor, TextDocument } from 'vscode';
+import {
+	workspace, window, commands, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextEditor, TextDocument,
+	CodeActionContext, Diagnostic, ProviderResult, Command
+} from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, NotificationType, ErrorHandler,
@@ -286,6 +289,25 @@ export function realActivate(context: ExtensionContext) {
 					return CloseAction.DoNotRestart;
 				}
 				return defaultErrorHandler.closed();
+			}
+		},
+		middleware: {
+			codeActions: (document, range, context, token, next): ProviderResult<Command[]> => {
+				if (!context.diagnostics || context.diagnostics.length === 0) {
+					return [];
+				}
+				let eslintDiagnostics: Diagnostic[] = [];
+				for (let diagnostic of context.diagnostics) {
+					if (diagnostic.source === 'eslint') {
+						eslintDiagnostics.push(diagnostic);
+					}
+				}
+				if (eslintDiagnostics.length === 0) {
+					return [];
+				}
+				let newContext: CodeActionContext = Object.assign({}, context);
+				newContext.diagnostics = eslintDiagnostics;
+				return next(document, range, newContext, token);
 			}
 		}
 	};
