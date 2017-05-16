@@ -1,3 +1,13 @@
+### 1.2.10
+
+Performance work around code actions and validation. Fixed:
+
+- [Slowdown on code assist with eslint enabled](https://github.com/Microsoft/vscode-eslint/issues/215)
+
+### 1.2.9
+
+This version was an internal test release which wasn't available in the market place
+
 ### 1.2.8
 
 ### Fixes:

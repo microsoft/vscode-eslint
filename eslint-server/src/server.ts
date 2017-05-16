@@ -6,15 +6,16 @@
 
 import {
 	createConnection, IConnection,
-	ResponseError, RequestType, NotificationType, InitializeResult, InitializeError,
-	Diagnostic, DiagnosticSeverity, Range, Files,
+	ResponseError, RequestType, NotificationType, InitializeResult, InitializeError, ErrorCodes,
+	RequestHandler, NotificationHandler,
+	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
 	Command, BulkRegistration, BulkUnregistration,
 	IPCMessageReader, IPCMessageWriter, WorkspaceChange,
 	TextDocumentRegistrationOptions, TextDocumentChangeRegistrationOptions,
 	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
 	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier,
-	DocumentFilter, ValidationQueue
+	DocumentFilter, ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -332,8 +333,154 @@ function ignoreTextDocument(document: TextDocument): boolean {
 	return !supportedLanguages[document.languageId] || !document2Library[document.uri];
 }
 
-let validationQueue: ValidationQueue = new ValidationQueue((document) => {
-	return validateSingle(document);
+interface Request<P, R> {
+	method: string;
+	params: P;
+	documentVersion: number | undefined;
+	resolve: (value: R | Thenable<R>) => void | undefined;
+	reject: (error: any) => void | undefined;
+	token: CancellationToken | undefined;
+}
+
+namespace Request {
+	export function is(value: any): value is Request<any, any> {
+		let candidate: Request<any, any> = value;
+		return candidate && !!candidate.token && !!candidate.resolve && !!candidate.reject;
+	}
+}
+
+interface Notifcation<P> {
+	method: string;
+	params: P;
+	documentVersion: number;
+}
+
+type Message<P, R> = Notifcation<P> | Request<P, R>;
+
+interface VersionProvider<P> {
+	(params: P): number;
+}
+
+namespace Thenable {
+	export function is<T>(value: any): value is Thenable<T> {
+		let candidate: Thenable<T> = value;
+		return candidate && typeof candidate.then === 'function';
+	}
+}
+
+class BufferedMessageQueue {
+
+	private queue: Message<any, any>[];
+	private requestHandlers: Map<{handler: RequestHandler<any, any, any>, versionProvider?: VersionProvider<any>}>;
+	private notificationHandlers: Map<{handler: NotificationHandler<any>, versionProvider?: VersionProvider<any>}>;
+	private timer: NodeJS.Timer | undefined;
+
+	constructor(private connection: IConnection) {
+		this.queue = [];
+		this.requestHandlers = Object.create(null);
+		this.notificationHandlers = Object.create(null);
+	}
+
+	public registerRequest<P, R, E, RO>(type: RequestType<P, R, E, RO>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
+		this.connection.onRequest(type, (params, token) => {
+			return new Promise<R>((resolve, reject) => {
+				this.queue.push({
+					method: type.method,
+					params: params,
+					documentVersion: versionProvider ? versionProvider(params) : undefined,
+					resolve: resolve,
+					reject: reject,
+					token: token
+				});
+				this.trigger();
+			});
+		});
+		this.requestHandlers[type.method] = { handler, versionProvider };
+	}
+
+	public registerNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
+		connection.onNotification(type, (params) => {
+			this.queue.push({
+				method: type.method,
+				params: params,
+				documentVersion: versionProvider ? versionProvider(params) : undefined,
+			});
+			this.trigger();
+		});
+		this.notificationHandlers[type.method] = { handler, versionProvider };
+	}
+
+	public addNotificationMessage<P, RO>(type: NotificationType<P, RO>, params: P, version: number) {
+		this.queue.push({
+			method: type.method,
+			params,
+			documentVersion: version
+		});
+		this.trigger();
+	}
+
+	public onNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
+		this.notificationHandlers[type.method] = { handler, versionProvider };
+	}
+
+	private trigger(): void {
+		if (this.timer || this.queue.length === 0) {
+			return;
+		}
+		this.timer = setImmediate(() => {
+			this.timer = undefined;
+			this.processQueue();
+		});
+	}
+
+	private processQueue(): void {
+		let message = this.queue.shift();
+		if (!message) {
+			return;
+		}
+		if (Request.is(message)) {
+			let requestMessage = message;
+			if (requestMessage.token.isCancellationRequested) {
+				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				return;
+			}
+			let elem = this.requestHandlers[requestMessage.method];
+			if (elem.versionProvider && requestMessage.documentVersion !== void 0 && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
+				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				return;
+			}
+			let result = elem.handler(requestMessage.params, requestMessage.token);
+			if (Thenable.is(result)) {
+				result.then((value) => {
+					requestMessage.resolve(value);
+				}, (error) => {
+					requestMessage.reject(error);
+				});
+			} else {
+				requestMessage.resolve(result);
+			}
+		} else {
+			let notificationMessage = message;
+			let elem = this.notificationHandlers[notificationMessage.method];
+			if (elem.versionProvider && notificationMessage.documentVersion !== void 0 && notificationMessage.documentVersion !== elem.versionProvider(notificationMessage.params)) {
+				return;
+			}
+			elem.handler(notificationMessage.params);
+		}
+		this.trigger();
+	}
+}
+
+let messageQueue: BufferedMessageQueue = new BufferedMessageQueue(connection);
+
+namespace ValidateNotification {
+	export const type: NotificationType<TextDocument, void> = new NotificationType<TextDocument, void>('eslint/validate');
+}
+
+messageQueue.onNotification(ValidateNotification.type, (document) => {
+	validateSingle(document, true);
+}, (document): number => {
+	return document.version
 });
 
 // The documents manager listen for text document create, change
@@ -377,7 +524,7 @@ documents.onDidOpen((event) => {
 		});
 	}
 	if (settings.eslint.run === 'onSave') {
-		validationQueue.add(event.document);
+		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
 	}
 });
 
@@ -386,7 +533,7 @@ documents.onDidChangeContent((event) => {
 	if (settings.eslint.run !== 'onType' || ignoreTextDocument(event.document)) {
 		return;
 	}
-	validationQueue.add(event.document);
+	messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
 });
 
 function getFixes(textDocument: TextDocument): TextEdit[] {
@@ -429,14 +576,13 @@ documents.onDidSave((event) => {
 	if (settings.eslint.run !== 'onSave' || ignoreTextDocument(event.document)) {
 		return;
 	}
-	validationQueue.add(event.document);
+	messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
 });
 
 documents.onDidClose((event) => {
 	if (ignoreTextDocument(event.document)) {
 		return;
 	}
-	validationQueue.remove(event.document);
 	delete document2Library[event.document.uri];
 	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
@@ -463,7 +609,8 @@ connection.onInitialize((params): Thenable<InitializeResult | ResponseError<Init
 	};
 });
 
-connection.onDidChangeConfiguration((params) => {
+
+messageQueue.registerNotification(DidChangeConfigurationNotification.type, (params) => {
 	settings = params.settings || {};
 	settings.eslint = settings.eslint || {};
 	options = settings.eslint.options || {};
@@ -575,19 +722,25 @@ connection.onDidChangeConfiguration((params) => {
 	});
 	supportedAutoFixLanguages = toSupportAutoFix;
 
+	let removeDone: Thenable<void>[] = [];
+	let removedDocuments: Map<boolean> = Object.create(null);
 	// Remove old language
 	Object.keys(toRemove).forEach(languageId => {
 		let resolve = supportedLanguages[languageId];
 		delete supportedLanguages[languageId];
-		resolve.then((disposable) => {
+		removeDone.push(resolve.then((disposable) => {
 			documents.all().forEach((textDocument) => {
 				if (languageId === textDocument.languageId) {
+					// When we receive the close event we already ignore the document
+					// since it is not in the list of supported languages. So do the
+					// cleanup here.
 					delete document2Library[textDocument.uri];
+					removedDocuments[textDocument.uri] = true;
 					connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: [] });
 				}
 			});
 			disposable.dispose();
-		});
+		}));
 	});
 
 	// Add new languages
@@ -631,8 +784,12 @@ connection.onDidChangeConfiguration((params) => {
 		})
 	});
 
-	// Settings have changed. Revalidate all documents.
-	validateMany(documents.all());
+	Promise.all(removeDone).then(() => {
+		// Settings have changed. Revalidate all documents.
+		validateMany(documents.all().filter((document) => !removedDocuments[document.uri]));
+	}, (_error) => {
+		// Revalidation failed.
+	});
 });
 
 const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
@@ -665,7 +822,9 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 }
 
 function validateMany(documents: TextDocument[]): void {
-	documents.forEach(document => validationQueue.add(document));
+	documents.forEach(document => {
+		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	});
 }
 
 function getMessage(err: any, document: TextDocument): string {
@@ -847,7 +1006,7 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 	return Status.error;
 }
 
-connection.onDidChangeWatchedFiles((params) => {
+messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	noConfigReported = Object.create(null);
@@ -941,7 +1100,7 @@ class Fixes {
 }
 
 let commands: Map<WorkspaceChange> = Object.create(null);
-connection.onCodeAction((params) => {
+messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	commands = Object.create(null);
 	let result: Command[] = [];
 	let uri = params.textDocument.uri;
@@ -1012,6 +1171,9 @@ connection.onCodeAction((params) => {
 		}
 	}
 	return result;
+}, (params): number => {
+	let document = documents.get(params.textDocument.uri);
+	return document ? document.version : undefined;
 });
 
 function computeAllFixes(identifier: VersionedTextDocumentIdentifier): TextEdit[] {
@@ -1034,7 +1196,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier): TextEdit[
 	return undefined;
 };
 
-connection.onExecuteCommand((params) => {
+messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 	let workspaceChange: WorkspaceChange;
 	if (params.command === CommandIds.applyAutoFix) {
 		let identifier: VersionedTextDocumentIdentifier = params.arguments[0];
@@ -1059,5 +1221,12 @@ connection.onExecuteCommand((params) => {
 	}, () => {
 		connection.console.error(`Failed to apply command: ${params.command}`);
 	});
-})
+}, (params): number => {
+	if (params.command === CommandIds.applyAutoFix) {
+		let identifier: VersionedTextDocumentIdentifier = params.arguments[0];
+		return identifier.version;
+	} else {
+		return undefined;
+	}
+});
 connection.listen();

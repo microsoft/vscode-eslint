@@ -292,7 +292,7 @@ export function realActivate(context: ExtensionContext) {
 			}
 		},
 		middleware: {
-			codeActions: (document, range, context, token, next): ProviderResult<Command[]> => {
+			provideCodeActions: (document, range, context, token, next): ProviderResult<Command[]> => {
 				if (!context.diagnostics || context.diagnostics.length === 0) {
 					return [];
 				}
