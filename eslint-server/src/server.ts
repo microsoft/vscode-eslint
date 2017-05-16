@@ -498,7 +498,7 @@ documents.onDidOpen((event) => {
 			let file = uri.fsPath;
 			let directory = path.dirname(file);
 			if (nodePath) {
-				 promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string>(undefined, () => {
+				 promise = Files.resolve('eslint', nodePath, directory, trace).then<string>(undefined, () => {
 					 return Files.resolve('eslint', globalNodePath, directory, trace);
 				 });
 			} else {
