@@ -1,3 +1,9 @@
+### 1.2.11
+
+Fixes:
+
+- [(Insiders/1.2.10) "Cannot read property 'then' of undefined](https://github.com/Microsoft/vscode-eslint/issues/240)
+
 ### 1.2.10
 
 Performance work around code actions and validation. Fixed:

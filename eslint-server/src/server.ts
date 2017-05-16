@@ -584,6 +584,7 @@ documents.onDidClose((event) => {
 		return;
 	}
 	delete document2Library[event.document.uri];
+	delete codeActions[event.document.uri];
 	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
@@ -800,6 +801,11 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 ];
 
 function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
+	// We validate document in a queue but open / close documents directly. So we need to deal with the
+	// fact that a document might be gone from the server.
+	if (!documents.get(document.uri) || !document2Library[document.uri]) {
+		return Promise.resolve(undefined);
+	}
 	return document2Library[document.uri].then((library) => {
 		if (!library) {
 			return;
@@ -1179,7 +1185,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 function computeAllFixes(identifier: VersionedTextDocumentIdentifier): TextEdit[] {
 	let uri = identifier.uri;
 	let textDocument = documents.get(uri);
-	if (identifier.version !== textDocument.version) {
+	if (!textDocument || identifier.version !== textDocument.version) {
 		return undefined;
 	}
 	let edits = codeActions[uri];
