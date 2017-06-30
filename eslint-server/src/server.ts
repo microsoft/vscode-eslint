@@ -981,7 +981,7 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 				connection.console.error([
 					'',
 					`${error.message.toString()}`,
-					`Happend while validating ${fsPath ? fsPath : document.uri}`,
+					`Happened while validating ${fsPath ? fsPath : document.uri}`,
 					`This can happen for a couple of reasons:`,
 					`1. The plugin name is spelled incorrectly in an ESLint configuration file (e.g. .eslintrc).`,
 					`2. If ESLint is installed globally, then make sure ${module} is installed globally as well.`,
