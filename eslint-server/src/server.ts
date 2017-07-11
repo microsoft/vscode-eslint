@@ -6,7 +6,7 @@
 
 import {
 	createConnection, IConnection,
-	ResponseError, RequestType, NotificationType, InitializeResult, InitializeError, ErrorCodes,
+	ResponseError, RequestType, NotificationType, ErrorCodes,
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
@@ -498,7 +498,7 @@ documents.onDidOpen((event) => {
 			let file = uri.fsPath;
 			let directory = path.dirname(file);
 			if (nodePath) {
-				 promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string>(undefined, () => {
+				 promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
 					 return Files.resolve('eslint', globalNodePath, directory, trace);
 				 });
 			} else {
@@ -592,7 +592,7 @@ function trace(message: string, verbose?: string): void {
 	connection.tracer.log(message, verbose);
 }
 
-connection.onInitialize((params): Thenable<InitializeResult | ResponseError<InitializeError>>  | InitializeResult | ResponseError<InitializeError> => {
+connection.onInitialize((params) => {
 	let initOptions: {
 		legacyModuleResolve: boolean;
 		nodePath: string;
