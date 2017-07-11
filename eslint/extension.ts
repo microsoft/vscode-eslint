@@ -14,7 +14,8 @@ import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, State as ClientState,
-	RevealOutputChannelOn, DocumentSelector, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams
+	RevealOutputChannelOn, DocumentSelector, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
+	ServerOptions
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -243,9 +244,9 @@ export function realActivate(context: ExtensionContext) {
 	// serverModule
 	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
 	let debugOptions = { execArgv: ["--nolazy", "--debug=6010"] };
-	let serverOptions = {
+	let serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc },
-		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions}
+		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
 	};
 
 	let defaultErrorHandler: ErrorHandler;
