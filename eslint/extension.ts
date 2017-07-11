@@ -2,6 +2,8 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
+/// <reference path="./vscode.proposed.d.ts"/>
+
 'use strict';
 
 import * as path from 'path';
@@ -270,10 +272,12 @@ export function realActivate(context: ExtensionContext) {
 		},
 		initializationOptions: () => {
 			let configuration = workspace.getConfiguration('eslint');
+			let folders = workspace.workspaceFolders;
 			return {
 				legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
 				nodePath: configuration ? configuration.get('nodePath', undefined) : undefined,
-				languageIds: configuration ? configuration.get('valiadate', languages) : languages
+				languageIds: configuration ? configuration.get('valiadate', languages) : languages,
+				workspaceFolders: folders ? folders.map(folder => folder.toString()) : []
 			};
 		},
 		initializationFailedHandler: (error) => {
@@ -342,14 +346,23 @@ export function realActivate(context: ExtensionContext) {
 
 		client.onRequest(NoConfigRequest.type, (params) => {
 			let document = Uri.parse(params.document.uri);
-			let location = document.fsPath;
-			if (workspace.rootPath && document.fsPath.indexOf(workspace.rootPath) === 0) {
-				location = document.fsPath.substr(workspace.rootPath.length + 1);
+			let fileLocation = document.fsPath;
+			let folderLocation: string;
+			let workspaceFolders = workspace.workspaceFolders;
+			if (workspaceFolders) {
+				for (let workspaceFolder of workspaceFolders) {
+					if (document.fsPath.indexOf(workspaceFolder.fsPath) === 0) {
+						folderLocation = workspaceFolder.fsPath;
+						fileLocation = document.fsPath.substr(folderLocation.length + 1);
+						break;
+					}
+				}
+
 			}
 			client.warn([
 				'',
-				`No ESLint configuration (e.g .eslintrc) found for file: ${location}`,
-				`File will not be validated. Consider running the 'Create .eslintrc.json file' command.`,
+				`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
+				`File will not be validated. Consider running 'eslint --init' in the directory ${folderLocation}`,
 				`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
 			].join('\n'));
 			eslintStatus = Status.warn;

@@ -325,6 +325,7 @@ let supportedAutoFixLanguages: Set<string> = new Set<string>();
 let globalNodePath: string = undefined;
 let nodePath: string = undefined;
 let workspaceRoot: string = undefined;
+let workspaceFolders: string[] = undefined;
 
 let path2Library: Map<ESLintModule> = Object.create(null);
 let document2Library: Map<Thenable<ESLintModule>> = Object.create(null);
@@ -596,9 +597,11 @@ connection.onInitialize((params) => {
 	let initOptions: {
 		legacyModuleResolve: boolean;
 		nodePath: string;
+		workspaceFolders: string[]
 	} = params.initializationOptions;
 	workspaceRoot = params.rootPath;
 	nodePath = initOptions.nodePath;
+	workspaceFolders = initOptions.workspaceFolders;
 	globalNodePath = Files.resolveGlobalNodePath();
 	return {
 		capabilities: {
@@ -617,6 +620,12 @@ messageQueue.registerNotification(DidChangeConfigurationNotification.type, (para
 	options = settings.eslint.options || {};
 	if (Array.isArray(settings.eslint.workingDirectories)) {
 		workingDirectories = [];
+		for (let workspaceFolder of workspaceFolders) {
+			workingDirectories.push({
+				directory: Uri.parse(workspaceFolder).fsPath,
+				changeProcessCWD: true
+			});
+		}
 		for (let entry of settings.eslint.workingDirectories) {
 			let directory: string;
 			let changeProcessCWD = false;
@@ -641,6 +650,8 @@ messageQueue.registerNotification(DidChangeConfigurationNotification.type, (para
 		}
 		if (workingDirectories.length === 0) {
 			workingDirectories = undefined;
+		} else {
+			workingDirectories = workingDirectories.sort((a, b) => b.directory.length - a.directory.length);
 		}
 	}
 

@@ -14,6 +14,7 @@
   },
   "publisher": "dbaeumer",
   "icon": "eslint_icon.svg",
+  "enableProposedApi": true,
   "categories": [
     "Linters"
   ],
