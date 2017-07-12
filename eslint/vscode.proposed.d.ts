@@ -146,12 +146,12 @@ declare module 'vscode' {
 		/**
 		 * The name of the terminal.
 		 */
-		readonly name: string;
+		name: string;
 
 		/**
 		 * The process ID of the shell process.
 		 */
-		readonly processId: Thenable<number>;
+		processId: Thenable<number>;
 
 		/**
 		 * Send text to the terminal. The text is written to the stdin of the underlying pty process
