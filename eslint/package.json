@@ -73,6 +73,11 @@
           "default": false,
           "description": "Turns auto fix on save on or off."
         },
+        "eslint.hideAutoFixedIssues": {
+          "type": "boolean",
+          "default": false,
+          "description": "If this option is `true` and an issue has an auto-fix available, it will display as a hint instead of an error."
+        },
         "eslint.workingDirectories": {
           "type": "array",
           "items": {
