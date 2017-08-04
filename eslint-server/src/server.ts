@@ -126,6 +126,7 @@ interface Settings {
 	eslint: {
 		enable?: boolean;
 		autoFixOnSave?: boolean;
+		hideAutoFixedIssues?: boolean;
 		options?: any;
 		run?: RunValues;
 		validate?: (string | ValidateItem)[];
@@ -191,7 +192,7 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	let endChar = problem.endColumn != null ? Math.max(0, problem.endColumn - 1) : startChar;
 	return {
 		message: message,
-		severity: convertSeverity(problem.severity),
+		severity: convertSeverity(problem),
 		source: 'eslint',
 		range: {
 			start: { line: startLine, character: startChar },
@@ -227,8 +228,11 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	edits[computeKey(diagnostic)] = { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix};
 }
 
-function convertSeverity(severity: number): DiagnosticSeverity {
-	switch (severity) {
+function convertSeverity(problem: ESLintProblem): DiagnosticSeverity {
+	if (settings.eslint.hideAutoFixedIssues && problem.fix) {
+		return DiagnosticSeverity.Hint;
+	}
+	switch (problem.severity) {
 		// Eslint 1 is warning
 		case 1:
 			return DiagnosticSeverity.Warning;
