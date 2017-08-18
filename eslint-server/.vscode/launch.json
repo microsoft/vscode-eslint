@@ -8,7 +8,7 @@
 			"request": "attach",
 			// TCP/IP address. Default is "localhost".
 			"address": "localhost",
-			"protocol": "legacy",
+			"protocol": "inspector",
 			// "trace": "all",
 			// Port to attach to.
 			"port": 6010,

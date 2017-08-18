@@ -2,22 +2,21 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-/// <reference path="./vscode.proposed.d.ts"/>
-
 'use strict';
 
 import * as path from 'path';
 import * as fs from 'fs';
 import {
-	workspace, window, commands, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextEditor, TextDocument,
+	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextEditor, TextDocument,
 	CodeActionContext, Diagnostic, ProviderResult, Command
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
 	TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, State as ClientState,
-	RevealOutputChannelOn, DocumentSelector, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
-	ServerOptions
+	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
+	ServerOptions, ProposedProtocol, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
+	GetConfigurationRequest, GetConfigurationParams, ConfigurationItem, CancellationToken
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -70,6 +69,42 @@ namespace ValidateItem {
 	}
 }
 
+interface DirectoryItem {
+	directory: string;
+	changeProcessCWD?: boolean;
+}
+
+namespace DirectoryItem {
+	export function is(item: any): item is DirectoryItem {
+		let candidate = item as DirectoryItem;
+		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate.changeProcessCWD) || candidate.changeProcessCWD === void 0);
+	}
+}
+
+type RunValues = 'onType' | 'onSave';
+
+interface ESLintSettings {
+	enable?: boolean;
+	nodePath?: string;
+	autoFixOnSave?: boolean;
+	options?: any;
+	run?: RunValues;
+	validate?: (string | ValidateItem)[];
+	workingDirectories?: (string | DirectoryItem)[];
+}
+
+interface ResolvedESLintSettings {
+	validate: boolean;
+	autoFix: boolean;
+	autoFixOnSave: boolean;
+	options: any | undefined;
+	run: RunValues;
+	nodePath: string | undefined;
+	workspaceFolder: WorkspaceFolder | undefined;
+	workingDirectory: DirectoryItem | undefined;
+	library: ESLintModule | undefined;
+}
+
 interface NoESLintState {
 	global?: boolean;
 	workspaces?: { [key: string]: boolean };
@@ -116,27 +151,27 @@ namespace NoESLintLibraryRequest {
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
 function enable() {
-	if (!workspace.rootPath) {
-		window.showErrorMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
+	if (!Workspace.rootPath) {
+		Window.showErrorMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	workspace.getConfiguration('eslint').update('enable', true, false);
+	Workspace.getConfiguration('eslint').update('enable', true, false);
 }
 
 function disable() {
-	if (!workspace.rootPath) {
-		window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
+	if (!Workspace.rootPath) {
+		Window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	workspace.getConfiguration('eslint').update('enable', false, false);
+	Workspace.getConfiguration('eslint').update('enable', false, false);
 }
 
 function createDefaultConfiguration(): void {
-	if (!workspace.rootPath) {
-		window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
+	if (!Workspace.rootPath) {
+		Window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
 		return;
 	}
-	let eslintConfigFile = path.join(workspace.rootPath, '.eslintrc.json');
+	let eslintConfigFile = path.join(Workspace.rootPath, '.eslintrc.json');
 	if (!fs.existsSync(eslintConfigFile)) {
 		fs.writeFileSync(eslintConfigFile, eslintrc, { encoding: 'utf8' });
 	}
@@ -144,59 +179,72 @@ function createDefaultConfiguration(): void {
 
 let dummyCommands: [Disposable];
 
-export function activate(context: ExtensionContext) {
-	let supportedLanguages: Set<string>;
-	function configurationChanged() {
-		supportedLanguages = new Set<string>();
-		let settings = workspace.getConfiguration('eslint');
-		if (settings) {
-			let toValidate = settings.get('validate', undefined);
-			if (toValidate && Array.isArray(toValidate)) {
-				toValidate.forEach(item => {
-					if (Is.string(item)) {
-						supportedLanguages.add(item);
-					} else if (ValidateItem.is(item)) {
-						supportedLanguages.add(item.language);
-					}
-				});
-			}
+let defaultLanguages = ['javascript', 'javascriptreact'];
+function shouldBeValidated(textDocument: TextDocument): boolean {
+	let config = Workspace.getConfiguration('eslint', textDocument.uri);
+	if (!config.get('enable', true)) {
+		return false;
+	}
+	let validate = config.get<(ValidateItem | string)[]>('validate', defaultLanguages);
+	for (let item of validate) {
+		if (Is.string(item) && item === textDocument.languageId) {
+			return true;
+		} else if (ValidateItem.is(item) && item.language === textDocument.languageId) {
+			return true;
 		}
 	}
-	configurationChanged();
-	const configurationListener = workspace.onDidChangeConfiguration(configurationChanged);
+	return false;
+}
 
+export function activate(context: ExtensionContext) {
 	let activated: boolean;
-	let notValidating = () => window.showInformationMessage('ESLint is not validating any files yet.');
-	dummyCommands = [
-		commands.registerCommand('eslint.executeAutofix', notValidating),
-		commands.registerCommand('eslint.showOutputChannel', notValidating)
-	];
+	let openListener: Disposable;
+	let configurationListener: Disposable;
 	function didOpenTextDocument(textDocument: TextDocument) {
-		if (supportedLanguages.has(textDocument.languageId)) {
-			configurationListener.dispose();
+		if (activated) {
+			return;
+		}
+		if (shouldBeValidated(textDocument)) {
 			openListener.dispose();
+			configurationListener.dispose();
 			activated = true;
 			realActivate(context);
 		}
-	};
-	const openListener = workspace.onDidOpenTextDocument(didOpenTextDocument);
-	for (let textDocument of workspace.textDocuments) {
-		if (activated) {
-			break;
-		}
-		didOpenTextDocument(textDocument);
 	}
+	function configurationChanged() {
+		if (activated) {
+			return;
+		}
+		for (let textDocument of Workspace.textDocuments) {
+			if (shouldBeValidated(textDocument)) {
+				openListener.dispose();
+				configurationListener.dispose();
+				activated = true;
+				realActivate(context);
+				return;
+			}
+		}
+	}
+	openListener = Workspace.onDidOpenTextDocument(didOpenTextDocument);
+	configurationListener = Workspace.onDidChangeConfiguration(configurationChanged);
+
+	let notValidating = () => Window.showInformationMessage('ESLint is not validating any files yet.');
+	dummyCommands = [
+		Commands.registerCommand('eslint.executeAutofix', notValidating),
+		Commands.registerCommand('eslint.showOutputChannel', notValidating)
+	];
 
 	context.subscriptions.push(
-		commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
-		commands.registerCommand('eslint.enable', enable),
-		commands.registerCommand('eslint.disable', disable)
+		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
+		Commands.registerCommand('eslint.enable', enable),
+		Commands.registerCommand('eslint.disable', disable)
 	);
+	configurationChanged();
 }
 
 export function realActivate(context: ExtensionContext) {
 
-	let statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 0);
+	let statusBarItem = Window.createStatusBarItem(StatusBarAlignment.Right, 0);
 	let eslintStatus: Status = Status.ok;
 	let serverRunning: boolean = false;
 
@@ -224,10 +272,10 @@ export function realActivate(context: ExtensionContext) {
 				break;
 		}
 		eslintStatus = status;
-		udpateStatusBarVisibility(window.activeTextEditor);
+		updateStatusBarVisibility(Window.activeTextEditor);
 	}
 
-	function udpateStatusBarVisibility(editor: TextEditor): void {
+	function updateStatusBarVisibility(editor: TextEditor): void {
 		statusBarItem.text = eslintStatus === Status.ok ? 'ESLint' : 'ESLint!';
 		showStatusBarItem(
 			serverRunning &&
@@ -238,14 +286,14 @@ export function realActivate(context: ExtensionContext) {
 		);
 	}
 
-	window.onDidChangeActiveTextEditor(udpateStatusBarVisibility);
-	udpateStatusBarVisibility(window.activeTextEditor);
+	Window.onDidChangeActiveTextEditor(updateStatusBarVisibility);
+	updateStatusBarVisibility(Window.activeTextEditor);
 
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	// serverModule
 	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
-	let debugOptions = { execArgv: ["--nolazy", "--debug=6010"] };
+	let debugOptions = { execArgv: ["--nolazy", "--inspect=6010"] };
 	let serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc },
 		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
@@ -253,30 +301,44 @@ export function realActivate(context: ExtensionContext) {
 
 	let defaultErrorHandler: ErrorHandler;
 	let serverCalledProcessExit: boolean = false;
-	let staticDocuments: DocumentSelector = [
-		{ scheme: 'file', pattern: '**/package.json'},
-		{ scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'}
-	];
-	let languages = ['javascript', 'javascriptreact']
+
+	let packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json'};
+	let configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'};
+	let syncedDocuments: Map<string, TextDocument> = new Map<string, TextDocument>();
+
+	Workspace.onDidChangeConfiguration(() => {
+		for (let textDocument of syncedDocuments.values()) {
+			if (!shouldBeValidated(textDocument)) {
+				syncedDocuments.delete(textDocument.uri.toString());
+				client.sendNotification(DidCloseTextDocumentNotification.type, client.code2ProtocolConverter.asCloseTextDocumentParams(textDocument));
+			}
+		}
+		for (let textDocument of Workspace.textDocuments) {
+			if (!syncedDocuments.has(textDocument.uri.toString()) && shouldBeValidated(textDocument)) {
+				client.sendNotification(DidOpenTextDocumentNotification.type, client.code2ProtocolConverter.asOpenTextDocumentParams(textDocument));
+				syncedDocuments.set(textDocument.uri.toString(), textDocument);
+			}
+		}
+	});
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: staticDocuments,
+		documentSelector: [{  scheme: 'file' }, { scheme: 'untitled'}],
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		synchronize: {
-			configurationSection: 'eslint',
+			// configurationSection: 'eslint',
 			fileEvents: [
-				workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
-				workspace.createFileSystemWatcher('**/.eslintignore'),
-				workspace.createFileSystemWatcher('**/package.json')
+				Workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
+				Workspace.createFileSystemWatcher('**/.eslintignore'),
+				Workspace.createFileSystemWatcher('**/package.json')
 			]
 		},
 		initializationOptions: () => {
-			let configuration = workspace.getConfiguration('eslint');
-			let folders = workspace.workspaceFolders;
+			let configuration = Workspace.getConfiguration('eslint');
+			let folders = Workspace.workspaceFolders;
 			return {
 				legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
 				nodePath: configuration ? configuration.get('nodePath', undefined) : undefined,
-				languageIds: configuration ? configuration.get('valiadate', languages) : languages,
+				languageIds: configuration ? configuration.get('valiadate', defaultLanguages) : defaultLanguages,
 				workspaceFolders: folders ? folders.map(folder => folder.toString()) : []
 			};
 		},
@@ -297,6 +359,42 @@ export function realActivate(context: ExtensionContext) {
 			}
 		},
 		middleware: {
+			didOpen: (document, next) => {
+				if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || shouldBeValidated(document)) {
+					next(document);
+					syncedDocuments.set(document.uri.toString(), document);
+					return;
+				}
+			},
+			didChange: (event, next) => {
+				if (syncedDocuments.has(event.document.uri.toString())) {
+					next(event);
+				}
+			},
+			willSave: (event, next) => {
+				if (syncedDocuments.has(event.document.uri.toString())) {
+					next(event);
+				}
+			},
+			willSaveWaitUntil: (event, next) => {
+				if (syncedDocuments.has(event.document.uri.toString())) {
+					return next(event);
+				} else {
+					return Promise.resolve([]);
+				}
+			},
+			didSave: (document, next) => {
+				if (syncedDocuments.has(document.uri.toString())) {
+					next(document);
+				}
+			},
+			didClose: (document, next) => {
+				let uri = document.uri.toString();
+				if (syncedDocuments.has(uri)) {
+					syncedDocuments.delete(uri);
+					next(document);
+				}
+			},
 			provideCodeActions: (document, range, context, token, next): ProviderResult<Command[]> => {
 				if (!context.diagnostics || context.diagnostics.length === 0) {
 					return [];
@@ -310,14 +408,33 @@ export function realActivate(context: ExtensionContext) {
 				if (eslintDiagnostics.length === 0) {
 					return [];
 				}
-				let newContext: CodeActionContext = Object.assign({}, context);
-				newContext.diagnostics = eslintDiagnostics;
+				let newContext: CodeActionContext = Object.assign({}, context, { diagnostics: eslintDiagnostics } as CodeActionContext);
 				return next(document, range, newContext, token);
+			},
+			workspace: {
+				configuration: (params: GetConfigurationParams, _token: CancellationToken, _next: Function): any[] => {
+					if (!params.items) {
+						return null;
+					}
+					let result: (ResolvedESLintSettings | null)[] = [];
+					for (let item of params.items) {
+						if (item.section) {
+							result.push(null);
+							continue;
+						}
+						let resource = item.scopeUri ? client.protocol2CodeConverter.asUri(item.scopeUri) : undefined;
+						let config = Workspace.getConfiguration('eslint', resource);
+						let resolvedSetting
+					}
+					return result;
+				}
+
 			}
 		}
 	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	client.registerFeatures(ProposedProtocol(client));
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	const running = 'ESLint server is running.';
 	const stopped = 'ESLint server stopped.'
@@ -331,7 +448,7 @@ export function realActivate(context: ExtensionContext) {
 			statusBarItem.tooltip = stopped;
 			serverRunning = false;
 		}
-		udpateStatusBarVisibility(window.activeTextEditor);
+		updateStatusBarVisibility(Window.activeTextEditor);
 	});
 	client.onReady().then(() => {
 		client.onNotification(StatusNotification.type, (params) => {
@@ -341,18 +458,18 @@ export function realActivate(context: ExtensionContext) {
 		client.onNotification(exitCalled, (params) => {
 			serverCalledProcessExit = true;
 			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
-			window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`);
+			Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`);
 		});
 
 		client.onRequest(NoConfigRequest.type, (params) => {
 			let document = Uri.parse(params.document.uri);
 			let fileLocation = document.fsPath;
 			let folderLocation: string;
-			let workspaceFolders = workspace.workspaceFolders;
+			let workspaceFolders = Workspace.workspaceFolders;
 			if (workspaceFolders) {
 				for (let workspaceFolder of workspaceFolders) {
-					if (document.fsPath.indexOf(workspaceFolder.fsPath) === 0) {
-						folderLocation = workspaceFolder.fsPath;
+					if (document.fsPath.indexOf(workspaceFolder.uri.fsPath) === 0) {
+						folderLocation = workspaceFolder.uri.fsPath;
 						fileLocation = document.fsPath.substr(folderLocation.length + 1);
 						break;
 					}
@@ -366,7 +483,7 @@ export function realActivate(context: ExtensionContext) {
 				`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
 			].join('\n'));
 			eslintStatus = Status.warn;
-			udpateStatusBarVisibility(window.activeTextEditor);
+			updateStatusBarVisibility(Window.activeTextEditor);
 			return {};
 		});
 
@@ -374,7 +491,7 @@ export function realActivate(context: ExtensionContext) {
 			const key = 'noESLintMessageShown';
 			let state = context.globalState.get<NoESLintState>(key, {});
 			let uri: Uri = Uri.parse(params.source.uri);
-			if (workspace.rootPath) {
+			if (Workspace.rootPath) {
 				client.info([
 					'',
 					`Failed to load the ESLint library for the document ${uri.fsPath}`,
@@ -387,8 +504,8 @@ export function realActivate(context: ExtensionContext) {
 				if (!state.workspaces) {
 					state.workspaces = Object.create(null);
 				}
-				if (!state.workspaces[workspace.rootPath]) {
-					state.workspaces[workspace.rootPath] = true;
+				if (!state.workspaces[Workspace.rootPath]) {
+					state.workspaces[Workspace.rootPath] = true;
 					client.outputChannel.show(true);
 					context.globalState.update(key, state);
 				}
@@ -414,8 +531,8 @@ export function realActivate(context: ExtensionContext) {
 	}
 	context.subscriptions.push(
 		new SettingMonitor(client, 'eslint.enable').start(),
-		commands.registerCommand('eslint.executeAutofix', () => {
-			let textEditor = window.activeTextEditor;
+		Commands.registerCommand('eslint.executeAutofix', () => {
+			let textEditor = Window.activeTextEditor;
 			if (!textEditor) {
 				return;
 			}
@@ -428,10 +545,10 @@ export function realActivate(context: ExtensionContext) {
 				arguments: [textDocument]
 			}
 			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
-				window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
+				Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});
 		}),
-		commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
+		Commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
 		statusBarItem
 	);
 }

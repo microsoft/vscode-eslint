@@ -10,12 +10,10 @@ import {
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
-	Command, BulkRegistration, BulkUnregistration,
-	IPCMessageReader, IPCMessageWriter, WorkspaceChange,
-	TextDocumentRegistrationOptions, TextDocumentChangeRegistrationOptions,
-	DidOpenTextDocumentNotification, DidChangeTextDocumentNotification, WillSaveTextDocumentWaitUntilRequest,
-	DidSaveTextDocumentNotification, DidCloseTextDocumentNotification, CodeActionRequest, VersionedTextDocumentIdentifier,
-	DocumentFilter, ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification
+	Command, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
+	CodeActionRequest, VersionedTextDocumentIdentifier,
+	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
+	ProposedProtocol, WorkspaceFolder, DidChangeWorkspaceFolders
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -38,10 +36,6 @@ namespace CommandIds {
 	export const applySameFixes: string = 'eslint.applySameFixes';
 	export const applyAllFixes: string = 'eslint.applyAllFixes';
 	export const applyAutoFix: string = 'eslint.applyAutoFix';
-}
-
-interface Map<V> {
-	[key: string]: V;
 }
 
 interface ESLintError extends Error {
@@ -122,16 +116,26 @@ namespace DirectoryItem {
 	}
 }
 
-interface Settings {
-	eslint: {
-		enable?: boolean;
-		autoFixOnSave?: boolean;
-		options?: any;
-		run?: RunValues;
-		validate?: (string | ValidateItem)[];
-		workingDirectories?: (string | DirectoryItem)[];
-	}
-	[key: string]: any;
+interface ESLintSettings {
+	enable?: boolean;
+	nodePath?: string;
+	autoFixOnSave?: boolean;
+	options?: any;
+	run?: RunValues;
+	validate?: (string | ValidateItem)[];
+	workingDirectories?: (string | DirectoryItem)[];
+}
+
+interface TextDocumentSettings {
+	validate: boolean;
+	autoFix: boolean;
+	autoFixOnSave: boolean;
+	options: any | undefined;
+	run: RunValues;
+	nodePath: string | undefined;
+	workspaceFolder: WorkspaceFolder | undefined;
+	workingDirectory: DirectoryItem | undefined;
+	library: ESLintModule | undefined;
 }
 
 interface ESLintAutoFixEdit {
@@ -165,7 +169,7 @@ interface ESLintReport {
 }
 
 interface CLIOptions {
-	cwd: string;
+	cwd?: string;
 }
 
 interface CLIEngine {
@@ -213,18 +217,18 @@ function computeKey(diagnostic: Diagnostic): string {
 	return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}`;
 }
 
-let codeActions: Map<Map<AutoFix>> = Object.create(null);
+let codeActions: Map<string, Map<string, AutoFix>> = new Map<string, Map<string, AutoFix>>();
 function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, problem: ESLintProblem): void {
 	if (!problem.fix || !problem.ruleId) {
 		return;
 	}
 	let uri = document.uri;
-	let edits: Map<AutoFix> = codeActions[uri];
+	let edits: Map<string, AutoFix> = codeActions.get(uri);
 	if (!edits) {
-		edits = Object.create(null);
-		codeActions[uri] = edits;
+		edits = new Map<string, AutoFix>();
+		codeActions.set(uri, edits);
 	}
-	edits[computeKey(diagnostic)] = { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix};
+	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix });
 }
 
 function convertSeverity(severity: number): DiagnosticSeverity {
@@ -312,26 +316,126 @@ process.exit = (code?: number) => {
 	}, 1000);
 }
 
-let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-let settings: Settings = null;
-let options: any = null;
-let workingDirectories: DirectoryItem[];
+let connection = createConnection(ProposedProtocol, new IPCMessageReader(process), new IPCMessageWriter(process));
 let documents: TextDocuments = new TextDocuments();
 
-let supportedLanguages: Map<Thenable<BulkUnregistration>> = Object.create(null);
-let willSaveRegistered: boolean = false;
-let supportedAutoFixLanguages: Set<string> = new Set<string>();
-
 let globalNodePath: string = undefined;
-let nodePath: string = undefined;
-let workspaceRoot: string = undefined;
-let workspaceFolders: string[] = undefined;
 
-let path2Library: Map<ESLintModule> = Object.create(null);
-let document2Library: Map<Thenable<ESLintModule>> = Object.create(null);
+let path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
+let document2Settings: Map<string, Thenable<TextDocumentSettings>> = new Map<string, Thenable<TextDocumentSettings>>();
 
-function ignoreTextDocument(document: TextDocument): boolean {
-	return !supportedLanguages[document.languageId] || !document2Library[document.uri];
+function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings> {
+	let uri = document.uri;
+	let resultPromise = document2Settings.get(uri);
+	if (resultPromise) {
+		return resultPromise;
+	}
+	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: 'eslint' }).then((settings: ESLintSettings) => {
+		let result: TextDocumentSettings = {
+			validate: false,
+			autoFix: false,
+			autoFixOnSave: false,
+			options: settings.options,
+			run: settings.run ? settings.run : 'onType',
+			nodePath: settings.nodePath,
+			workspaceFolder: undefined,
+			workingDirectory: undefined,
+			library: undefined
+		};
+		for (let item of settings.validate) {
+			if (Is.string(item) && item === document.languageId) {
+				result.validate = true;
+				if (item === 'javascript' || item === 'javascriptreact') {
+					result.autoFix = true;
+				}
+				break;
+			} else if (ValidateItem.is(item) && item.language === document.languageId) {
+				result.validate = true;
+				result.autoFix = item.autoFix;
+				break;
+			}
+		}
+		result.autoFixOnSave = result.autoFix && settings.autoFixOnSave;
+		if (!result.validate) {
+			return result;
+		}
+		return connection.workspace.getWorkspaceFolder(document.uri).then((folder) => {
+			result.workspaceFolder = folder;
+			let workspaceFolderPath = result.workspaceFolder ? Uri.parse(result.workspaceFolder.uri).fsPath : undefined;
+			if (Array.isArray(settings.workingDirectories)) {
+				let workingDirectory: DirectoryItem = undefined;
+				for (let entry of settings.workingDirectories) {
+					let directory: string;
+					let changeProcessCWD = false;
+					if  (Is.string(entry)) {
+						directory = entry;
+					} else if (DirectoryItem.is(entry)) {
+						directory = entry.directory;
+						changeProcessCWD = !!entry.changeProcessCWD;
+					}
+					if (directory) {
+						if (path.isAbsolute(directory)) {
+							directory =  directory;
+						} else if (workspaceFolderPath && directory) {
+							directory = path.join(workspaceFolderPath, directory);
+						} else {
+							directory = path.join(process.cwd(), directory);
+						}
+						let filePath = getFilePath(document);
+						if (filePath && filePath.startsWith(directory)) {
+							if (workingDirectory) {
+								if (workingDirectory.directory.length < directory.length) {
+									workingDirectory.directory = directory;
+									workingDirectory.changeProcessCWD = changeProcessCWD;
+								}
+							} else {
+								workingDirectory = { directory, changeProcessCWD };
+							}
+						}
+					}
+				}
+				result.workingDirectory = workingDirectory;
+			}
+			let uri = Uri.parse(document.uri);
+			let promise: Thenable<string>
+			if (uri.scheme === 'file') {
+				let file = uri.fsPath;
+				let directory = path.dirname(file);
+				if (result.nodePath) {
+					promise = Files.resolve('eslint', result.nodePath, result.nodePath, trace).then<string, string>(undefined, () => {
+						return Files.resolve('eslint', globalNodePath, directory, trace);
+					});
+				} else {
+					promise = Files.resolve('eslint', globalNodePath, directory, trace);
+				}
+			} else {
+				promise = Files.resolve('eslint', globalNodePath, result.workspaceFolder ? result.workspaceFolder.uri : undefined, trace);
+			}
+			return promise.then((path) => {
+				let library = path2Library.get(path);
+				if (!library) {
+					library = require(path);
+					if (!library.CLIEngine) {
+						result.validate = false;
+						connection.console.error(`The eslint library loaded from ${path} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
+					} else {
+						connection.console.info(`ESLint library loaded from: ${path}`);
+						result.library = library;
+					}
+					path2Library.set(path, library);
+				} else {
+					result.library = library;
+				}
+				return result;
+			}, () => {
+				result.validate = false;
+				connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
+				return result;
+			});
+		});
+	});
+	document2Settings.set(uri, resultPromise);
+	return resultPromise;
 }
 
 interface Request<P, R> {
@@ -372,14 +476,14 @@ namespace Thenable {
 class BufferedMessageQueue {
 
 	private queue: Message<any, any>[];
-	private requestHandlers: Map<{handler: RequestHandler<any, any, any>, versionProvider?: VersionProvider<any>}>;
-	private notificationHandlers: Map<{handler: NotificationHandler<any>, versionProvider?: VersionProvider<any>}>;
+	private requestHandlers: Map<string, {handler: RequestHandler<any, any, any>, versionProvider?: VersionProvider<any>}>;
+	private notificationHandlers: Map<string, {handler: NotificationHandler<any>, versionProvider?: VersionProvider<any>}>;
 	private timer: NodeJS.Timer | undefined;
 
 	constructor(private connection: IConnection) {
 		this.queue = [];
-		this.requestHandlers = Object.create(null);
-		this.notificationHandlers = Object.create(null);
+		this.requestHandlers = new Map();
+		this.notificationHandlers = new Map();
 	}
 
 	public registerRequest<P, R, E, RO>(type: RequestType<P, R, E, RO>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
@@ -396,7 +500,7 @@ class BufferedMessageQueue {
 				this.trigger();
 			});
 		});
-		this.requestHandlers[type.method] = { handler, versionProvider };
+		this.requestHandlers.set(type.method, { handler, versionProvider });
 	}
 
 	public registerNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
@@ -408,7 +512,7 @@ class BufferedMessageQueue {
 			});
 			this.trigger();
 		});
-		this.notificationHandlers[type.method] = { handler, versionProvider };
+		this.notificationHandlers.set(type.method, { handler, versionProvider });
 	}
 
 	public addNotificationMessage<P, RO>(type: NotificationType<P, RO>, params: P, version: number) {
@@ -421,7 +525,7 @@ class BufferedMessageQueue {
 	}
 
 	public onNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
-		this.notificationHandlers[type.method] = { handler, versionProvider };
+		this.notificationHandlers.set(type.method, { handler, versionProvider });
 	}
 
 	private trigger(): void {
@@ -445,7 +549,7 @@ class BufferedMessageQueue {
 				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
-			let elem = this.requestHandlers[requestMessage.method];
+			let elem = this.requestHandlers.get(requestMessage.method);
 			if (elem.versionProvider && requestMessage.documentVersion !== void 0 && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
 				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
@@ -462,7 +566,7 @@ class BufferedMessageQueue {
 			}
 		} else {
 			let notificationMessage = message;
-			let elem = this.notificationHandlers[notificationMessage.method];
+			let elem = this.notificationHandlers.get(notificationMessage.method);
 			if (elem.versionProvider && notificationMessage.documentVersion !== void 0 && notificationMessage.documentVersion !== elem.versionProvider(notificationMessage.params)) {
 				return;
 			}
@@ -488,58 +592,29 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 // and close on the connection
 documents.listen(connection);
 documents.onDidOpen((event) => {
-	if (!supportedLanguages[event.document.languageId]) {
-		return;
-	}
-
-	if (!document2Library[event.document.uri]) {
-		let uri = Uri.parse(event.document.uri);
-		let promise: Thenable<string>
-		if (uri.scheme === 'file') {
-			let file = uri.fsPath;
-			let directory = path.dirname(file);
-			if (nodePath) {
-				 promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-					 return Files.resolve('eslint', globalNodePath, directory, trace);
-				 });
-			} else {
-				promise = Files.resolve('eslint', globalNodePath, directory, trace);
-			}
-		} else {
-			promise = Files.resolve('eslint', globalNodePath, workspaceRoot, trace);
+	resolveSettings(event.document).then((settings) => {
+		if (!settings.validate) {
+			return;
 		}
-		document2Library[event.document.uri] = promise.then((path) => {
-			let library = path2Library[path];
-			if (!library) {
-				library = require(path);
-				if (!library.CLIEngine) {
-					throw new Error(`The eslint library doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
-				}
-				connection.console.info(`ESLint library loaded from: ${path}`);
-				path2Library[path] = library;
-			}
-			return library;
-		}, () => {
-			connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: event.document.uri } });
-			return null;
-		});
-	}
-	if (settings.eslint.run === 'onSave') {
-		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-	}
+		if (settings.run === 'onSave') {
+			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+		}
+	});
 });
 
 // A text document has changed. Validate the document according the run setting.
 documents.onDidChangeContent((event) => {
-	if (settings.eslint.run !== 'onType' || ignoreTextDocument(event.document)) {
-		return;
-	}
-	messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	resolveSettings(event.document).then((settings) => {
+		if (!settings.validate || settings.run !== 'onType') {
+			return;
+		}
+		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	});
 });
 
 function getFixes(textDocument: TextDocument): TextEdit[] {
 	let uri = textDocument.uri
-	let edits = codeActions[uri];
+	let edits = codeActions.get(uri);
 	function createTextEdit(editInfo: AutoFix): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
@@ -559,53 +634,62 @@ documents.onWillSaveWaitUntil((event) => {
 	}
 
 	let document = event.document;
-
-	// If we validate on save and want to apply fixes on will save
-	// we need to validate the file.
-	if (settings.eslint.run === 'onSave') {
-		// Do not queue this since we want to get the fixes as fast as possible.
-		return validateSingle(document, false).then(() => getFixes(document));
-	} else {
-		return getFixes(document);
-	}
+	return resolveSettings(document).then((settings) => {
+		// If we validate on save and want to apply fixes on will save
+		// we need to validate the file.
+		if (settings.run === 'onSave') {
+			// Do not queue this since we want to get the fixes as fast as possible.
+			return validateSingle(document, false).then(() => getFixes(document));
+		} else {
+			return getFixes(document);
+		}
+	});
 });
 
 // A text document has been saved. Validate the document according the run setting.
 documents.onDidSave((event) => {
-	// We even validate onSave if we have validated on will save to compute fixes since the
-	// fixes will change the content of the document.
-	if (settings.eslint.run !== 'onSave' || ignoreTextDocument(event.document)) {
-		return;
-	}
-	messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	resolveSettings(event.document).then((settings) => {
+		if (!settings.validate || settings.run !== 'onSave') {
+			return;
+		}
+		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	})
 });
 
 documents.onDidClose((event) => {
-	if (ignoreTextDocument(event.document)) {
-		return;
-	}
-	delete document2Library[event.document.uri];
-	delete codeActions[event.document.uri];
-	connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
+	resolveSettings(event.document).then((settings) => {
+		let uri = event.document.uri;
+		document2Settings.delete(uri);
+		codeActions.delete(uri);
+		if (settings.validate) {
+			connection.sendDiagnostics({ uri: uri, diagnostics: [] });
+		}
+	});
 });
+
+function environmentChanged() {
+	document2Settings.clear();
+	for (let document of documents.all()) {
+		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	}
+}
 
 function trace(message: string, verbose?: string): void {
 	connection.tracer.log(message, verbose);
 }
 
-connection.onInitialize((params) => {
-	let initOptions: {
-		legacyModuleResolve: boolean;
-		nodePath: string;
-		workspaceFolders: string[]
-	} = params.initializationOptions;
-	workspaceRoot = params.rootPath;
-	nodePath = initOptions.nodePath;
-	workspaceFolders = initOptions.workspaceFolders;
+connection.onInitialize((_params) => {
 	globalNodePath = Files.resolveGlobalNodePath();
 	return {
 		capabilities: {
-			textDocumentSync: TextDocumentSyncKind.None,
+			textDocumentSync: {
+				openClose: true,
+				change: TextDocumentSyncKind.Full,
+				willSaveWaitUntil: true,
+				save: {
+					includeText: false
+				}
+			},
 			executeCommandProvider: {
 				commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
 			}
@@ -613,195 +697,17 @@ connection.onInitialize((params) => {
 	};
 });
 
+connection.onInitialized(() => {
+	connection.client.register(DidChangeConfigurationNotification.type, undefined);
+	connection.client.register(DidChangeWorkspaceFolders.type, undefined);
+})
 
-messageQueue.registerNotification(DidChangeConfigurationNotification.type, (params) => {
-	settings = params.settings || {};
-	settings.eslint = settings.eslint || {};
-	options = settings.eslint.options || {};
-	if (Array.isArray(settings.eslint.workingDirectories)) {
-		workingDirectories = [];
-		for (let workspaceFolder of workspaceFolders) {
-			workingDirectories.push({
-				directory: Uri.parse(workspaceFolder).fsPath,
-				changeProcessCWD: true
-			});
-		}
-		for (let entry of settings.eslint.workingDirectories) {
-			let directory: string;
-			let changeProcessCWD = false;
-			if  (Is.string(entry)) {
-				directory = entry;
-			} else if (DirectoryItem.is(entry)) {
-				directory = entry.directory;
-				changeProcessCWD = !!entry.changeProcessCWD;
-			}
-			if (directory) {
-				let item: DirectoryItem;
-				if (path.isAbsolute(directory)) {
-					item = { directory };
-				} else if (workspaceRoot && directory) {
-					item = { directory: path.join(workspaceRoot, directory) };
-				} else {
-					item = { directory: path.join(process.cwd(), directory) };
-				}
-				item.changeProcessCWD = changeProcessCWD;
-				workingDirectories.push(item);
-			}
-		}
-		if (workingDirectories.length === 0) {
-			workingDirectories = undefined;
-		} else {
-			workingDirectories = workingDirectories.sort((a, b) => b.directory.length - a.directory.length);
-		}
-	}
+messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
+	environmentChanged();
+});
 
-	let toValidate: string[] = [];
-	let toSupportAutoFix = new Set<string>();
-	if (settings.eslint.validate) {
-		for (const item of settings.eslint.validate) {
-			if (Is.string(item)) {
-				toValidate.push(item);
-				if (item === 'javascript' || item === 'javascriptreact') {
-					toSupportAutoFix.add(item);
-				}
-			} else if (ValidateItem.is(item)) {
-				toValidate.push(item.language);
-				if (item.autoFix) {
-					toSupportAutoFix.add(item.language);
-				}
-			}
-		}
-	}
-
-	function createDocumentSelector(language: string): DocumentFilter[] {
-		return [
-			{
-				scheme: 'file',
-				language: language
-			},
-			{
-				scheme: 'untitled',
-				language: language
-			}
-		];
-	}
-
-	if (settings.eslint.autoFixOnSave && !willSaveRegistered) {
-		Object.keys(supportedLanguages).forEach(languageId => {
-			if (!toSupportAutoFix.has(languageId)) {
-				return;
-			}
-			let resolve = supportedLanguages[languageId];
-			let documentSelector = createDocumentSelector(languageId);
-			resolve.then(unregistration => {
-				let documentOptions: TextDocumentRegistrationOptions = { documentSelector: documentSelector };
-				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
-			});
-		});
-		willSaveRegistered = true;
-	} else if (!settings.eslint.autoFixOnSave && willSaveRegistered) {
-		Object.keys(supportedLanguages).forEach(languageId => {
-			if (!supportedAutoFixLanguages.has(languageId)) {
-				return;
-			}
-			let resolve = supportedLanguages[languageId];
-			resolve.then(unregistration => {
-				unregistration.disposeSingle(WillSaveTextDocumentWaitUntilRequest.type.method);
-			});
-		});
-		willSaveRegistered = false;
-	}
-	let toRemove: Map<boolean> = Object.create(null);
-	let toAdd: Map<boolean> = Object.create(null);
-	Object.keys(supportedLanguages).forEach(key => toRemove[key] = true);
-
-	let toRemoveAutoFix: Map<boolean> = Object.create(null);
-	let toAddAutoFix: Map<boolean> = Object.create(null);
-
-	toValidate.forEach(languageId => {
-		if (toRemove[languageId]) {
-			// The language is past and future
-			delete toRemove[languageId];
-			// Check if the autoFix has changed.
-			if (supportedAutoFixLanguages.has(languageId) && !toSupportAutoFix.has(languageId)) {
-				toRemoveAutoFix[languageId] = true;
-			} else if (!supportedAutoFixLanguages.has(languageId) && toSupportAutoFix.has(languageId)) {
-				toAddAutoFix[languageId] = true;
-			}
-		} else {
-			toAdd[languageId] = true;
-		}
-	});
-	supportedAutoFixLanguages = toSupportAutoFix;
-
-	let removeDone: Thenable<void>[] = [];
-	let removedDocuments: Map<boolean> = Object.create(null);
-	// Remove old language
-	Object.keys(toRemove).forEach(languageId => {
-		let resolve = supportedLanguages[languageId];
-		delete supportedLanguages[languageId];
-		removeDone.push(resolve.then((disposable) => {
-			documents.all().forEach((textDocument) => {
-				if (languageId === textDocument.languageId) {
-					// When we receive the close event we already ignore the document
-					// since it is not in the list of supported languages. So do the
-					// cleanup here.
-					delete document2Library[textDocument.uri];
-					removedDocuments[textDocument.uri] = true;
-					connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: [] });
-				}
-			});
-			disposable.dispose();
-		}));
-	});
-
-	// Add new languages
-	Object.keys(toAdd).forEach(languageId => {
-		let registration = BulkRegistration.create();
-		let documentSelector = createDocumentSelector(languageId);
-		let documentOptions: TextDocumentRegistrationOptions = { documentSelector: documentSelector };
-		registration.add(DidOpenTextDocumentNotification.type, documentOptions);
-		let didChangeOptions: TextDocumentChangeRegistrationOptions = { documentSelector: documentSelector, syncKind: TextDocumentSyncKind.Full };
-		registration.add(DidChangeTextDocumentNotification.type, didChangeOptions);
-		if (settings.eslint.autoFixOnSave && supportedAutoFixLanguages.has(languageId)) {
-			registration.add(WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
-		}
-		registration.add(DidSaveTextDocumentNotification.type, documentOptions);
-		registration.add(DidCloseTextDocumentNotification.type, documentOptions);
-		if (supportedAutoFixLanguages.has(languageId)) {
-			registration.add(CodeActionRequest.type, documentOptions);
-		}
-		supportedLanguages[languageId] = connection.client.register(registration);
-	});
-
-	// Handle change autofix for stable langauges
-	Object.keys(toRemoveAutoFix).forEach(languageId => {
-		let resolve = supportedLanguages[languageId];
-		resolve.then(unregistration => {
-			unregistration.disposeSingle(CodeActionRequest.type.method);
-			if (willSaveRegistered) {
-				unregistration.disposeSingle(WillSaveTextDocumentWaitUntilRequest.type.method);
-			}
-		})
-	});
-	Object.keys(toAddAutoFix).forEach(languageId => {
-		let resolve = supportedLanguages[languageId];
-		let documentSelector = createDocumentSelector(languageId);
-		resolve.then(unregistration => {
-			let documentOptions: TextDocumentRegistrationOptions = { documentSelector: documentSelector };
-			connection.client.register(unregistration, CodeActionRequest.type, documentOptions);
-			if (willSaveRegistered) {
-				connection.client.register(unregistration, WillSaveTextDocumentWaitUntilRequest.type, documentOptions);
-			}
-		})
-	});
-
-	Promise.all(removeDone).then(() => {
-		// Settings have changed. Revalidate all documents.
-		validateMany(documents.all().filter((document) => !removedDocuments[document.uri]));
-	}, (_error) => {
-		// Revalidation failed.
-	});
+messageQueue.registerNotification(DidChangeWorkspaceFolders.type, (_params) => {
+	environmentChanged();
 });
 
 const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLintModule) => Status)[] = [
@@ -814,20 +720,20 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
-	if (!documents.get(document.uri) || !document2Library[document.uri]) {
+	if (!documents.get(document.uri)) {
 		return Promise.resolve(undefined);
 	}
-	return document2Library[document.uri].then((library) => {
-		if (!library) {
+	return resolveSettings(document).then((settings) => {
+		if (!settings.validate) {
 			return;
 		}
 		try {
-			validate(document, library, publishDiagnostics);
+			validate(document, settings, publishDiagnostics);
 			connection.sendNotification(StatusNotification.type, { state: Status.ok });
 		} catch (err) {
 			let status = undefined;
 			for (let handler of singleErrorHandlers) {
-				status = handler(err, document, library);
+				status = handler(err, document, settings.library);
 				if (status) {
 					break;
 				}
@@ -858,25 +764,20 @@ function getMessage(err: any, document: TextDocument): string {
 	return result;
 }
 
-function validate(document: TextDocument, library: ESLintModule, publishDiagnostics: boolean = true): void {
-	let newOptions: CLIOptions = Object.assign(Object.create(null), options);
+function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true): void {
+	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let content = document.getText();
 	let uri = document.uri;
 	let file = getFilePath(document);
 	let cwd = process.cwd();
 	try {
 		if (file) {
-			if (workingDirectories) {
-				for (let item of workingDirectories) {
-					if (file.startsWith(item.directory)) {
-						newOptions.cwd = item.directory;
-						if (item.changeProcessCWD) {
-							process.chdir(item.directory);
-						}
-						break;
-					}
+			if (settings.workingDirectory) {
+				newOptions.cwd = settings.workingDirectory.directory;
+				if (settings.workingDirectory.changeProcessCWD) {
+					process.chdir(settings.workingDirectory.directory);
 				}
-			} else if (!workspaceRoot && !isUNC(file)) {
+			} else if (!settings.workspaceFolder && !isUNC(file)) {
 				let directory = path.dirname(file);
 				if (directory) {
 					if (path.isAbsolute(directory)) {
@@ -886,9 +787,9 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 			}
 		}
 
-		let cli = new library.CLIEngine(newOptions);
+		let cli = new settings.library.CLIEngine(newOptions);
 		// Clean previously computed code actions.
-		delete codeActions[uri];
+		codeActions.delete(uri);
 		let report: ESLintReport = cli.executeOnText(content, file);
 		let diagnostics: Diagnostic[] = [];
 		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
@@ -898,7 +799,7 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 					if (problem) {
 						let diagnostic = makeDiagnostic(problem);
 						diagnostics.push(diagnostic);
-						if (supportedAutoFixLanguages.has(document.languageId)) {
+						if (settings.autoFix) {
 							recordCodeAction(document, diagnostic, problem);
 						}
 					}
@@ -915,7 +816,7 @@ function validate(document: TextDocument, library: ESLintModule, publishDiagnost
 	}
 }
 
-let noConfigReported: Map<ESLintModule> = Object.create(null);
+let noConfigReported: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 
 function isNoConfigFoundError(error: any): boolean {
 	let candidate = error as ESLintError;
@@ -926,7 +827,7 @@ function tryHandleNoConfig(error: any, document: TextDocument, library: ESLintMo
 	if (!isNoConfigFoundError(error)) {
 		return undefined;
 	}
-	if (!noConfigReported[document.uri]) {
+	if (!noConfigReported.has(document.uri)) {
 		connection.sendRequest(
 			NoConfigRequest.type,
 			{
@@ -936,12 +837,12 @@ function tryHandleNoConfig(error: any, document: TextDocument, library: ESLintMo
 				}
 			})
 		.then(undefined, () => { });
-		noConfigReported[document.uri] = library;
+		noConfigReported.set(document.uri, library);
 	}
 	return Status.warn;
 }
 
-let configErrorReported: Map<ESLintModule> = Object.create(null);
+let configErrorReported: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 
 function tryHandleConfigError(error: any, document: TextDocument, library: ESLintModule): Status {
 	if (!error.message) {
@@ -949,12 +850,12 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 	}
 
 	function handleFileName(filename: string): Status {
-		if (!configErrorReported[filename]) {
+		if (!configErrorReported.has(filename)) {
 			connection.console.error(getMessage(error, document));
 			if (!documents.get(Uri.file(filename).toString())) {
 				connection.window.showInformationMessage(getMessage(error, document));
 			}
-			configErrorReported[filename] = library;
+			configErrorReported.set(filename, library);
 		}
 		return Status.warn;
 	}
@@ -977,7 +878,7 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 	return undefined;
 }
 
-let missingModuleReported: Map<ESLintModule> = Object.create(null);
+let missingModuleReported: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 
 function tryHandleMissingModule(error: any, document: TextDocument, library: ESLintModule): Status {
 	if (!error.message) {
@@ -985,9 +886,9 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 	}
 
 	function handleMissingModule(plugin: string, module: string, error: ESLintError): Status {
-		if (!missingModuleReported[plugin]) {
+		if (!missingModuleReported.has(plugin)) {
 			let fsPath = getFilePath(document);
-			missingModuleReported[plugin] = library;
+			missingModuleReported.set(plugin, library);
 			if (error.messageTemplate === 'plugin-missing') {
 				connection.console.error([
 					'',
@@ -1035,12 +936,12 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 		}
 		let dirname = path.dirname(fsPath);
 		if (dirname) {
-			let library = configErrorReported[fsPath];
+			let library = configErrorReported.get(fsPath);
 			if (library) {
-				let cli = new library.CLIEngine(options);
+				let cli = new library.CLIEngine({});
 				try {
 					cli.executeOnText("", path.join(dirname, "___test___.js"));
-					delete configErrorReported[fsPath];
+					configErrorReported.delete(fsPath);
 				} catch (error) {
 				}
 			}
@@ -1050,10 +951,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 });
 
 class Fixes {
-	private keys: string[];
-
-	constructor (private edits: Map<AutoFix>) {
-		this.keys = Object.keys(edits);
+	constructor (private edits: Map<string, AutoFix>) {
 	}
 
 	public static overlaps(lastEdit: AutoFix, newEdit: AutoFix): boolean {
@@ -1061,18 +959,21 @@ class Fixes {
 	}
 
 	public isEmpty(): boolean {
-		return this.keys.length === 0;
+		return this.edits.size === 0;
 	}
 
 	public getDocumentVersion(): number {
-		return this.edits[this.keys[0]].documentVersion;
+		if (this.isEmpty()) {
+			throw new Error('No edits recorded.');
+		}
+		return this.edits.values().next().value.documentVersion;
 	}
 
 	public getScoped(diagnostics: Diagnostic[]): AutoFix[] {
 		let result: AutoFix[] = [];
 		for(let diagnostic of diagnostics) {
 			let key = computeKey(diagnostic);
-			let editInfo = this.edits[key];
+			let editInfo = this.edits.get(key);
 			if (editInfo) {
 				result.push(editInfo);
 			}
@@ -1081,7 +982,8 @@ class Fixes {
 	}
 
 	public getAllSorted(): AutoFix[] {
-		let result = this.keys.map(key => this.edits[key]);
+		let result: AutoFix[] = [];
+		this.edits.forEach((value) => result.push(value));
 		return result.sort((a, b) => {
 			let d = a.edit.range[0] - b.edit.range[0];
 			if (d !== 0) {
@@ -1116,12 +1018,12 @@ class Fixes {
 	}
 }
 
-let commands: Map<WorkspaceChange> = Object.create(null);
+let commands: Map<string, WorkspaceChange> = new Map<string, WorkspaceChange>();
 messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	commands = Object.create(null);
 	let result: Command[] = [];
 	let uri = params.textDocument.uri;
-	let edits = codeActions[uri];
+	let edits = codeActions.get(uri);
 	if (!edits) {
 		return result;
 	}
@@ -1152,7 +1054,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		ruleId = editInfo.ruleId;
 		let workspaceChange = new WorkspaceChange();
 		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
-		commands[CommandIds.applySingleFix] = workspaceChange;
+		commands.set(CommandIds.applySingleFix, workspaceChange);
 		result.push(Command.create(editInfo.label, CommandIds.applySingleFix));
 	};
 
@@ -1176,14 +1078,14 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			let sameFixes: WorkspaceChange = new WorkspaceChange();
 			let sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
 			same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
-			commands[CommandIds.applySameFixes] = sameFixes;
+			commands.set(CommandIds.applySameFixes, sameFixes);
 			result.push(Command.create(`Fix all ${ruleId} problems`, CommandIds.applySameFixes));
 		}
 		if (all.length > 1) {
 			let allFixes: WorkspaceChange = new WorkspaceChange();
 			let allTextChange = allFixes.getTextEditChange({uri, version: documentVersion});
 			all.map(createTextEdit).forEach(edit => allTextChange.add(edit));
-			commands[CommandIds.applyAllFixes] = allFixes;
+			commands.set(CommandIds.applyAllFixes, allFixes);
 			result.push(Command.create(`Fix all auto-fixable problems`, CommandIds.applyAllFixes));
 		}
 	}
@@ -1199,7 +1101,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier): TextEdit[
 	if (!textDocument || identifier.version !== textDocument.version) {
 		return undefined;
 	}
-	let edits = codeActions[uri];
+	let edits = codeActions.get(uri);
 	function createTextEdit(editInfo: AutoFix): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
@@ -1224,7 +1126,7 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 			edits.forEach(edit => textChange.add(edit));
 		}
 	} else {
-		workspaceChange = commands[params.command];
+		workspaceChange = commands.get(params.command);
 	}
 
 	if (!workspaceChange) {
