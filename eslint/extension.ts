@@ -11,12 +11,12 @@ import {
 	CodeActionContext, Diagnostic, ProviderResult, Command
 } from 'vscode';
 import {
-	LanguageClient, LanguageClientOptions, SettingMonitor, RequestType, TransportKind,
+	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
 	TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
 	ServerOptions, ProposedProtocol, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	GetConfigurationRequest, GetConfigurationParams, ConfigurationItem, CancellationToken
+	GetConfigurationParams, CancellationToken, WorkspaceFolder
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -83,17 +83,7 @@ namespace DirectoryItem {
 
 type RunValues = 'onType' | 'onSave';
 
-interface ESLintSettings {
-	enable?: boolean;
-	nodePath?: string;
-	autoFixOnSave?: boolean;
-	options?: any;
-	run?: RunValues;
-	validate?: (string | ValidateItem)[];
-	workingDirectories?: (string | DirectoryItem)[];
-}
-
-interface ResolvedESLintSettings {
+interface TextDocumentSettings {
 	validate: boolean;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
@@ -102,7 +92,7 @@ interface ResolvedESLintSettings {
 	nodePath: string | undefined;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
-	library: ESLintModule | undefined;
+	library: undefined;
 }
 
 interface NoESLintState {
@@ -416,19 +406,96 @@ export function realActivate(context: ExtensionContext) {
 					if (!params.items) {
 						return null;
 					}
-					let result: (ResolvedESLintSettings | null)[] = [];
+					let result: (TextDocumentSettings | null)[] = [];
 					for (let item of params.items) {
-						if (item.section) {
+						if (item.section || !item.scopeUri) {
 							result.push(null);
 							continue;
 						}
-						let resource = item.scopeUri ? client.protocol2CodeConverter.asUri(item.scopeUri) : undefined;
+						let resource = client.protocol2CodeConverter.asUri(item.scopeUri);
 						let config = Workspace.getConfiguration('eslint', resource);
-						let resolvedSetting
+						let settings: TextDocumentSettings = {
+							validate: false,
+							autoFix: false,
+							autoFixOnSave: false,
+							options: config.get('options', {}),
+							run: config.get('run', 'onType'),
+							nodePath: config.get('nodePath', undefined),
+							workingDirectory: undefined,
+							workspaceFolder: undefined,
+							library: undefined
+						}
+						let document: TextDocument = syncedDocuments.get(item.scopeUri);
+						if (!document) {
+							result.push(settings);
+							continue;
+						}
+						if (config.get('enabled', true)) {
+							let validateItems = config.get<(ValidateItem | string)[]>('validate', ['javascript', 'javascriptreact']);
+							for (let item of validateItems) {
+								if (Is.string(item) && item === document.languageId) {
+									settings.validate = true;
+									if (item === 'javascript' || item === 'javascriptreact') {
+										settings.autoFix = true;
+									}
+									break;
+								}
+								else if (ValidateItem.is(item) && item.language === document.languageId) {
+									settings.validate = true;
+									settings.autoFix = item.autoFix;
+									break;
+								}
+							}
+						}
+						if (settings.validate) {
+							settings.autoFixOnSave = settings.autoFix && config.get('autoFixOnSave', false);
+						}
+						let workspaceFolder = Workspace.getWorkspaceFolder(resource);
+						settings.workspaceFolder = { name: workspaceFolder.name, uri: client.code2ProtocolConverter.asUri(workspaceFolder.uri) };
+						let workingDirectories = config.get<(string | DirectoryItem)[]>('workingDirectories', undefined);
+						if (Array.isArray(workingDirectories)) {
+							let workingDirectory = undefined;
+							let workspaceFolderPath = workspaceFolder.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : undefined;
+							for (let entry of workingDirectories) {
+								let directory;
+								let changeProcessCWD = false;
+								if (Is.string(entry)) {
+									directory = entry;
+								}
+								else if (DirectoryItem.is(entry)) {
+									directory = entry.directory;
+									changeProcessCWD = !!entry.changeProcessCWD;
+								}
+								if (directory) {
+									if (path.isAbsolute(directory)) {
+										directory = directory;
+									}
+									else if (workspaceFolderPath && directory) {
+										directory = path.join(workspaceFolderPath, directory);
+									}
+									else {
+										directory = undefined;
+									}
+									let filePath = document.uri.scheme === 'file' ? document.uri.fsPath : undefined;
+									if (filePath && directory && filePath.startsWith(directory)) {
+										if (workingDirectory) {
+											if (workingDirectory.directory.length < directory.length) {
+												workingDirectory.directory = directory;
+												workingDirectory.changeProcessCWD = changeProcessCWD;
+											}
+										}
+										else {
+											workingDirectory = { directory, changeProcessCWD };
+										}
+									}
+								}
+							}
+							settings.workingDirectory = workingDirectory;
+						}
+						result.push(settings);
 					}
 					return result;
 				}
-
 			}
 		}
 	};
@@ -530,7 +597,7 @@ export function realActivate(context: ExtensionContext) {
 		dummyCommands = undefined;
 	}
 	context.subscriptions.push(
-		new SettingMonitor(client, 'eslint.enable').start(),
+		client.start(),
 		Commands.registerCommand('eslint.executeAutofix', () => {
 			let textEditor = Window.activeTextEditor;
 			if (!textEditor) {

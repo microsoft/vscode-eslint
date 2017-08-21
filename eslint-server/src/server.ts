@@ -116,16 +116,6 @@ namespace DirectoryItem {
 	}
 }
 
-interface ESLintSettings {
-	enable?: boolean;
-	nodePath?: string;
-	autoFixOnSave?: boolean;
-	options?: any;
-	run?: RunValues;
-	validate?: (string | ValidateItem)[];
-	workingDirectories?: (string | DirectoryItem)[];
-}
-
 interface TextDocumentSettings {
 	validate: boolean;
 	autoFix: boolean;
@@ -330,108 +320,42 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 	if (resultPromise) {
 		return resultPromise;
 	}
-	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: 'eslint' }).then((settings: ESLintSettings) => {
-		let result: TextDocumentSettings = {
-			validate: false,
-			autoFix: false,
-			autoFixOnSave: false,
-			options: settings.options,
-			run: settings.run ? settings.run : 'onType',
-			nodePath: settings.nodePath,
-			workspaceFolder: undefined,
-			workingDirectory: undefined,
-			library: undefined
-		};
-		for (let item of settings.validate) {
-			if (Is.string(item) && item === document.languageId) {
-				result.validate = true;
-				if (item === 'javascript' || item === 'javascriptreact') {
-					result.autoFix = true;
-				}
-				break;
-			} else if (ValidateItem.is(item) && item.language === document.languageId) {
-				result.validate = true;
-				result.autoFix = item.autoFix;
-				break;
-			}
-		}
-		result.autoFixOnSave = result.autoFix && settings.autoFixOnSave;
-		if (!result.validate) {
-			return result;
-		}
-		return connection.workspace.getWorkspaceFolder(document.uri).then((folder) => {
-			result.workspaceFolder = folder;
-			let workspaceFolderPath = result.workspaceFolder ? Uri.parse(result.workspaceFolder.uri).fsPath : undefined;
-			if (Array.isArray(settings.workingDirectories)) {
-				let workingDirectory: DirectoryItem = undefined;
-				for (let entry of settings.workingDirectories) {
-					let directory: string;
-					let changeProcessCWD = false;
-					if  (Is.string(entry)) {
-						directory = entry;
-					} else if (DirectoryItem.is(entry)) {
-						directory = entry.directory;
-						changeProcessCWD = !!entry.changeProcessCWD;
-					}
-					if (directory) {
-						if (path.isAbsolute(directory)) {
-							directory =  directory;
-						} else if (workspaceFolderPath && directory) {
-							directory = path.join(workspaceFolderPath, directory);
-						} else {
-							directory = path.join(process.cwd(), directory);
-						}
-						let filePath = getFilePath(document);
-						if (filePath && filePath.startsWith(directory)) {
-							if (workingDirectory) {
-								if (workingDirectory.directory.length < directory.length) {
-									workingDirectory.directory = directory;
-									workingDirectory.changeProcessCWD = changeProcessCWD;
-								}
-							} else {
-								workingDirectory = { directory, changeProcessCWD };
-							}
-						}
-					}
-				}
-				result.workingDirectory = workingDirectory;
-			}
-			let uri = Uri.parse(document.uri);
-			let promise: Thenable<string>
-			if (uri.scheme === 'file') {
-				let file = uri.fsPath;
-				let directory = path.dirname(file);
-				if (result.nodePath) {
-					promise = Files.resolve('eslint', result.nodePath, result.nodePath, trace).then<string, string>(undefined, () => {
-						return Files.resolve('eslint', globalNodePath, directory, trace);
-					});
-				} else {
-					promise = Files.resolve('eslint', globalNodePath, directory, trace);
-				}
+	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((settings: TextDocumentSettings) => {
+		let uri = Uri.parse(document.uri);
+		let promise: Thenable<string>
+		if (uri.scheme === 'file') {
+			let file = uri.fsPath;
+			let directory = path.dirname(file);
+			if (settings.nodePath) {
+				promise = Files.resolve('eslint', settings.nodePath, settings.nodePath, trace).then<string, string>(undefined, () => {
+					return Files.resolve('eslint', globalNodePath, directory, trace);
+				});
 			} else {
-				promise = Files.resolve('eslint', globalNodePath, result.workspaceFolder ? result.workspaceFolder.uri : undefined, trace);
+				promise = Files.resolve('eslint', globalNodePath, directory, trace);
 			}
-			return promise.then((path) => {
-				let library = path2Library.get(path);
-				if (!library) {
-					library = require(path);
-					if (!library.CLIEngine) {
-						result.validate = false;
-						connection.console.error(`The eslint library loaded from ${path} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
-					} else {
-						connection.console.info(`ESLint library loaded from: ${path}`);
-						result.library = library;
-					}
-					path2Library.set(path, library);
+		} else {
+			promise = Files.resolve('eslint', globalNodePath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
+		}
+		return promise.then((path) => {
+			let library = path2Library.get(path);
+			if (!library) {
+				library = require(path);
+				if (!library.CLIEngine) {
+					settings.validate = false;
+					connection.console.error(`The eslint library loaded from ${path} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
 				} else {
-					result.library = library;
+					connection.console.info(`ESLint library loaded from: ${path}`);
+					settings.library = library;
 				}
-				return result;
-			}, () => {
-				result.validate = false;
-				connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
-				return result;
-			});
+				path2Library.set(path, library);
+			} else {
+				settings.library = library;
+			}
+			return settings;
+		}, () => {
+			settings.validate = false;
+			connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
+			return settings;
 		});
 	});
 	document2Settings.set(uri, resultPromise);
