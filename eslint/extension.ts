@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextEditor, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -140,31 +140,69 @@ namespace NoESLintLibraryRequest {
 
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
+
+interface WorkspaceFolderItem extends QuickPickItem {
+	folder: VWorkspaceFolder;
+}
+
+function pickFolder(folders: VWorkspaceFolder[], placeHolder: string): Thenable<VWorkspaceFolder> {
+	if (folders.length === 1) {
+		return Promise.resolve(folders[0]);
+	}
+	return Window.showQuickPick(
+		folders.map<WorkspaceFolderItem>((folder) => { return { label: folder.name, description: folder.uri.fsPath, folder: folder }; }),
+		{ placeHolder: placeHolder }
+	).then((selected) => {
+		if (!selected) {
+			return undefined;
+		}
+		return selected.folder;
+	});
+}
+
 function enable() {
-	if (!Workspace.rootPath) {
+	let folders = Workspace.workspaceFolders;
+	if (!folders) {
 		Window.showErrorMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	Workspace.getConfiguration('eslint').update('enable', true, false);
+	pickFolder(folders, 'Select a workspace folder to enable ESLint for').then(folder => {
+		if (!folder) {
+			return;
+		}
+		Workspace.getConfiguration('eslint', folder.uri).update('enable', true);
+	});
 }
 
 function disable() {
-	if (!Workspace.rootPath) {
+	let folders = Workspace.workspaceFolders;
+	if (!folders) {
 		Window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	Workspace.getConfiguration('eslint').update('enable', false, false);
+	pickFolder(folders, 'Select a workspace folder to disable ESLint for').then(folder => {
+		if (!folder) {
+			return;
+		}
+		Workspace.getConfiguration('eslint', folder.uri).update('enable', false);
+	});
 }
 
 function createDefaultConfiguration(): void {
-	if (!Workspace.rootPath) {
+	let folders = Workspace.workspaceFolders;
+	if (!folders) {
 		Window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
 		return;
 	}
-	let eslintConfigFile = path.join(Workspace.rootPath, '.eslintrc.json');
-	if (!fs.existsSync(eslintConfigFile)) {
-		fs.writeFileSync(eslintConfigFile, eslintrc, { encoding: 'utf8' });
-	}
+	pickFolder(folders, 'Select a workspace folder to generate a ESLint configuration for').then(folder => {
+		if (!folder) {
+			return;
+		}
+		let eslintConfigFile = path.join(folder.uri.fsPath, '.eslintrc.json');
+		if (!fs.existsSync(eslintConfigFile)) {
+			fs.writeFileSync(eslintConfigFile, eslintrc, { encoding: 'utf8' });
+		}
+	});
 }
 
 let dummyCommands: [Disposable];
@@ -530,25 +568,22 @@ export function realActivate(context: ExtensionContext) {
 
 		client.onRequest(NoConfigRequest.type, (params) => {
 			let document = Uri.parse(params.document.uri);
+			let workspaceFolder = Workspace.getWorkspaceFolder(document);
 			let fileLocation = document.fsPath;
-			let folderLocation: string;
-			let workspaceFolders = Workspace.workspaceFolders;
-			if (workspaceFolders) {
-				for (let workspaceFolder of workspaceFolders) {
-					if (document.fsPath.indexOf(workspaceFolder.uri.fsPath) === 0) {
-						folderLocation = workspaceFolder.uri.fsPath;
-						fileLocation = document.fsPath.substr(folderLocation.length + 1);
-						break;
-					}
-				}
-
+			if (workspaceFolder) {
+				client.warn([
+					'',
+					`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
+					`File will not be validated. Consider running 'eslint --init' in the workspace folder ${workspaceFolder.name}`,
+					`Alternatively you can disable ESLint by executing the 'Disable ESLint' command.`
+				].join('\n'));
+			} else {
+				client.warn([
+					'',
+					`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
+					`File will not be validated. Alternatively you can disable ESLint by executing the 'Disable ESLint' command.`
+				].join('\n'));
 			}
-			client.warn([
-				'',
-				`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
-				`File will not be validated. Consider running 'eslint --init' in the directory ${folderLocation}`,
-				`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
-			].join('\n'));
 			eslintStatus = Status.warn;
 			updateStatusBarVisibility(Window.activeTextEditor);
 			return {};
@@ -558,21 +593,22 @@ export function realActivate(context: ExtensionContext) {
 			const key = 'noESLintMessageShown';
 			let state = context.globalState.get<NoESLintState>(key, {});
 			let uri: Uri = Uri.parse(params.source.uri);
-			if (Workspace.rootPath) {
+			let workspaceFolder = Workspace.getWorkspaceFolder(uri);
+			if (workspaceFolder) {
 				client.info([
 					'',
 					`Failed to load the ESLint library for the document ${uri.fsPath}`,
 					'',
-					'To use ESLint in this workspace please install eslint using \'npm install eslint\' or globally using \'npm install -g eslint\'.',
-					'You need to reopen the workspace after installing eslint.',
+					`To use ESLint please install eslint by running \'npm install eslint\' in the workspace folder ${workspaceFolder.name}`,
+					'or globally using \'npm install -g eslint\'. You need to reopen the workspace after installing eslint.',
 					'',
-					`Alternatively you can disable ESLint for this workspace by executing the 'Disable ESLint for this workspace' command.`
+					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
 				].join('\n'));
 				if (!state.workspaces) {
 					state.workspaces = Object.create(null);
 				}
-				if (!state.workspaces[Workspace.rootPath]) {
-					state.workspaces[Workspace.rootPath] = true;
+				if (!state.workspaces[workspaceFolder.uri.toString()]) {
+					state.workspaces[workspaceFolder.uri.toString()] = true;
 					client.outputChannel.show(true);
 					context.globalState.update(key, state);
 				}

@@ -31,26 +31,31 @@
       "title": "ESLint",
       "properties": {
         "eslint.enable": {
+          "scope": "resource",
           "type": "boolean",
           "default": true,
           "description": "Controls whether eslint is enabled for JavaScript files or not."
         },
         "eslint.nodePath": {
+          "scope": "resource",
           "type": ["string", "null"],
           "default": null,
           "description": "A path added to NODE_PATH when resolving the eslint module."
         },
         "eslint._legacyModuleResolve": {
+          "scope": "resource",
           "type": "boolean",
           "default": false,
           "description": "Uses the legacy module resolving."
         },
         "eslint.options": {
+          "scope": "resource",
           "type": "object",
           "default": {},
           "description": "The eslint options object to provide args normally passed to eslint when executed from a command line (see http://eslint.org/docs/developer-guide/nodejs-api#cliengine)."
         },
         "eslint.trace.server": {
+          "scope": "window",
           "type": "string",
           "enum": [
             "off",
@@ -61,6 +66,7 @@
           "description": "Traces the communication between VSCode and the eslint linter service."
         },
         "eslint.run": {
+          "scope": "resource",
           "type": "string",
           "enum": [
             "onSave",
@@ -70,11 +76,13 @@
           "description": "Run the linter on save (onSave) or on type (onType)"
         },
         "eslint.autoFixOnSave": {
+          "scope": "resource",
           "type": "boolean",
           "default": false,
           "description": "Turns auto fix on save on or off."
         },
         "eslint.workingDirectories": {
+          "scope": "resource",
           "type": "array",
           "items": {
             "anyOf": [
@@ -98,6 +106,7 @@
           }
         },
         "eslint.validate": {
+          "scope": "resource",
           "type": "array",
           "items": {
               "anyOf": [
@@ -136,12 +145,12 @@
         "command": "eslint.createConfig"
       },
       {
-        "title": "Enable ESLint for this Workspace",
+        "title": "Enable ESLint",
         "category": "ESLint",
         "command": "eslint.enable"
       },
       {
-        "title": "Disable ESLint for this Workspace",
+        "title": "Disable ESLint",
         "category": "ESLint",
         "command": "eslint.disable"
       },
