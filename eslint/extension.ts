@@ -331,7 +331,7 @@ export function realActivate(context: ExtensionContext) {
 	let serverCalledProcessExit: boolean = false;
 
 	let packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json'};
-	let configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json'};
+	let configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'};
 	let syncedDocuments: Map<string, TextDocument> = new Map<string, TextDocument>();
 
 	Workspace.onDidChangeConfiguration(() => {
