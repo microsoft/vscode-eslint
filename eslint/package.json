@@ -13,7 +13,7 @@
     "url": "https://github.com/Microsoft/vscode-eslint/issues"
   },
   "publisher": "dbaeumer",
-  "icon": "eslint_icon.svg",
+  "icon": "eslint_icon.png",
   "enableProposedApi": true,
   "categories": [
     "Linters"
