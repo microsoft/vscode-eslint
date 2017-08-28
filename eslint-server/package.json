@@ -19,7 +19,7 @@
 	},
 	"devDependencies": {
 		"typescript": "^2.4.2",
-		"@types/node": "^6.0.86"
+		"@types/node": "^6.0.88"
 	},
 	"scripts": {
 		"compile": "installServerIntoExtension ../eslint ./package.json ./src/tsconfig.json && tsc -p ./src",

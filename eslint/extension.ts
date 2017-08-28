@@ -16,7 +16,7 @@ import {
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
 	ServerOptions, ProposedProtocol, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	GetConfigurationParams, CancellationToken, WorkspaceFolder
+	GetConfigurationParams, CancellationToken, WorkspaceFolder, WorkspaceMiddleware
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -534,7 +534,7 @@ export function realActivate(context: ExtensionContext) {
 					}
 					return result;
 				}
-			}
+			} as WorkspaceMiddleware
 		}
 	};
 
