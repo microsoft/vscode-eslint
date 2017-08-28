@@ -1,3 +1,7 @@
+### 1.3.0
+
+- Add support for multi workspace folder setups. Adding this supoort required a major code change both on the extension and the server side. So if you recognized problems with this version please report them as quick as possbible in the [GitHub repository](https://github.com/Microsoft/vscode-eslint).
+
 ### 1.2.11
 
 Fixes:
