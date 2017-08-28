@@ -424,7 +424,7 @@ export function realActivate(context: ExtensionContext) {
 				}
 			},
 			provideCodeActions: (document, range, context, token, next): ProviderResult<Command[]> => {
-				if (!context.diagnostics || context.diagnostics.length === 0) {
+				if (!syncedDocuments.has(document.uri.toString()) || !context.diagnostics || context.diagnostics.length === 0) {
 					return [];
 				}
 				let eslintDiagnostics: Diagnostic[] = [];

@@ -559,6 +559,9 @@ documents.onWillSaveWaitUntil((event) => {
 
 	let document = event.document;
 	return resolveSettings(document).then((settings) => {
+		if (!settings.autoFixOnSave) {
+			return [];
+		}
 		// If we validate on save and want to apply fixes on will save
 		// we need to validate the file.
 		if (settings.run === 'onSave') {
@@ -614,6 +617,7 @@ connection.onInitialize((_params) => {
 					includeText: false
 				}
 			},
+			codeActionProvider: true,
 			executeCommandProvider: {
 				commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
 			}
@@ -942,9 +946,9 @@ class Fixes {
 	}
 }
 
-let commands: Map<string, WorkspaceChange> = new Map<string, WorkspaceChange>();
+let commands: Map<string, WorkspaceChange>;
 messageQueue.registerRequest(CodeActionRequest.type, (params) => {
-	commands = Object.create(null);
+	commands = new Map<string, WorkspaceChange>();
 	let result: Command[] = [];
 	let uri = params.textDocument.uri;
 	let edits = codeActions.get(uri);
