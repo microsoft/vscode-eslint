@@ -163,10 +163,19 @@ function pickFolder(folders: VWorkspaceFolder[], placeHolder: string): Thenable<
 function enable() {
 	let folders = Workspace.workspaceFolders;
 	if (!folders) {
-		Window.showErrorMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
+		Window.showWarningMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	pickFolder(folders, 'Select a workspace folder to enable ESLint for').then(folder => {
+	let disabledFolders = folders.filter(folder => !Workspace.getConfiguration('eslint',folder.uri).get('enable', true));
+	if (disabledFolders.length === 0) {
+		if (folders.length === 1) {
+			Window.showInformationMessage('ESLint is already enabled in the workspace.');
+		} else {
+			Window.showInformationMessage('ESLint is already enabled on all workspace folders.');
+		}
+		return;
+	}
+	pickFolder(disabledFolders, 'Select a workspace folder to enable ESLint for').then(folder => {
 		if (!folder) {
 			return;
 		}
@@ -180,7 +189,16 @@ function disable() {
 		Window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	pickFolder(folders, 'Select a workspace folder to disable ESLint for').then(folder => {
+	let enabledFolders = folders.filter(folder => Workspace.getConfiguration('eslint',folder.uri).get('enable', true));
+	if (enabledFolders.length === 0) {
+		if (folders.length === 1) {
+			Window.showInformationMessage('ESLint is already disabled in the workspace.');
+		} else {
+			Window.showInformationMessage('ESLint is already disabled on all workspace folders.');
+		}
+		return;
+	}
+	pickFolder(enabledFolders, 'Select a workspace folder to disable ESLint for').then(folder => {
 		if (!folder) {
 			return;
 		}
@@ -194,7 +212,16 @@ function createDefaultConfiguration(): void {
 		Window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
 		return;
 	}
-	pickFolder(folders, 'Select a workspace folder to generate a ESLint configuration for').then(folder => {
+	let noConfigFolders = folders.filter(folder => !fs.existsSync(path.join(folder.uri.fsPath, '.eslintrc.json')));
+	if (noConfigFolders.length === 0) {
+		if (folders.length === 1) {
+			Window.showInformationMessage('The workspace already contains a \'.eslintrc.json\' file.');
+		} else {
+			Window.showInformationMessage('All workspace folders already contains a \'.eslintrc.json\' file.');
+		}
+		return;
+	}
+	pickFolder(noConfigFolders, 'Select a workspace folder to generate a ESLint configuration for').then(folder => {
 		if (!folder) {
 			return;
 		}
