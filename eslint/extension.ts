@@ -212,12 +212,20 @@ function createDefaultConfiguration(): void {
 		Window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
 		return;
 	}
-	let noConfigFolders = folders.filter(folder => !fs.existsSync(path.join(folder.uri.fsPath, '.eslintrc.json')));
+	let noConfigFolders = folders.filter(folder => {
+		let configFiles = ['.eslintrc.js', '.eslintrc.yaml', '.eslintrc.yml', '.eslintrc', '.eslintrc.json'];
+		for (let configFile of configFiles) {
+			if (fs.existsSync(path.join(folder.uri.fsPath, configFile))) {
+				return false;
+			}
+		}
+		return true;
+	});
 	if (noConfigFolders.length === 0) {
 		if (folders.length === 1) {
-			Window.showInformationMessage('The workspace already contains a \'.eslintrc.json\' file.');
+			Window.showInformationMessage('The workspace already contains an ESLint configuration file.');
 		} else {
-			Window.showInformationMessage('All workspace folders already contains a \'.eslintrc.json\' file.');
+			Window.showInformationMessage('All workspace folders already contain an ESLint configuration file.');
 		}
 		return;
 	}
