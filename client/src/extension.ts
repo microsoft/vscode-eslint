@@ -355,7 +355,7 @@ export function realActivate(context: ExtensionContext) {
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	// serverModule
-	let serverModule = path.join(__dirname, '..', 'server', 'server.js');
+	let serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
 	let debugOptions = { execArgv: ["--nolazy", "--inspect=6010"] };
 	let serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc },

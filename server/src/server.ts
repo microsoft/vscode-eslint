@@ -82,27 +82,7 @@ namespace NoESLintLibraryRequest {
 	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
 }
 
-class ID {
-	private static base: string = `${Date.now().toString()}-`;
-	private static counter: number = 0;
-	public static next(): string {
-		return `${ID.base}${ID.counter++}`
-	}
-}
-
 type RunValues = 'onType' | 'onSave';
-
-interface ValidateItem {
-	language: string;
-	autoFix?: boolean;
-}
-
-namespace ValidateItem {
-	export function is(item: any): item is ValidateItem {
-		let candidate = item as ValidateItem;
-		return candidate && Is.string(candidate.language) && (Is.boolean(candidate.autoFix) || candidate.autoFix === void 0);
-	}
-}
 
 interface DirectoryItem {
 	directory: string;
