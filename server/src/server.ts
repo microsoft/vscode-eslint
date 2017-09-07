@@ -13,7 +13,7 @@ import {
 	Command, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	ProposedProtocol, WorkspaceFolder, DidChangeWorkspaceFolders
+	ProposedProtocol, WorkspaceFolder, DidChangeWorkspaceFoldersNotification
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -607,14 +607,14 @@ connection.onInitialize((_params) => {
 
 connection.onInitialized(() => {
 	connection.client.register(DidChangeConfigurationNotification.type, undefined);
-	connection.client.register(DidChangeWorkspaceFolders.type, undefined);
+	connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
 })
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
 	environmentChanged();
 });
 
-messageQueue.registerNotification(DidChangeWorkspaceFolders.type, (_params) => {
+messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_params) => {
 	environmentChanged();
 });
 

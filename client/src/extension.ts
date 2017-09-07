@@ -16,7 +16,7 @@ import {
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
 	ServerOptions, ProposedProtocol, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	GetConfigurationParams, CancellationToken, WorkspaceFolder, WorkspaceMiddleware
+	ConfigurationParams, CancellationToken, WorkspaceFolder, WorkspaceMiddleware
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -475,7 +475,7 @@ export function realActivate(context: ExtensionContext) {
 				return next(document, range, newContext, token);
 			},
 			workspace: {
-				configuration: (params: GetConfigurationParams, _token: CancellationToken, _next: Function): any[] => {
+				configuration: (params: ConfigurationParams, _token: CancellationToken, _next: Function): any[] => {
 					if (!params.items) {
 						return null;
 					}
