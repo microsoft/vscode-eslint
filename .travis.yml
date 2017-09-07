@@ -5,7 +5,7 @@ node_js:
   - "6.11.2"
 
 install:
-  - cd eslint-server && npm install && cd ../eslint && npm install && cd ..
+  - npm install
 
 script:
-  - cd eslint-server && npm run compile && cd ../eslint && npm run compile && cd ..
+  - npm run compile

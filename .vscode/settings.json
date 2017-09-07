@@ -10,5 +10,7 @@
 	"files.trimTrailingWhitespace": true,
 	"editor.insertSpaces": false,
 	"editor.tabSize": 4,
-	"typescript.tsdk": "./node_modules/typescript/lib"
+	"typescript.tsdk": "./node_modules/typescript/lib",
+	"eslint.enable": false,
+	"tslint.enable": false
 }
