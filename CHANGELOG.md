@@ -2,6 +2,8 @@
 
 - Add support for multi workspace folder setups. Adding this supoort required a major code change both on the extension and the server side. So if you recognized problems with this version please report them as quick as possbible in the [GitHub repository](https://github.com/Microsoft/vscode-eslint).
 
+  Version 1.3.0 of the ESLint extension requires at least version 1.16 of VS Code.
+
 ### 1.2.11
 
 Fixes:

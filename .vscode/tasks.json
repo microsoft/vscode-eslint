@@ -8,12 +8,17 @@
 			"dependsOn": [
 				"npm: watch:client", "npm: watch:server"
 			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
 			"problemMatcher": []
 		},
 		{
 			"type": "npm",
 			"script": "watch:client",
 			"isBackground": true,
+			"group": "build",
 			"presentation": {
 				"reveal": "never",
 				"panel": "dedicated"
@@ -26,6 +31,7 @@
 			"type": "npm",
 			"script": "watch:server",
 			"isBackground": true,
+			"group": "build",
 			"presentation": {
 				"reveal": "never",
 				"panel": "dedicated"
