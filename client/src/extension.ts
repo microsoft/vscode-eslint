@@ -15,8 +15,8 @@ import {
 	TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
-	ServerOptions, ProposedProtocol, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	ConfigurationParams, CancellationToken, WorkspaceFolder, WorkspaceMiddleware
+	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
+	Proposed, CancellationToken, WorkspaceFolder, WorkspaceMiddleware
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -475,7 +475,7 @@ export function realActivate(context: ExtensionContext) {
 				return next(document, range, newContext, token);
 			},
 			workspace: {
-				configuration: (params: ConfigurationParams, _token: CancellationToken, _next: Function): any[] => {
+				configuration: (params: Proposed.ConfigurationParams, _token: CancellationToken, _next: Function): any[] => {
 					if (!params.items) {
 						return null;
 					}
@@ -574,7 +574,7 @@ export function realActivate(context: ExtensionContext) {
 	};
 
 	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
-	client.registerFeatures(ProposedProtocol(client));
+	client.registerProposedFeatures();
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	const running = 'ESLint server is running.';
 	const stopped = 'ESLint server stopped.'
