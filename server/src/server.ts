@@ -13,7 +13,7 @@ import {
 	Command, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	ProposedProtocol, WorkspaceFolder, DidChangeWorkspaceFoldersNotification
+	Proposed, ProposedFeatures
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -103,7 +103,7 @@ interface TextDocumentSettings {
 	options: any | undefined;
 	run: RunValues;
 	nodePath: string | undefined;
-	workspaceFolder: WorkspaceFolder | undefined;
+	workspaceFolder: Proposed.WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 }
@@ -286,7 +286,7 @@ process.exit = (code?: number) => {
 	}, 1000);
 }
 
-let connection = createConnection(ProposedProtocol, new IPCMessageReader(process), new IPCMessageWriter(process));
+let connection = createConnection(ProposedFeatures.all, new IPCMessageReader(process), new IPCMessageWriter(process));
 let documents: TextDocuments = new TextDocuments();
 
 let globalNodePath: string = undefined;
@@ -607,14 +607,14 @@ connection.onInitialize((_params) => {
 
 connection.onInitialized(() => {
 	connection.client.register(DidChangeConfigurationNotification.type, undefined);
-	connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
+	connection.client.register(Proposed.DidChangeWorkspaceFoldersNotification.type, undefined);
 })
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
 	environmentChanged();
 });
 
-messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_params) => {
+messageQueue.registerNotification(Proposed.DidChangeWorkspaceFoldersNotification.type, (_params) => {
 	environmentChanged();
 });
 
