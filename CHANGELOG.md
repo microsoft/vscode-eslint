@@ -1,3 +1,9 @@
+### 1.3.1
+
+Fixes:
+
+- [Failed to lint Untitled JavaScript file.](https://github.com/Microsoft/vscode-eslint/issues/295)
+
 ### 1.3.0
 
 - Add support for multi workspace folder setups. Adding this supoort required a major code change both on the extension and the server side. So if you recognized problems with this version please report them as quick as possbible in the [GitHub repository](https://github.com/Microsoft/vscode-eslint).
