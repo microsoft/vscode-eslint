@@ -685,6 +685,12 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 				if (settings.workingDirectory.changeProcessCWD) {
 					process.chdir(settings.workingDirectory.directory);
 				}
+			} else if (settings.workspaceFolder) {
+				let workspaceFolderUri = Uri.parse(settings.workspaceFolder.uri);
+				if (workspaceFolderUri.scheme === 'file') {
+					newOptions.cwd = workspaceFolderUri.fsPath;
+					process.chdir(workspaceFolderUri.fsPath);
+				}
 			} else if (!settings.workspaceFolder && !isUNC(file)) {
 				let directory = path.dirname(file);
 				if (directory) {

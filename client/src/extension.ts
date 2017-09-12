@@ -356,10 +356,9 @@ export function realActivate(context: ExtensionContext) {
 	// the output folder.
 	// serverModule
 	let serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
-	let debugOptions = { execArgv: ["--nolazy", "--inspect=6010"] };
 	let serverOptions: ServerOptions = {
-		run: { module: serverModule, transport: TransportKind.ipc },
-		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
+		run: { module: serverModule, transport: TransportKind.ipc, options: { cwd: process.cwd() } },
+		debug: { module: serverModule, transport: TransportKind.ipc, options: { execArgv: ["--nolazy", "--inspect=6010"], cwd: process.cwd() } }
 	};
 
 	let defaultErrorHandler: ErrorHandler;
@@ -524,11 +523,16 @@ export function realActivate(context: ExtensionContext) {
 							settings.autoFixOnSave = settings.autoFix && config.get('autoFixOnSave', false);
 						}
 						let workspaceFolder = Workspace.getWorkspaceFolder(resource);
-						settings.workspaceFolder = { name: workspaceFolder.name, uri: client.code2ProtocolConverter.asUri(workspaceFolder.uri) };
+						if (workspaceFolder) {
+							settings.workspaceFolder = {
+								name: workspaceFolder.name,
+								uri: client.code2ProtocolConverter.asUri(workspaceFolder.uri)
+							};
+						}
 						let workingDirectories = config.get<(string | DirectoryItem)[]>('workingDirectories', undefined);
 						if (Array.isArray(workingDirectories)) {
 							let workingDirectory = undefined;
-							let workspaceFolderPath = workspaceFolder.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : undefined;
+							let workspaceFolderPath = workspaceFolder && workspaceFolder.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : undefined;
 							for (let entry of workingDirectories) {
 								let directory;
 								let changeProcessCWD = false;
