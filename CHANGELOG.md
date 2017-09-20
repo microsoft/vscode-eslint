@@ -1,3 +1,9 @@
+### 1.3.2
+
+Fixes:
+
+- [Latest update appears to have broken nodePath specification ](https://github.com/Microsoft/vscode-eslint/issues/298)
+
 ### 1.3.1
 
 Fixes:

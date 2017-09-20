@@ -17,7 +17,7 @@ import {
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
-import path = require('path');
+import * as path from 'path';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -307,7 +307,14 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 			let file = uri.fsPath;
 			let directory = path.dirname(file);
 			if (settings.nodePath) {
-				promise = Files.resolve('eslint', settings.nodePath, settings.nodePath, trace).then<string, string>(undefined, () => {
+				let nodePath = settings.nodePath;
+				if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== void 0) {
+					let uri = Uri.parse(settings.workspaceFolder.uri);
+					if (uri.scheme === 'file') {
+						nodePath = path.join(uri.fsPath, nodePath);
+					}
+				}
+				promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
 					return Files.resolve('eslint', globalNodePath, directory, trace);
 				});
 			} else {
