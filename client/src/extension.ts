@@ -383,7 +383,7 @@ export function realActivate(context: ExtensionContext) {
 		}
 	});
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: [{  scheme: 'file' }, { scheme: 'untitled'}],
+		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled'}],
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		synchronize: {
