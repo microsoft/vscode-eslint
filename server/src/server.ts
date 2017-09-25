@@ -10,7 +10,7 @@ import {
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
-	Command, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
+	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	Proposed, ProposedFeatures
