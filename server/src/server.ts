@@ -286,7 +286,7 @@ process.exit = (code?: number) => {
 	}, 1000);
 }
 
-let connection = createConnection(ProposedFeatures.all, new IPCMessageReader(process), new IPCMessageWriter(process));
+let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
 
 let globalNodePath: string = undefined;
