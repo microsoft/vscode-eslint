@@ -98,6 +98,7 @@ namespace DirectoryItem {
 
 interface TextDocumentSettings {
 	validate: boolean;
+	packageManager: 'npm' | 'yarn';
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
@@ -106,6 +107,7 @@ interface TextDocumentSettings {
 	workspaceFolder: Proposed.WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
+	resolvedGlobalPackageManagerPath: string | undefined;
 }
 
 interface ESLintAutoFixEdit {
@@ -289,8 +291,32 @@ process.exit = (code?: number) => {
 let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
 
-let globalNodePath: string = undefined;
-
+let _globalNpmPath: string | null | undefined;
+function globalNpmPath(): string {
+	if (_globalNpmPath === void 0) {
+		_globalNpmPath = Files.resolveGlobalNodePath(trace);
+		if (_globalNpmPath === void 0) {
+			_globalNpmPath = null;
+		}
+	}
+	if (_globalNpmPath === null) {
+		return undefined;
+	}
+	return _globalNpmPath;
+}
+let _globalYarnPath: string | undefined;
+function globalYarnPath(): string {
+	if (_globalYarnPath === void 0) {
+		_globalYarnPath = Files.resolveGlobalYarnPath(trace);
+		if (_globalYarnPath === void 0) {
+			_globalYarnPath = null;
+		}
+	}
+	if (_globalYarnPath === null) {
+		return undefined;
+	}
+	return _globalYarnPath;
+}
 let path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 let document2Settings: Map<string, Thenable<TextDocumentSettings>> = new Map<string, Thenable<TextDocumentSettings>>();
 
@@ -301,6 +327,11 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		return resultPromise;
 	}
 	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((settings: TextDocumentSettings) => {
+		if (settings.packageManager === 'npm') {
+			settings.resolvedGlobalPackageManagerPath = globalNpmPath();
+		} else if (settings.packageManager === 'yarn') {
+			settings.resolvedGlobalPackageManagerPath = globalYarnPath();
+		}
 		let uri = Uri.parse(document.uri);
 		let promise: Thenable<string>
 		if (uri.scheme === 'file') {
@@ -315,13 +346,13 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 					}
 				}
 				promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-					return Files.resolve('eslint', globalNodePath, directory, trace);
+					return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
 				});
 			} else {
-				promise = Files.resolve('eslint', globalNodePath, directory, trace);
+				promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
 			}
 		} else {
-			promise = Files.resolve('eslint', globalNodePath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
+			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
 		}
 		return promise.then((path) => {
 			let library = path2Library.get(path);
@@ -593,7 +624,6 @@ function trace(message: string, verbose?: string): void {
 }
 
 connection.onInitialize((_params) => {
-	globalNodePath = Files.resolveGlobalNodePath();
 	return {
 		capabilities: {
 			textDocumentSync: {

@@ -1,3 +1,7 @@
+### 1.4.0
+
+- Add support for [Yarn](https://yarnpkg.com/lang/en/). To use yarn instead of npm with the eslint extension set the settings `"eslint.packageManager": "yarn"`. To use npm set the value to `"npm"`.
+
 ### 1.3.2
 
 Fixes:
