@@ -98,7 +98,6 @@ namespace DirectoryItem {
 }
 
 interface TextDocumentSettings {
-	projectValidation: boolean;
 	validate: boolean;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
@@ -290,7 +289,7 @@ process.exit = (code?: number) => {
 
 let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
-let projectDocuments: TextDocument[] = [];
+let projectDocuments: TextDocument[] = null;
 
 let globalNodePath: string = undefined;
 
@@ -572,7 +571,7 @@ documents.onDidClose((event) => {
 		let uri = event.document.uri;
 		document2Settings.delete(uri);
 		codeActions.delete(uri);
-		if (settings.validate && !settings.projectValidation) {
+		if (settings.validate && !projectDocuments) {
 			connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 		}
 	});
@@ -614,6 +613,7 @@ function resolveJSProjectDocs(rootUri: string) {
 
 connection.onInitialize((_params) => {
     if (_params.initializationOptions && _params.initializationOptions.projectValidation){
+		projectDocuments = [];
         let JSProjectFiles = resolveJSProjectDocs(_params.rootUri);
         for (let i = 0; i < JSProjectFiles.length; i++) {
             let filePath = "file://" + JSProjectFiles[i].path;
