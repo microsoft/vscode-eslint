@@ -10,7 +10,7 @@ import {
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
-	Command, IPCMessageReader, IPCMessageWriter, WorkspaceChange,
+	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	Proposed, ProposedFeatures
@@ -18,6 +18,7 @@ import {
 
 import Uri from 'vscode-uri';
 import path = require('path');
+import fs = require('fs');
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -97,6 +98,7 @@ namespace DirectoryItem {
 }
 
 interface TextDocumentSettings {
+	projectValidation: boolean;
 	validate: boolean;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
@@ -286,8 +288,9 @@ process.exit = (code?: number) => {
 	}, 1000);
 }
 
-let connection = createConnection(ProposedFeatures.all, new IPCMessageReader(process), new IPCMessageWriter(process));
+let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
+let projectDocuments: TextDocument[] = [];
 
 let globalNodePath: string = undefined;
 
@@ -319,6 +322,7 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		return promise.then((path) => {
 			let library = path2Library.get(path);
 			if (!library) {
+				path = "../node_modules/eslint";							
 				library = require(path);
 				if (!library.CLIEngine) {
 					settings.validate = false;
@@ -568,7 +572,7 @@ documents.onDidClose((event) => {
 		let uri = event.document.uri;
 		document2Settings.delete(uri);
 		codeActions.delete(uri);
-		if (settings.validate) {
+		if (settings.validate && !settings.projectValidation) {
 			connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 		}
 	});
@@ -585,24 +589,55 @@ function trace(message: string, verbose?: string): void {
 	connection.tracer.log(message, verbose);
 }
 
+
+function getFiles (dir: string, jsFiles:{path: string, content: string}[] ){
+    jsFiles = jsFiles || [];
+    var files = fs.readdirSync(dir);
+    for (var i in files){
+        var name = dir + '/' + files[i];
+        if (fs.statSync(name).isDirectory()){
+            getFiles(name, jsFiles);
+        } else {
+            if (name.split('.').pop() === 'js') {
+                let fileContent = fs.readFileSync(name).toString();
+                jsFiles.push({path: name, content: fileContent});
+            }
+        }
+    }
+    return jsFiles;
+}
+
+function resolveJSProjectDocs(rootUri: string) {
+    let dirPath = rootUri.substring("file://".length, rootUri.length );
+    return getFiles(dirPath, []);
+}
+
 connection.onInitialize((_params) => {
-	globalNodePath = Files.resolveGlobalNodePath();
-	return {
-		capabilities: {
-			textDocumentSync: {
-				openClose: true,
-				change: TextDocumentSyncKind.Full,
-				willSaveWaitUntil: true,
-				save: {
-					includeText: false
-				}
-			},
-			codeActionProvider: true,
-			executeCommandProvider: {
-				commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
-			}
-		}
-	};
+    if (_params.initializationOptions && _params.initializationOptions.projectValidation){
+        let JSProjectFiles = resolveJSProjectDocs(_params.rootUri);
+        for (let i = 0; i < JSProjectFiles.length; i++) {
+            let filePath = "file://" + JSProjectFiles[i].path;
+            projectDocuments.push(TextDocument.create(filePath, "eslint", 0, JSProjectFiles[i].content));
+        }
+        validateMany(projectDocuments);
+    }
+    globalNodePath = Files.resolveGlobalNodePath();
+    return {
+        capabilities: {
+            textDocumentSync: {
+                openClose: true,
+                change: TextDocumentSyncKind.Full,
+                willSaveWaitUntil: true,
+                save: {
+                    includeText: false
+                }
+            },
+            codeActionProvider: true,
+            executeCommandProvider: {
+                commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
+            }
+        }
+    };
 });
 
 connection.onInitialized(() => {
@@ -628,7 +663,7 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
-	if (!documents.get(document.uri)) {
+	if (!documents && !documents.get(document.uri)) {
 		return Promise.resolve(undefined);
 	}
 	return resolveSettings(document).then((settings) => {
@@ -676,7 +711,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let content = document.getText();
 	let uri = document.uri;
-	let file = getFilePath(document);
+	let file = getFilePath(document) || uri;
 	let cwd = process.cwd();
 	try {
 		if (file) {
@@ -807,7 +842,7 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 				connection.console.error([
 					'',
 					`${error.message.toString()}`,
-					`Happend while validating ${fsPath ? fsPath : document.uri}`,
+					`Happened while validating ${fsPath ? fsPath : document.uri}`,
 					`This can happen for a couple of reasons:`,
 					`1. The plugin name is spelled incorrectly in an ESLint configuration file (e.g. .eslintrc).`,
 					`2. If ESLint is installed globally, then make sure ${module} is installed globally as well.`,
@@ -1062,4 +1097,6 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 		return undefined;
 	}
 });
+
+connection.tracer.
 connection.listen();
