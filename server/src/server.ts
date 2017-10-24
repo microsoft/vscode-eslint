@@ -291,6 +291,7 @@ process.exit = (code?: number) => {
 
 let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
+//Holds the project files, used when project Validation option is true
 let projectDocuments: TextDocument[] = null;
 
 let _globalNpmPath: string | null | undefined;
