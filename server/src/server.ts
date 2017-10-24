@@ -10,14 +10,15 @@ import {
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
+	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	Proposed, ProposedFeatures
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
+import path = require('path');
 import fs = require('fs');
-import * as path from 'path';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -98,7 +99,6 @@ namespace DirectoryItem {
 
 interface TextDocumentSettings {
 	validate: boolean;
-	packageManager: 'npm' | 'yarn';
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
@@ -107,7 +107,6 @@ interface TextDocumentSettings {
 	workspaceFolder: Proposed.WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
-	resolvedGlobalPackageManagerPath: string | undefined;
 }
 
 interface ESLintAutoFixEdit {
@@ -292,32 +291,8 @@ let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
 let projectDocuments: TextDocument[] = null;
 
-let _globalNpmPath: string | null | undefined;
-function globalNpmPath(): string {
-	if (_globalNpmPath === void 0) {
-		_globalNpmPath = Files.resolveGlobalNodePath(trace);
-		if (_globalNpmPath === void 0) {
-			_globalNpmPath = null;
-		}
-	}
-	if (_globalNpmPath === null) {
-		return undefined;
-	}
-	return _globalNpmPath;
-}
-let _globalYarnPath: string | undefined;
-function globalYarnPath(): string {
-	if (_globalYarnPath === void 0) {
-		_globalYarnPath = Files.resolveGlobalYarnPath(trace);
-		if (_globalYarnPath === void 0) {
-			_globalYarnPath = null;
-		}
-	}
-	if (_globalYarnPath === null) {
-		return undefined;
-	}
-	return _globalYarnPath;
-}
+let globalNodePath: string = undefined;
+
 let path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 let document2Settings: Map<string, Thenable<TextDocumentSettings>> = new Map<string, Thenable<TextDocumentSettings>>();
 
@@ -328,37 +303,25 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		return resultPromise;
 	}
 	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((settings: TextDocumentSettings) => {
-		if (settings.packageManager === 'npm') {
-			settings.resolvedGlobalPackageManagerPath = globalNpmPath();
-		} else if (settings.packageManager === 'yarn') {
-			settings.resolvedGlobalPackageManagerPath = globalYarnPath();
-		}
 		let uri = Uri.parse(document.uri);
 		let promise: Thenable<string>
 		if (uri.scheme === 'file') {
 			let file = uri.fsPath;
 			let directory = path.dirname(file);
 			if (settings.nodePath) {
-				let nodePath = settings.nodePath;
-				if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== void 0) {
-					let uri = Uri.parse(settings.workspaceFolder.uri);
-					if (uri.scheme === 'file') {
-						nodePath = path.join(uri.fsPath, nodePath);
-					}
-				}
-				promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-					return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
+				promise = Files.resolve('eslint', settings.nodePath, settings.nodePath, trace).then<string, string>(undefined, () => {
+					return Files.resolve('eslint', globalNodePath, directory, trace);
 				});
 			} else {
-				promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
+				promise = Files.resolve('eslint', globalNodePath, directory, trace);
 			}
 		} else {
-			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
+			promise = Files.resolve('eslint', globalNodePath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
 		}
 		return promise.then((path) => {
 			let library = path2Library.get(path);
 			if (!library) {
-				path = "../node_modules/eslint";							
+				// path = "../node_modules/eslint";							
 				library = require(path);
 				if (!library.CLIEngine) {
 					settings.validate = false;
@@ -649,16 +612,13 @@ function resolveJSProjectDocs(rootUri: string) {
 }
 
 connection.onInitialize((_params) => {
-    if (_params.initializationOptions && _params.initializationOptions.projectValidation){
-		projectDocuments = [];
+	if (_params.initializationOptions && _params.initializationOptions.projectValidation) {
         let JSProjectFiles = resolveJSProjectDocs(_params.rootUri);
-        for (let i = 0; i < JSProjectFiles.length; i++) {
-            let filePath = "file://" + JSProjectFiles[i].path;
-            projectDocuments.push(TextDocument.create(filePath, "eslint", 0, JSProjectFiles[i].content));
-        }
+        projectDocuments = JSProjectFiles.map(function(file){
+            return TextDocument.create("file://" + file.path, "eslint", 0, file.content);
+        });
         validateMany(projectDocuments);
     }
-    globalNodePath = Files.resolveGlobalNodePath();
     return {
         capabilities: {
             textDocumentSync: {
@@ -748,7 +708,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let content = document.getText();
 	let uri = document.uri;
-	let file = getFilePath(document) || uri;
+	let file = getFilePath(document);
 	let cwd = process.cwd();
 	try {
 		if (file) {
@@ -775,6 +735,9 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 
 		let cli = new settings.library.CLIEngine(newOptions);
 		// Clean previously computed code actions.
+		if (projectDocuments){
+            file = uri;
+        }
 		codeActions.delete(uri);
 		let report: ESLintReport = cli.executeOnText(content, file);
 		let diagnostics: Diagnostic[] = [];
