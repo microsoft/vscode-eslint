@@ -10,6 +10,7 @@ import {
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
+	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	Proposed, ProposedFeatures
@@ -358,7 +359,6 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		return promise.then((path) => {
 			let library = path2Library.get(path);
 			if (!library) {
-				path = "../node_modules/eslint";							
 				library = require(path);
 				if (!library.CLIEngine) {
 					settings.validate = false;
@@ -649,16 +649,13 @@ function resolveJSProjectDocs(rootUri: string) {
 }
 
 connection.onInitialize((_params) => {
-    if (_params.initializationOptions && _params.initializationOptions.projectValidation){
-		projectDocuments = [];
+    if (_params.initializationOptions && _params.initializationOptions.projectValidation) {
         let JSProjectFiles = resolveJSProjectDocs(_params.rootUri);
-        for (let i = 0; i < JSProjectFiles.length; i++) {
-            let filePath = "file://" + JSProjectFiles[i].path;
-            projectDocuments.push(TextDocument.create(filePath, "eslint", 0, JSProjectFiles[i].content));
-        }
+        projectDocuments = JSProjectFiles.map(function (file) {
+            return TextDocument.create("file://" + file.path, "eslint", 0, file.content);
+        });
         validateMany(projectDocuments);
     }
-    globalNodePath = Files.resolveGlobalNodePath();
     return {
         capabilities: {
             textDocumentSync: {
