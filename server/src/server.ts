@@ -630,7 +630,7 @@ function getFiles (dir: string, jsFiles:{path: string, content: string}[] ){
     jsFiles = jsFiles || [];
     var files = fs.readdirSync(dir);
     for (var i in files){
-        var name = dir + '/' + files[i];
+        var name = path.normalize(dir + '/' + files[i]);
         if (fs.statSync(name).isDirectory()){
             getFiles(name, jsFiles);
         } else {
