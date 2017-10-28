@@ -88,9 +88,12 @@
 				},
 				"eslint.autoFixOnSave": {
 					"scope": "resource",
-					"type": "boolean",
+					"type": [
+						"boolean",
+						"array"
+					],
 					"default": false,
-					"description": "Turns auto fix on save on or off."
+					"description": "Turns auto fix on save on or off, or sets which rules to auto fix on save."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",

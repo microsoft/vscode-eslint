@@ -87,7 +87,7 @@ interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: 'npm' | 'yarn';
 	autoFix: boolean;
-	autoFixOnSave: boolean;
+	autoFixOnSave: boolean | string[];
 	options: any | undefined;
 	run: RunValues;
 	nodePath: string | undefined;
