@@ -15,7 +15,11 @@
 	"publisher": "dbaeumer",
 	"icon": "eslint_icon.png",
 	"categories": [
+		"Languages",
 		"Linters"
+	],
+	"keywords": [
+		"multi-root ready"
 	],
 	"engines": {
 		"vscode": "^1.16.0"
@@ -42,7 +46,7 @@
 						"npm", "yarn"
 					],
 					"default": "npm",
-					"description": "The package manager to use to install global node modules."
+					"description": "The package manager you use to install node modules."
 				},
 				"eslint.nodePath": {
 					"scope": "resource",
@@ -195,7 +199,7 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"typescript": "^2.4.2",
-		"@types/node": "^6.0.88"
+		"typescript": "^2.6.1",
+		"@types/node": "^6.0.90"
 	}
 }
