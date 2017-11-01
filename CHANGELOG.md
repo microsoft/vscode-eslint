@@ -1,3 +1,7 @@
+### 1.4.2
+
+- [ESLint should show a warning icon when something failed in the status bar](https://github.com/Microsoft/vscode-eslint/issues/328)
+
 ### 1.4.1
 
 - small setting description fix.

@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "1.4.1",
+	"version": "1.4.2",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -47,6 +47,12 @@
 					],
 					"default": "npm",
 					"description": "The package manager you use to install node modules."
+				},
+				"eslint.alwaysShowStatus": {
+					"type": "boolean",
+					"default": false,
+					"description": "Always show the ESlint status bar item.",
+					"scope": "window"
 				},
 				"eslint.nodePath": {
 					"scope": "resource",

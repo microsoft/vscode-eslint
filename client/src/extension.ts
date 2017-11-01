@@ -324,34 +324,28 @@ export function realActivate(context: ExtensionContext) {
 	}
 
 	function updateStatus(status: Status) {
+		eslintStatus = status;
 		switch (status) {
 			case Status.ok:
-				statusBarItem.color = undefined;
+				statusBarItem.text = 'ESLint';
 				break;
 			case Status.warn:
-				statusBarItem.color = 'yellow';
+				statusBarItem.text = '$(alert) ESLint';
 				break;
 			case Status.error:
-				statusBarItem.color = 'darkred';
+				statusBarItem.text = '$(issue-opened) ESLint';
 				break;
+			default:
+				statusBarItem.text = 'ESLint';
 		}
-		eslintStatus = status;
-		updateStatusBarVisibility(Window.activeTextEditor);
+		updateStatusBarVisibility();
 	}
 
-	function updateStatusBarVisibility(editor: TextEditor): void {
-		statusBarItem.text = eslintStatus === Status.ok ? 'ESLint' : 'ESLint!';
+	function updateStatusBarVisibility(): void {
 		showStatusBarItem(
-			serverRunning &&
-			(
-				eslintStatus !== Status.ok ||
-				(editor && (editor.document.languageId === 'javascript' || editor.document.languageId === 'javascriptreact'))
-			)
+			(serverRunning && eslintStatus !== Status.ok) || Workspace.getConfiguration('eslint').get('alwaysShowStatus', false)
 		);
 	}
-
-	Window.onDidChangeActiveTextEditor(updateStatusBarVisibility);
-	updateStatusBarVisibility(Window.activeTextEditor);
 
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
@@ -595,7 +589,7 @@ export function realActivate(context: ExtensionContext) {
 			statusBarItem.tooltip = stopped;
 			serverRunning = false;
 		}
-		updateStatusBarVisibility(Window.activeTextEditor);
+		updateStatusBarVisibility();
 	});
 	client.onReady().then(() => {
 		client.onNotification(StatusNotification.type, (params) => {
@@ -627,7 +621,7 @@ export function realActivate(context: ExtensionContext) {
 				].join('\n'));
 			}
 			eslintStatus = Status.warn;
-			updateStatusBarVisibility(Window.activeTextEditor);
+			updateStatusBarVisibility();
 			return {};
 		});
 
@@ -695,6 +689,9 @@ export function realActivate(context: ExtensionContext) {
 		dummyCommands.forEach(command => command.dispose());
 		dummyCommands = undefined;
 	}
+
+	updateStatusBarVisibility();
+
 	context.subscriptions.push(
 		client.start(),
 		Commands.registerCommand('eslint.executeAutofix', () => {
