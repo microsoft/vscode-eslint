@@ -1,3 +1,7 @@
+### 1.4.3
+
+- Moved to version 3.5.0 of the vscode-languageserver-node libraries.
+
 ### 1.4.2
 
 - [ESLint should show a warning icon when something failed in the status bar](https://github.com/Microsoft/vscode-eslint/issues/328)
