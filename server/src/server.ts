@@ -17,7 +17,6 @@ import {
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
-import fs = require('fs');
 import * as path from 'path';
 
 namespace Is {
@@ -147,6 +146,7 @@ interface CLIOptions {
 
 interface CLIEngine {
 	executeOnText(content: string, file?:string): ESLintReport;
+	executeOnFiles([]): ESLintReport;
 }
 
 interface CLIEngineConstructor {
@@ -291,7 +291,6 @@ process.exit = (code?: number) => {
 
 let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
-//Holds the project files, filled when project Validation option is true
 let projectDocuments: TextDocument[] = null;
 
 let _globalNpmPath: string | null | undefined;
@@ -533,6 +532,16 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 	return document.version
 });
 
+namespace ValidateProjectNotification {
+	export const type: NotificationType<TextDocument, void> = new NotificationType<TextDocument, void>('eslint/validateProject');
+}
+
+messageQueue.onNotification(ValidateProjectNotification.type, (document) => {
+	validateProject(document);
+}, (document): number => {
+	return document.version
+});
+
 // The documents manager listen for text document create, change
 // and close on the connection
 documents.listen(connection);
@@ -627,36 +636,23 @@ function trace(message: string, verbose?: string): void {
 }
 
 
-function getFiles (dir: string, jsFiles:{path: string, content: string}[] ){
-    jsFiles = jsFiles || [];
-    var files = fs.readdirSync(dir);
-    for (var i in files){
-        var name = path.normalize(dir + '/' + files[i]);
-        if (fs.statSync(name).isDirectory()){
-            getFiles(name, jsFiles);
-        } else {
-            if (name.split('.').pop() === 'js') {
-                let fileContent = fs.readFileSync(name).toString();
-                jsFiles.push({path: name, content: fileContent});
-            }
-        }
-    }
-    return jsFiles;
+function validateProject(document: TextDocument) {
+    let rootUri = document.uri;
+    let dirPath = rootUri.substring("file://".length, rootUri.length);
+    return resolveSettings(document).then((settings) => {
+            let newOptions = Object.assign(Object.create(null), settings.options);
+    let cli = new settings.library.CLIEngine(newOptions);
+    let report = cli.executeOnFiles([dirPath + "/"]);
+    return convertReportToDiagnostics(report, settings, true, "", document);
+});
 }
 
-function resolveJSProjectDocs(rootUri: string) {
-    let dirPath = rootUri.substring("file://".length, rootUri.length );
-    return getFiles(dirPath, []);
-}
 
 connection.onInitialize((_params) => {
-    if (_params.initializationOptions && _params.initializationOptions.projectValidation) {
-        let JSProjectFiles = resolveJSProjectDocs(_params.rootUri);
-        projectDocuments = JSProjectFiles.map(function (file) {
-            return TextDocument.create("file://" + file.path, "eslint", 0, file.content);
-        });
-        validateMany(projectDocuments);
-    }
+	if (_params.initializationOptions && _params.initializationOptions.projectValidation){
+		let document =  TextDocument.create(_params.rootUri, "eslint", 0, "");
+		messageQueue.addNotificationMessage(ValidateProjectNotification.type, document, document.version);
+	}
     return {
         capabilities: {
             textDocumentSync: {
@@ -698,7 +694,6 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
-	// except in project validation mode
 	if (!projectDocuments && !documents.get(document.uri)) {
 		return Promise.resolve(undefined);
 	}
@@ -776,30 +771,38 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		// Clean previously computed code actions.
 		codeActions.delete(uri);
 		let report: ESLintReport = cli.executeOnText(content, file);
-		let diagnostics: Diagnostic[] = [];
-		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
-			let docReport = report.results[0];
-			if (docReport.messages && Array.isArray(docReport.messages)) {
-				docReport.messages.forEach((problem) => {
-					if (problem) {
-						let diagnostic = makeDiagnostic(problem);
-						diagnostics.push(diagnostic);
-						if (settings.autoFix) {
-							recordCodeAction(document, diagnostic, problem);
-						}
-					}
-				});
-			}
-		}
-		if (publishDiagnostics) {
-			connection.sendDiagnostics({ uri, diagnostics });
-		}
+		convertReportToDiagnostics(report, settings, publishDiagnostics, uri, document)		
 	} finally {
 		if (cwd !== process.cwd()) {
 			process.chdir(cwd);
 		}
 	}
 }
+
+function convertReportToDiagnostics(report: ESLintReport, settings: TextDocumentSettings, publishDiagnostics: boolean, uri: string, document: TextDocument) {
+    if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
+        for (let i = 0; i< report.results.length; i++) {
+			let diagnostics: Diagnostic[] = [];
+			let docReport = report.results[i];
+            let docUri = uri || "file://" + docReport.filePath;
+            if (docReport.messages && Array.isArray(docReport.messages)) {
+                docReport.messages.forEach((problem) => {
+                    if (problem) {
+                        let diagnostic = makeDiagnostic(problem);
+                        diagnostics.push(diagnostic);
+                        if (settings.autoFix && document) {
+                            recordCodeAction(document, diagnostic, problem);
+                        }
+                    }
+                });
+            }
+            if (publishDiagnostics) {
+                connection.sendDiagnostics({ uri: docUri, diagnostics: diagnostics });
+            }
+        }
+    }
+}
+
 
 let noConfigReported: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 
