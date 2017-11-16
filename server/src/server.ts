@@ -97,6 +97,7 @@ namespace DirectoryItem {
 }
 
 interface TextDocumentSettings {
+	projectValidation: boolean;
 	validate: boolean;
 	packageManager: 'npm' | 'yarn';
 	autoFix: boolean;
@@ -291,7 +292,6 @@ process.exit = (code?: number) => {
 
 let connection = createConnection(ProposedFeatures.all);
 let documents: TextDocuments = new TextDocuments();
-let projectDocuments: TextDocument[] = null;
 
 let _globalNpmPath: string | null | undefined;
 function globalNpmPath(): string {
@@ -618,7 +618,7 @@ documents.onDidClose((event) => {
 		let uri = event.document.uri;
 		document2Settings.delete(uri);
 		codeActions.delete(uri);
-		if (settings.validate && !projectDocuments) {
+		if (settings.validate && !settings.projectValidation) {
 			connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 		}
 	});
@@ -694,7 +694,7 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
-	if (!projectDocuments && !documents.get(document.uri)) {
+	if (!documents.get(document.uri)) {
 		return Promise.resolve(undefined);
 	}
 	return resolveSettings(document).then((settings) => {
