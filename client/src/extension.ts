@@ -650,6 +650,8 @@ export function realActivate(context: ExtensionContext) {
 						`To use ESLint please install eslint by running \'npm install eslint\' in the workspace folder ${workspaceFolder.name}`,
 						'or globally using \'npm install -g eslint\'. You need to reopen the workspace after installing eslint.',
 						'',
+						'If you are using yarn instead of npm set the setting `"eslint.packageManager": "yarn"`',
+						'',
 						`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
 					].join('\n'));
 				}
