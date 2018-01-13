@@ -672,7 +672,8 @@ export function realActivate(context: ExtensionContext) {
 					client.info([
 						`Failed to load the ESLint library for the document ${uri.fsPath}`,
 						'To use ESLint for single JavaScript file install eslint globally using \'npm install -g eslint\'.',
-						'You need to reopen VS Code after installing eslint.',
+						'If you are using yarn instead of npm set the setting `"eslint.packageManager": "yarn"`',
+                                                'You need to reopen VS Code after installing eslint.',
 					].join('\n'));
 				}
 				if (!state.global) {
