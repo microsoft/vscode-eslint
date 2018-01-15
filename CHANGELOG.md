@@ -1,3 +1,7 @@
+### 1.4.4
+
+- [request: better error message if eslint crashes](https://github.com/Microsoft/vscode-eslint/issues/391)
+
 ### 1.4.3
 
 - Moved to version 3.5.0 of the vscode-languageserver-node libraries.
