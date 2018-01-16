@@ -872,6 +872,10 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 
 function showErrorMessage(error: any, document: TextDocument): Status {
 	connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`);
+	if (Is.string(error.stack)) {
+		connection.console.error('ESLint stack trace:');
+		connection.console.error(error.stack);
+	}
 	return Status.error;
 }
 
