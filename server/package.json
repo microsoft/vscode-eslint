@@ -17,6 +17,5 @@
 		"vscode-uri": "^1.0.1",
 		"vscode-languageserver": "^3.5.0"
 	},
-	"scripts": {
-	}
+	"scripts": {}
 }

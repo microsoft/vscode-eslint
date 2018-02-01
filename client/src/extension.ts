@@ -241,7 +241,7 @@ function createDefaultConfiguration(): void {
 	});
 }
 
-let dummyCommands: [Disposable];
+let dummyCommands: Disposable[];
 
 let defaultLanguages = ['javascript', 'javascriptreact'];
 function shouldBeValidated(textDocument: TextDocument): boolean {

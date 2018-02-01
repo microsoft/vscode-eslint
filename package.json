@@ -43,7 +43,8 @@
 					"scope": "resource",
 					"type": "string",
 					"enum": [
-						"npm", "yarn"
+						"npm",
+						"yarn"
 					],
 					"default": "npm",
 					"description": "The package manager you use to install node modules."
@@ -205,7 +206,7 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"typescript": "^2.6.1",
+		"typescript": "^2.7.1",
 		"@types/node": "^6.0.90"
 	}
 }
