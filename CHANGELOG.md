@@ -1,3 +1,8 @@
+### 1.4.5
+
+- [UnhandledPromiseRejectionWarning when renaming .eslintrc.json](https://github.com/Microsoft/vscode-eslint/issues/403)
+- [update error message and add a hint to update yarn setting if using yarn](https://github.com/Microsoft/vscode-eslint/pull/390)
+
 ### 1.4.4
 
 - [request: better error message if eslint crashes](https://github.com/Microsoft/vscode-eslint/issues/391)

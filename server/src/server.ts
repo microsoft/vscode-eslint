@@ -882,8 +882,8 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
-	noConfigReported = Object.create(null);
-	missingModuleReported = Object.create(null);
+	noConfigReported = new Map<string, ESLintModule>();;
+	missingModuleReported = new Map<string, ESLintModule>();;
 	params.changes.forEach((change) => {
 		let fsPath = getFilePath(change.uri);
 		if (!fsPath || isUNC(fsPath)) {
