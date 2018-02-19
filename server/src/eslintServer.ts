@@ -16,7 +16,7 @@ import {
 	Proposed, ProposedFeatures
 } from 'vscode-languageserver';
 
-import Uri from 'vscode-uri';
+import URI from 'vscode-uri';
 import * as path from 'path';
 
 namespace Is {
@@ -266,15 +266,28 @@ function isUNC(path: string): boolean {
 	return true;
 }
 
+function getFileSystemPath(uri: URI): string {
+	let result = uri.fsPath;
+	if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
+		// Node by default uses an upper case drive letter and ESLint uses
+		// === to compare pathes which results in the equal check failing
+		// if the drive letter is lower case in th URI. Ensure upper case.
+		return result[0].toUpperCase() + result.substr(1);
+	} else {
+		return result;
+	}
+}
+
+
 function getFilePath(documentOrUri: string | TextDocument): string {
 	if (!documentOrUri) {
 		return undefined;
 	}
-	let uri = Is.string(documentOrUri) ? Uri.parse(documentOrUri) : Uri.parse(documentOrUri.uri);
+	let uri = Is.string(documentOrUri) ? URI.parse(documentOrUri) : URI.parse(documentOrUri.uri);
 	if (uri.scheme !== 'file') {
 		return undefined;
 	}
-	return uri.fsPath;
+	return getFileSystemPath(uri);
 }
 
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
@@ -332,7 +345,7 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		} else if (settings.packageManager === 'yarn') {
 			settings.resolvedGlobalPackageManagerPath = globalYarnPath();
 		}
-		let uri = Uri.parse(document.uri);
+		let uri = URI.parse(document.uri);
 		let promise: Thenable<string>
 		if (uri.scheme === 'file') {
 			let file = uri.fsPath;
@@ -340,7 +353,7 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 			if (settings.nodePath) {
 				let nodePath = settings.nodePath;
 				if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== void 0) {
-					let uri = Uri.parse(settings.workspaceFolder.uri);
+					let uri = URI.parse(settings.workspaceFolder.uri);
 					if (uri.scheme === 'file') {
 						nodePath = path.join(uri.fsPath, nodePath);
 					}
@@ -715,6 +728,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 	let uri = document.uri;
 	let file = getFilePath(document);
 	let cwd = process.cwd();
+
 	try {
 		if (file) {
 			if (settings.workingDirectory) {
@@ -723,10 +737,11 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 					process.chdir(settings.workingDirectory.directory);
 				}
 			} else if (settings.workspaceFolder) {
-				let workspaceFolderUri = Uri.parse(settings.workspaceFolder.uri);
+				let workspaceFolderUri = URI.parse(settings.workspaceFolder.uri);
 				if (workspaceFolderUri.scheme === 'file') {
-					newOptions.cwd = workspaceFolderUri.fsPath;
-					process.chdir(workspaceFolderUri.fsPath);
+					const fsPath = getFileSystemPath(workspaceFolderUri);
+					newOptions.cwd = fsPath;
+					process.chdir(fsPath);
 				}
 			} else if (!settings.workspaceFolder && !isUNC(file)) {
 				let directory = path.dirname(file);
@@ -803,7 +818,7 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 	function handleFileName(filename: string): Status {
 		if (!configErrorReported.has(filename)) {
 			connection.console.error(getMessage(error, document));
-			if (!documents.get(Uri.file(filename).toString())) {
+			if (!documents.get(URI.file(filename).toString())) {
 				connection.window.showInformationMessage(getMessage(error, document));
 			}
 			configErrorReported.set(filename, library);
