@@ -1,3 +1,7 @@
+### 1.4.7
+
+- [extension not working](https://github.com/Microsoft/vscode-eslint/issues/365)
+
 ### 1.4.6
 
 - [Rename server.js to a more specific name so that eslint is easily recognized by code --status](https://github.com/Microsoft/vscode-eslint/issues/406)
