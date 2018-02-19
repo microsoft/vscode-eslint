@@ -350,7 +350,7 @@ export function realActivate(context: ExtensionContext) {
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	// serverModule
-	let serverModule = context.asAbsolutePath(path.join('server', 'out', 'server.js'));
+	let serverModule = context.asAbsolutePath(path.join('server', 'out', 'eslintServer.js'));
 	let serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc, options: { cwd: process.cwd() } },
 		debug: { module: serverModule, transport: TransportKind.ipc, options: { execArgv: ["--nolazy", "--inspect=6010"], cwd: process.cwd() } }
