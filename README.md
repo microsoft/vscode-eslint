@@ -61,20 +61,22 @@ The extension lints an individual file only. If you want to lint your entire wor
 
 ```json
 {
-	"version": "0.1.0",
-	"windows": {
-		"command": ".\\node_modules\\.bin\\eslint"
-	},
-	"linux": {
-		"command": "./node_modules/.bin/eslint"
-	},
-	"osx": {
-		"command": "./node_modules/.bin/eslint"
-	},
-	"isShellCommand": true,
-	"args": ["*.js"],
-	"showOutput": "silent",
-	"problemMatcher": "$eslint-stylish"
+    "version": "2.0.0",
+    "windows": {
+        "command": ".\\node_modules\\.bin\\eslint"
+    },
+    "linux": {
+        "command": "./node_modules/.bin/eslint"
+    },
+    "osx": {
+        "command": "./node_modules/.bin/eslint"
+    },
+    "type": "shell",
+    "args": ["*.js"],
+    "presentation" : {
+        "reveal": "silent" 
+    },
+    "problemMatcher": "$eslint-stylish"   
 }
 ```
 
