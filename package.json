@@ -155,6 +155,12 @@
 						"javascriptreact"
 					],
 					"description": "An array of language ids which should be validated by ESLint"
+				},
+				"eslint.enableLintTask": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Controls whether a task for linting the whole workspace will be available."
 				}
 			}
 		},
