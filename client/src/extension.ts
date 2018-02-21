@@ -243,11 +243,10 @@ function createDefaultConfiguration(): void {
 
 let taskProvider: Disposable | undefined;
 
-function createEslintTask(): void {
+function manageEslintTask(): void {
 	let enableLintTask: boolean = Workspace.getConfiguration('eslint').get('enableLintTask');
 
 	if(!taskProvider && enableLintTask) {
-		console.log('Creating task...')
 		interface EslintTaskDefinition extends TaskDefinition {}
 
 		function createTask(): Task[] {
@@ -328,7 +327,7 @@ export function activate(context: ExtensionContext) {
 		if (activated) {
 			return;
 		}
-		createEslintTask();
+		manageEslintTask();
 		for (let textDocument of Workspace.textDocuments) {
 			if (shouldBeValidated(textDocument)) {
 				openListener.dispose();
