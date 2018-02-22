@@ -276,7 +276,6 @@ function manageEslintTask(): void {
 				return undefined;
 			}
 		});
-		Window.showInformationMessage("'ESLint: lint workspace' task has been added.");
 	} else if(taskProvider && !enableLintTask) {
 		const reloadAction = 'Reload';
 		Window.showInformationMessage("'ESLint: lint workspace' task will be removed after reloading the window.", reloadAction)
@@ -285,7 +284,6 @@ function manageEslintTask(): void {
 					Commands.executeCommand('workbench.action.reloadWindow');
 				}
 			});
-
 	}
 }
 
