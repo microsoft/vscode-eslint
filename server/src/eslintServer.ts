@@ -13,7 +13,7 @@ import {
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	Proposed, ProposedFeatures
+	WorkspaceFolder, DidChangeWorkspaceFoldersNotification
 } from 'vscode-languageserver';
 
 import URI from 'vscode-uri';
@@ -104,7 +104,7 @@ interface TextDocumentSettings {
 	options: any | undefined;
 	run: RunValues;
 	nodePath: string | undefined;
-	workspaceFolder: Proposed.WorkspaceFolder | undefined;
+	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 	resolvedGlobalPackageManagerPath: string | undefined;
@@ -301,7 +301,7 @@ process.exit = (code?: number) => {
 	}, 1000);
 }
 
-let connection = createConnection(ProposedFeatures.all);
+let connection = createConnection();
 let documents: TextDocuments = new TextDocuments();
 
 let _globalNpmPath: string | null | undefined;
@@ -657,14 +657,14 @@ connection.onInitialize((_params) => {
 
 connection.onInitialized(() => {
 	connection.client.register(DidChangeConfigurationNotification.type, undefined);
-	connection.client.register(Proposed.DidChangeWorkspaceFoldersNotification.type, undefined);
+	connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
 })
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
 	environmentChanged();
 });
 
-messageQueue.registerNotification(Proposed.DidChangeWorkspaceFoldersNotification.type, (_params) => {
+messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_params) => {
 	environmentChanged();
 });
 

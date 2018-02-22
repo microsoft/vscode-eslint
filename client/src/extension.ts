@@ -15,8 +15,8 @@ import {
 	TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
-	ServerOptions, Proposed, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	CancellationToken, WorkspaceMiddleware
+	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
+	WorkspaceFolder
 } from 'vscode-languageclient';
 
 const eslintrc: string = [
@@ -91,7 +91,7 @@ interface TextDocumentSettings {
 	options: any | undefined;
 	run: RunValues;
 	nodePath: string | undefined;
-	workspaceFolder: Proposed.WorkspaceFolder | undefined;
+	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: undefined;
 }
@@ -469,7 +469,7 @@ export function realActivate(context: ExtensionContext) {
 				return next(document, range, newContext, token);
 			},
 			workspace: {
-				configuration: (params: Proposed.ConfigurationParams, _token: CancellationToken, _next: Function): any[] => {
+				configuration: (params, _token, _next): any[] => {
 					if (!params.items) {
 						return null;
 					}
@@ -570,7 +570,7 @@ export function realActivate(context: ExtensionContext) {
 					}
 					return result;
 				}
-			} as WorkspaceMiddleware
+			}
 		}
 	};
 
