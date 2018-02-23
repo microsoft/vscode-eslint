@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, Task, TaskDefinition, ShellExecution
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -18,6 +18,8 @@ import {
 	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
 	WorkspaceFolder
 } from 'vscode-languageclient';
+
+import { TaskProvider } from './tasks';
 
 const eslintrc: string = [
 '{',
@@ -241,52 +243,6 @@ function createDefaultConfiguration(): void {
 	});
 }
 
-let taskProvider: Disposable | undefined;
-
-function manageEslintTask(): void {
-	let enableLintTask: boolean = Workspace.getConfiguration('eslint').get('enableLintTask');
-
-	if(!taskProvider && enableLintTask) {
-		interface EslintTaskDefinition extends TaskDefinition {}
-
-		function createTask(): Task[] {
-			try {
-				let tasks: Task[] = [];
-
-				const kind: EslintTaskDefinition = {
-					type: 'eslint'
-				};
-				const taskName = 'lint workspace'
-				let command = ".\\node_modules\\.bin\\eslint ."
-				if(process.platform !== 'win32') {
-					command = "./node_modules/.bin/eslint ."
-				}
-				tasks.push(new Task(kind, taskName, 'ESLint', new ShellExecution(command), '$eslint-stylish'));
-				return tasks;
-			} catch (e) {
-				throw new Error(e);
-			}
-		}
-
-		taskProvider = Workspace.registerTaskProvider('eslint', {
-			provideTasks: () => {
-				return createTask();
-			},
-			resolveTask(_task: Task): Task | undefined {
-				return undefined;
-			}
-		});
-	} else if(taskProvider && !enableLintTask) {
-		const reloadAction = 'Reload';
-		Window.showInformationMessage("'ESLint: lint workspace' task will be removed after reloading the window.", reloadAction)
-			.then(selectedAction => {
-				if(selectedAction === reloadAction) {
-					Commands.executeCommand('workbench.action.reloadWindow');
-				}
-			});
-	}
-}
-
 let dummyCommands: Disposable[];
 
 let defaultLanguages = ['javascript', 'javascriptreact'];
@@ -306,6 +262,7 @@ function shouldBeValidated(textDocument: TextDocument): boolean {
 	return false;
 }
 
+let taskProvider: TaskProvider;
 export function activate(context: ExtensionContext) {
 	let activated: boolean;
 	let openListener: Disposable;
@@ -325,7 +282,6 @@ export function activate(context: ExtensionContext) {
 		if (activated) {
 			return;
 		}
-		manageEslintTask();
 		for (let textDocument of Workspace.textDocuments) {
 			if (shouldBeValidated(textDocument)) {
 				openListener.dispose();
@@ -350,6 +306,8 @@ export function activate(context: ExtensionContext) {
 		Commands.registerCommand('eslint.enable', enable),
 		Commands.registerCommand('eslint.disable', disable)
 	);
+	taskProvider = new TaskProvider();
+	taskProvider.start();
 	configurationChanged();
 }
 

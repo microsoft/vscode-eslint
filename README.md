@@ -11,6 +11,7 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
 - `eslint.enable`: enable/disable eslint. Is enabled by default.
+- `eslint.provideLintTask`: whether the extension contributes a lint task to lint a whole workspace folder.
 - `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"`.
 - `eslint.options`: options to configure how eslint is started using the [ESLint CLI Engine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengine). Defaults to an empty option bag.
   An example to point to a custom `.eslintrc.json` file is:
@@ -57,25 +58,4 @@ This extension contributes the following commands to the Command palette.
 
 ## Using the extension with VS Code's task running
 
-The extension lints an individual file only. If you want to lint your entire workspace or project and want to see the warnings in the Problems panel, then you can define a VS Code task which extracts VS Code problems from the ESLint output. To do so use the following `tasks.json` and tweak the args (`*.js`) to your setup:
-
-```json
-{
-	"version": "0.1.0",
-	"windows": {
-		"command": ".\\node_modules\\.bin\\eslint"
-	},
-	"linux": {
-		"command": "./node_modules/.bin/eslint"
-	},
-	"osx": {
-		"command": "./node_modules/.bin/eslint"
-	},
-	"isShellCommand": true,
-	"args": ["*.js"],
-	"showOutput": "silent",
-	"problemMatcher": "$eslint-stylish"
-}
-```
-
-Please note that the above example assumes that ESLint is installed locally in your workspace.
+The extension lints an individual file only on typing. If you want to lint the whole workspace set `eslint.provideLintTask` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in tasks.json.

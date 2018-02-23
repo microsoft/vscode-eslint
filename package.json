@@ -156,7 +156,7 @@
 					],
 					"description": "An array of language ids which should be validated by ESLint"
 				},
-				"eslint.enableLintTask": {
+				"eslint.provideLintTask": {
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
