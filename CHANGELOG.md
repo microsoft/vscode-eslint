@@ -1,6 +1,7 @@
 ### 1.4.7
 
 - [extension not working](https://github.com/Microsoft/vscode-eslint/issues/365)
+- [Create a task provider for linting the whole workspace](https://github.com/Microsoft/vscode-eslint/pull/410)
 
 ### 1.4.6
 
