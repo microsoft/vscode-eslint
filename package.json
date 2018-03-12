@@ -176,6 +176,11 @@
 				"command": "eslint.createConfig"
 			},
 			{
+				"title": "Create '.eslintrc.yml' File",
+				"category": "ESLint",
+				"command": "eslint.createConfigYaml"
+			},
+			{
 				"title": "Enable ESLint",
 				"category": "ESLint",
 				"command": "eslint.enable"
