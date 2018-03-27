@@ -1,3 +1,7 @@
+### 1.4.8
+
+- Using latest vscode-languageclient library to get rid of unnecessary console.log statements.
+
 ### 1.4.7
 
 - [extension not working](https://github.com/Microsoft/vscode-eslint/issues/365)
