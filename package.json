@@ -212,7 +212,7 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"typescript": "^2.7.1",
+		"typescript": "^2.8.1",
 		"@types/node": "^6.0.90"
 	}
 }

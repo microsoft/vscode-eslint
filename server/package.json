@@ -15,7 +15,7 @@
 	},
 	"dependencies": {
 		"vscode-uri": "^1.0.1",
-		"vscode-languageserver": "^4.0.0"
+		"vscode-languageserver": "^4.1.0"
 	},
 	"scripts": {}
 }
