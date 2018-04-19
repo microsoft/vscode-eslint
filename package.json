@@ -1,7 +1,7 @@
 {
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
-	"description": "Integrates ESLint into VS Code.",
+	"description": "Integrates ESLint JavaScript into VS Code.",
 	"version": "1.4.8",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
@@ -15,7 +15,7 @@
 	"publisher": "dbaeumer",
 	"icon": "eslint_icon.png",
 	"categories": [
-		"Languages",
+		"Programming Languages",
 		"Linters"
 	],
 	"keywords": [
