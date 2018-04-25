@@ -300,6 +300,29 @@ process.exit = (code?: number) => {
 		nodeExit(code);
 	}, 1000);
 }
+process.on('uncaughtException', (error: any) => {
+	let message: string;
+	if (error) {
+		if (typeof error.stack === 'string') {
+			message = error.stack;
+		} else if (typeof error.message === 'string') {
+			message = error.message;
+		} else if (typeof error === 'string') {
+			message = error;
+		}
+		if (!message) {
+			try {
+				message = JSON.stringify(error, undefined, 4);
+			} catch (e) {
+				// Should not happen.
+			}
+		}
+	}
+	console.error('Uncaught exception recevied.');
+	if (message) {
+		console.error(message);
+	}
+});
 
 let connection = createConnection();
 let documents: TextDocuments = new TextDocuments();
