@@ -171,14 +171,9 @@
 				"command": "eslint.executeAutofix"
 			},
 			{
-				"title": "Create '.eslintrc.json' File",
+				"title": "Create ESLint configuration",
 				"category": "ESLint",
 				"command": "eslint.createConfig"
-			},
-			{
-				"title": "Create '.eslintrc.yml' File",
-				"category": "ESLint",
-				"command": "eslint.createConfigYaml"
 			},
 			{
 				"title": "Enable ESLint",

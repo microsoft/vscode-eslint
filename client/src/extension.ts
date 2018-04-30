@@ -21,52 +21,6 @@ import {
 
 import { TaskProvider } from './tasks';
 
-const eslintrcJson: string = [
-'{',
-'    "env": {',
-'        "browser": true,',
-'        "commonjs": true,',
-'        "es6": true,',
-'        "node": true',
-'    },',
-'    "parserOptions": {',
-'        "ecmaFeatures": {',
-'            "jsx": true',
-'        },',
-'        "sourceType": "module"',
-'    },',
-'    "rules": {',
-'        "no-const-assign": "warn",',
-'        "no-this-before-super": "warn",',
-'        "no-undef": "warn",',
-'        "no-unreachable": "warn",',
-'        "no-unused-vars": "warn",',
-'        "constructor-super": "warn",',
-'        "valid-typeof": "warn"',
-'    }',
-'}'
-].join(process.platform === 'win32' ? '\r\n' : '\n');
-
-const eslintrcYaml: string = [
-'env:',
-'    browser: true',
-'    commonjs: true',
-'    es6: true',
-'    node: true',
-'parserOptions:',
-'    ecmaFeatures:',
-'        jsx: true',
-'    sourceType: module',
-'rules:',
-'    no-const-assign: warn',
-'    no-this-before-super: warn',
-'    no-undef: warn',
-'    no-unreachable: warn',
-'    no-unused-vars: warn',
-'    constructor-super: warn',
-'    valid-typeof: warn'
-].join(process.platform === 'win32' ? '\r\n' : '\n');
-
 namespace Is {
 	const toString = Object.prototype.toString;
 
@@ -229,7 +183,7 @@ function disable() {
 	});
 }
 
-function createDefaultConfiguration(asJson: boolean): void {
+function createDefaultConfiguration(): void {
 	let folders = Workspace.workspaceFolders;
 	if (!folders) {
 		Window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
@@ -256,21 +210,10 @@ function createDefaultConfiguration(asJson: boolean): void {
 		if (!folder) {
 			return;
 		}
-		const eslintConfigFileExtension = asJson ? 'json' : 'yml';
-		let eslintConfigFile = path.join(folder.uri.fsPath, `.eslintrc.${eslintConfigFileExtension}`);
-		if (!fs.existsSync(eslintConfigFile)) {
-			const eslintrc = asJson ? eslintrcJson : eslintrcYaml;
-			fs.writeFileSync(eslintConfigFile, eslintrc, { encoding: 'utf8' });
-		}
+		const terminal = Window.createTerminal(`ESLint init`);
+		terminal.sendText('eslint --init');
+		terminal.show();
 	});
-}
-
-function createDefaultConfigurationJson(): void {
-	createDefaultConfiguration(true);
-}
-
-function createDefaultConfigurationYaml(): void {
-	createDefaultConfiguration(false);
 }
 
 let dummyCommands: Disposable[];
@@ -332,8 +275,7 @@ export function activate(context: ExtensionContext) {
 	];
 
 	context.subscriptions.push(
-		Commands.registerCommand('eslint.createConfig', createDefaultConfigurationJson),
-		Commands.registerCommand('eslint.createConfigYaml', createDefaultConfigurationYaml),
+		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
 		Commands.registerCommand('eslint.enable', enable),
 		Commands.registerCommand('eslint.disable', disable)
 	);
