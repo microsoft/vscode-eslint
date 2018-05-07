@@ -398,6 +398,7 @@ export function realActivate(context: ExtensionContext) {
 			let configuration = Workspace.getConfiguration('eslint');
 			let folders = Workspace.workspaceFolders;
 			return {
+				singleLineUnderline: configuration ? configuration.get('singleLineUnderline', false) : false,
 				legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
 				nodePath: configuration ? configuration.get('nodePath', undefined) : undefined,
 				languageIds: configuration ? configuration.get('valiadate', defaultLanguages) : defaultLanguages,

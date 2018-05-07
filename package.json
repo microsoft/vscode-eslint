@@ -55,6 +55,12 @@
 					"description": "Always show the ESlint status bar item.",
 					"scope": "window"
 				},
+				"eslint.singleLineUnderline": {
+					"type": "boolean",
+					"default": false,
+					"description": "Prevent a single error from underlining multiple lines.",
+					"scope": "resource"
+				},
 				"eslint.nodePath": {
 					"scope": "resource",
 					"type": [

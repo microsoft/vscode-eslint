@@ -163,8 +163,17 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 		: `${problem.message}`;
 	let startLine = Math.max(0, problem.line - 1);
 	let startChar = Math.max(0, problem.column - 1);
-	let endLine = problem.endLine != null ? Math.max(0, problem.endLine - 1) : startLine;
-	let endChar = problem.endColumn != null ? Math.max(0, problem.endColumn - 1) : startChar;
+	let endLine : number;
+	let endChar : number;
+	if (!singleLineUnderline) {
+		endLine = problem.endLine != null ? Math.max(0, problem.endLine - 1) : startLine;
+		endChar = problem.endColumn != null ? Math.max(0, problem.endColumn - 1) : startChar;
+	} else {
+		endLine = startLine;
+		endChar = problem.endColumn != null && problem.endLine != null &&
+			Math.max(0, problem.endLine - 1) == startLine ?
+			Math.max(0, problem.endColumn - 1) : startChar;
+	}
 	return {
 		message: message,
 		severity: convertSeverity(problem.severity),
@@ -355,6 +364,7 @@ function globalYarnPath(): string {
 }
 let path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 let document2Settings: Map<string, Thenable<TextDocumentSettings>> = new Map<string, Thenable<TextDocumentSettings>>();
+let singleLineUnderline : boolean;
 
 function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings> {
 	let uri = document.uri;
@@ -659,7 +669,8 @@ function trace(message: string, verbose?: string): void {
 	connection.tracer.log(message, verbose);
 }
 
-connection.onInitialize((_params) => {
+connection.onInitialize((params) => {
+	singleLineUnderline = params.initializationOptions ? params.initializationOptions.singleLineUnderline : false;
 	return {
 		capabilities: {
 			textDocumentSync: {
