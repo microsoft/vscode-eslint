@@ -613,6 +613,7 @@ export namespace ESLintClient {
 					options: config.get<ESLintOptions>('options', {}),
 					rulesCustomizations: getRuleCustomizations(config, resource),
 					run: config.get<RunValues>('run', 'onType'),
+					singleLineUnderline: config.get<boolean>('singleLineUnderline', false),
 					nodePath: config.get<string | undefined>('nodePath', undefined) ?? null,
 					workingDirectory: undefined,
 					workspaceFolder: undefined,

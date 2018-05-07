@@ -560,8 +560,17 @@ namespace Diagnostics {
 		const message = problem.message;
 		const startLine = typeof problem.line !== 'number' || Number.isNaN(problem.line) ? 0 : Math.max(0, problem.line - 1);
 		const startChar = typeof problem.column !== 'number' || Number.isNaN(problem.column) ? 0 : Math.max(0, problem.column - 1);
-		const endLine = typeof problem.endLine !== 'number' || Number.isNaN(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
-		const endChar = typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+		let endLine = typeof problem.endLine !== 'number' || Number.isNaN(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
+		let endChar: number;
+		if (settings.singleLineUnderline) {
+			endChar =
+				typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) || endLine !== startLine
+				  ? startChar
+				  : Math.max(0, problem.endColumn - 1);
+			endLine = startLine;
+		} else {
+			endChar = typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+		}
 		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations);
 		const result: Diagnostic = {
 			message: message,
