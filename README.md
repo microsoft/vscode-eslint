@@ -49,6 +49,8 @@ will validate files inside the server directory with the server directory as the
 
 The setting also supports literals of the form `{ "directory": string, "changeProcessCWD": boolean }` as elements. Use this form if you want to instruct ESLint to change the current working directory of the ESLint validation process to the value of `directory` as well. This is for example necessary if ESLint is used to validate relative import statements like `import A from 'components/A';` which would otherwise be resolved to the workspace folder root.
 
+- `eslint.format.enable`: enable/disable the integration of a formatter using `eslint --fix`. Requires `eslint.enable` to be `true`. Is disabled by default.
+
 ## Commands:
 
 This extension contributes the following commands to the Command palette.
