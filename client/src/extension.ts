@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, DocumentFormattingEditProvider, DocumentRangeFormattingEditProvider, TextEdit, Range
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -139,6 +139,57 @@ interface NoESLintLibraryResult {
 
 namespace NoESLintLibraryRequest {
 	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
+}
+
+class ESLintEditProvider implements DocumentFormattingEditProvider, DocumentRangeFormattingEditProvider {
+	  constructor(private _client: LanguageClient) {}
+	
+	  private _provideEdits(document: TextDocument, range?: Range): Thenable<TextEdit[]> {
+		if (!Workspace.getConfiguration('eslint', document.uri).get<boolean>('format.enable', false)) {
+					return null
+		}
+		let textDocument: VersionedTextDocumentIdentifier = {
+			uri: document.uri.toString(),
+			version: document.version
+		};
+		let params: ExecuteCommandParams
+		if (range) {
+			params = {
+				command: 'eslint.getRangedAutoFixEdits',
+				arguments: [{textDocument, range}]
+			}
+		} else {
+			params = {
+				command: 'eslint.getAutoFixEdits',
+				arguments: [textDocument]
+			}
+		}
+		return this._client.sendRequest(ExecuteCommandRequest.type, params);
+	}
+
+	provideDocumentFormattingEdits(document: TextDocument): Thenable<TextEdit[]> {
+		return this._provideEdits(document)
+	}
+
+	provideDocumentRangeFormattingEdits(document: TextDocument, range: Range): Thenable<TextEdit[]> {
+		return this._provideEdits(document, range)
+	}
+}
+
+let formatterHandler: undefined | Disposable;
+let rangeFormatterHandler: undefined | Disposable;
+/**
+ * Dispose formatters
+ */
+function disposeFormatterHandlers() {
+    if (formatterHandler) {
+        formatterHandler.dispose();
+    }
+    if (rangeFormatterHandler) {
+        rangeFormatterHandler.dispose();
+    }
+    formatterHandler = undefined;
+    rangeFormatterHandler = undefined;
 }
 
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
@@ -313,6 +364,7 @@ export function activate(context: ExtensionContext) {
 
 export function realActivate(context: ExtensionContext) {
 
+	let configuration = Workspace.getConfiguration('eslint', null);
 	let statusBarItem = Window.createStatusBarItem(StatusBarAlignment.Right, 0);
 	let eslintStatus: Status = Status.ok;
 	let serverRunning: boolean = false;
@@ -348,7 +400,7 @@ export function realActivate(context: ExtensionContext) {
 
 	function updateStatusBarVisibility(): void {
 		showStatusBarItem(
-			(serverRunning && eslintStatus !== Status.ok) || Workspace.getConfiguration('eslint').get('alwaysShowStatus', false)
+			(serverRunning && eslintStatus !== Status.ok) || configuration.get('alwaysShowStatus', false)
 		);
 	}
 
@@ -395,7 +447,6 @@ export function realActivate(context: ExtensionContext) {
 			]
 		},
 		initializationOptions: () => {
-			let configuration = Workspace.getConfiguration('eslint');
 			let folders = Workspace.workspaceFolders;
 			return {
 				legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
@@ -722,6 +773,40 @@ export function realActivate(context: ExtensionContext) {
 		Commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
 		statusBarItem
 	);
+
+	const editProvider = new ESLintEditProvider(client);
+    function registerFormatter() {
+		disposeFormatterHandlers();
+		if (!configuration.get<boolean>('format.enable', false) || !configuration.get<boolean>('enable', true)) {
+			return
+		}
+
+		let validate = configuration.get<(ValidateItem | string)[]>('validate', defaultLanguages);
+		let filter: DocumentFilter[] = [];
+
+		for (let language of validate) {
+			if (ValidateItem.is(language)) {
+				filter.push({ scheme: 'file', language: language.language })
+			} else {
+				filter.push({ scheme: 'file', language: language })
+			}
+		}
+        formatterHandler = Languages.registerDocumentFormattingEditProvider(
+            filter,
+            editProvider
+        );
+        rangeFormatterHandler = Languages.registerDocumentRangeFormattingEditProvider(
+            filter,
+            editProvider
+        );
+    }
+    registerFormatter();
+    context.subscriptions.push(
+        Workspace.onDidChangeConfiguration(registerFormatter),
+        {
+            dispose: disposeFormatterHandlers,
+        }
+    );
 }
 
 export function deactivate() {

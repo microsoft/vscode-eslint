@@ -36,6 +36,8 @@ namespace CommandIds {
 	export const applySameFixes: string = 'eslint.applySameFixes';
 	export const applyAllFixes: string = 'eslint.applyAllFixes';
 	export const applyAutoFix: string = 'eslint.applyAutoFix';
+	export const getAutoFixEdits: string = 'eslint.getAutoFixEdits';
+	export const getRangedAutoFixEdits: string = 'eslint.getRangedAutoFixEdits';
 }
 
 interface ESLintError extends Error {
@@ -1118,6 +1120,27 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 			let textChange = workspaceChange.getTextEditChange(identifier);
 			edits.forEach(edit => textChange.add(edit));
 		}
+	} else if (params.command === CommandIds.getAutoFixEdits) {
+		let identifier: VersionedTextDocumentIdentifier = params.arguments[0];
+		return computeAllFixes(identifier);
+	} else if (params.command === CommandIds.getRangedAutoFixEdits) {
+		let identifier: VersionedTextDocumentIdentifier = params.arguments[0].identifier;
+		let range: Range = {
+			start: params.arguments[0].range[0],
+			end: params.arguments[0].range[1]
+		};
+		let edits:TextEdit[] = computeAllFixes(identifier);
+		if (!edits) {
+			return []
+		}
+		let rangedEdits = edits.filter((edit) => {
+			if (range.start.line < edit.range.start.line && edit.range.start.line < range.end.line) {
+				return true
+			}
+			return (range.start.line === edit.range.start.line && range.start.character <= edit.range.start.character)
+				|| (range.end.line === edit.range.end.line && range.end.character >= edit.range.end.character)
+		});
+		return rangedEdits
 	} else {
 		workspaceChange = commands.get(params.command);
 	}

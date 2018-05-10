@@ -16,7 +16,8 @@
 	"icon": "eslint_icon.png",
 	"categories": [
 		"Programming Languages",
-		"Linters"
+		"Linters",
+		"Formatters"
 	],
 	"keywords": [
 		"multi-root ready"
@@ -102,6 +103,12 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Turns auto fix on save on or off."
+				},
+				"eslint.format.enable": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Enables 'eslint --fix' as a formatter for the languages specified in 'eslint.validate' setting."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
