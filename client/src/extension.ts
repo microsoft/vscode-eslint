@@ -8,7 +8,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, DocumentFormattingEditProvider, DocumentRangeFormattingEditProvider, TextEdit, Range
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, DocumentFormattingEditProvider, DocumentRangeFormattingEditProvider,
+	TextEdit as VTextEdit, Range as VRange, Position as VPosition
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -16,7 +17,9 @@ import {
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
 	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder
+	WorkspaceFolder,
+	DocumentFormattingRequest, DocumentRangeFormattingRequest, TextEdit, Range, Position,
+	DocumentFormattingParams, DocumentRangeFormattingParams
 } from 'vscode-languageclient';
 
 import { TaskProvider } from './tasks';
@@ -143,36 +146,76 @@ namespace NoESLintLibraryRequest {
 
 class ESLintEditProvider implements DocumentFormattingEditProvider, DocumentRangeFormattingEditProvider {
 	  constructor(private _client: LanguageClient) {}
-	
-	  private _provideEdits(document: TextDocument, range?: Range): Thenable<TextEdit[]> {
+
+	  private _makeParams(document: TextDocument, range?: VRange):
+	  	DocumentFormattingParams | DocumentRangeFormattingParams  {
 		if (!Workspace.getConfiguration('eslint', document.uri).get<boolean>('format.enable', false)) {
-					return null
+			return null;
 		}
 		let textDocument: VersionedTextDocumentIdentifier = {
 			uri: document.uri.toString(),
 			version: document.version
 		};
-		let params: ExecuteCommandParams
+		let options = {
+			tabSize: 42,
+			insertSpaces: true
+		};
+
 		if (range) {
-			params = {
-				command: 'eslint.getRangedAutoFixEdits',
-				arguments: [{textDocument, range}]
-			}
+			let realRange = Range.create(
+				Position.create(range.start.line, range.start.character),
+				Position.create(range.end.line, range.end.character)
+			);
+
+			return {
+				textDocument,
+				range: realRange,
+				options
+			};
 		} else {
-			params = {
-				command: 'eslint.getAutoFixEdits',
-				arguments: [textDocument]
-			}
+			return {
+				textDocument,
+				options
+			};
 		}
-		return this._client.sendRequest(ExecuteCommandRequest.type, params);
 	}
 
-	provideDocumentFormattingEdits(document: TextDocument): Thenable<TextEdit[]> {
-		return this._provideEdits(document)
+	private _convertTextEdits(edits: TextEdit[]): VTextEdit[] {
+		let vEdits: VTextEdit[] = [];
+		for (let edit of edits) {
+			let range = new VRange(
+				new VPosition(edit.range.start.line, edit.range.start.character),
+				new VPosition(edit.range.end.line, edit.range.end.character)
+			);
+			vEdits.push(new VTextEdit(range, edit.newText));
+		}
+		return vEdits;
 	}
 
-	provideDocumentRangeFormattingEdits(document: TextDocument, range: Range): Thenable<TextEdit[]> {
-		return this._provideEdits(document, range)
+	provideDocumentFormattingEdits(document: TextDocument): Thenable<VTextEdit[]> {
+		let params = this._makeParams(document);
+		if (!params) {
+			return null;
+		}
+		return new Promise((resolve, reject) => {
+			this._client.sendRequest(DocumentFormattingRequest.type, params)
+				.then((edits) => {
+					resolve(this._convertTextEdits(edits));
+				}, reject);
+		});
+	}
+
+	provideDocumentRangeFormattingEdits(document: TextDocument, range: VRange): Thenable<VTextEdit[]> {
+		let params = this._makeParams(document, range);
+		if (!params) {
+			return null;
+		}
+		return new Promise((resolve, reject) => {
+			this._client.sendRequest(DocumentRangeFormattingRequest.type, params)
+				.then((edits) => {
+					resolve(this._convertTextEdits(edits));
+				}, reject);
+		});
 	}
 }
 
@@ -778,7 +821,7 @@ export function realActivate(context: ExtensionContext) {
     function registerFormatter() {
 		disposeFormatterHandlers();
 		if (!configuration.get<boolean>('format.enable', false) || !configuration.get<boolean>('enable', true)) {
-			return
+			return;
 		}
 
 		let validate = configuration.get<(ValidateItem | string)[]>('validate', defaultLanguages);
@@ -786,9 +829,9 @@ export function realActivate(context: ExtensionContext) {
 
 		for (let language of validate) {
 			if (ValidateItem.is(language)) {
-				filter.push({ scheme: 'file', language: language.language })
+				filter.push({ scheme: 'file', language: language.language });
 			} else {
-				filter.push({ scheme: 'file', language: language })
+				filter.push({ scheme: 'file', language: language });
 			}
 		}
         formatterHandler = Languages.registerDocumentFormattingEditProvider(
