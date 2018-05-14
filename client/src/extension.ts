@@ -8,8 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, DocumentFormattingEditProvider, DocumentRangeFormattingEditProvider,
-	TextEdit as VTextEdit, Range as VRange, Position as VPosition
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -17,9 +16,7 @@ import {
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
 	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder,
-	DocumentFormattingRequest, DocumentRangeFormattingRequest, TextEdit, Range, Position,
-	DocumentFormattingParams, DocumentRangeFormattingParams
+	WorkspaceFolder
 } from 'vscode-languageclient';
 
 import { TaskProvider } from './tasks';
@@ -142,97 +139,6 @@ interface NoESLintLibraryResult {
 
 namespace NoESLintLibraryRequest {
 	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
-}
-
-class ESLintEditProvider implements DocumentFormattingEditProvider, DocumentRangeFormattingEditProvider {
-	  constructor(private _client: LanguageClient) {}
-
-	  private _makeParams(document: TextDocument, range?: VRange):
-	  	DocumentFormattingParams | DocumentRangeFormattingParams  {
-		if (!Workspace.getConfiguration('eslint', document.uri).get<boolean>('format.enable', false)) {
-			return null;
-		}
-		let textDocument: VersionedTextDocumentIdentifier = {
-			uri: document.uri.toString(),
-			version: document.version
-		};
-		let options = {
-			tabSize: 42,
-			insertSpaces: true
-		};
-
-		if (range) {
-			let realRange = Range.create(
-				Position.create(range.start.line, range.start.character),
-				Position.create(range.end.line, range.end.character)
-			);
-
-			return {
-				textDocument,
-				range: realRange,
-				options
-			};
-		} else {
-			return {
-				textDocument,
-				options
-			};
-		}
-	}
-
-	private _convertTextEdits(edits: TextEdit[]): VTextEdit[] {
-		let vEdits: VTextEdit[] = [];
-		for (let edit of edits) {
-			let range = new VRange(
-				new VPosition(edit.range.start.line, edit.range.start.character),
-				new VPosition(edit.range.end.line, edit.range.end.character)
-			);
-			vEdits.push(new VTextEdit(range, edit.newText));
-		}
-		return vEdits;
-	}
-
-	provideDocumentFormattingEdits(document: TextDocument): Thenable<VTextEdit[]> {
-		let params = this._makeParams(document);
-		if (!params) {
-			return null;
-		}
-		return new Promise((resolve, reject) => {
-			this._client.sendRequest(DocumentFormattingRequest.type, params)
-				.then((edits) => {
-					resolve(this._convertTextEdits(edits));
-				}, reject);
-		});
-	}
-
-	provideDocumentRangeFormattingEdits(document: TextDocument, range: VRange): Thenable<VTextEdit[]> {
-		let params = this._makeParams(document, range);
-		if (!params) {
-			return null;
-		}
-		return new Promise((resolve, reject) => {
-			this._client.sendRequest(DocumentRangeFormattingRequest.type, params)
-				.then((edits) => {
-					resolve(this._convertTextEdits(edits));
-				}, reject);
-		});
-	}
-}
-
-let formatterHandler: undefined | Disposable;
-let rangeFormatterHandler: undefined | Disposable;
-/**
- * Dispose formatters
- */
-function disposeFormatterHandlers() {
-    if (formatterHandler) {
-        formatterHandler.dispose();
-    }
-    if (rangeFormatterHandler) {
-        rangeFormatterHandler.dispose();
-    }
-    formatterHandler = undefined;
-    rangeFormatterHandler = undefined;
 }
 
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
@@ -816,40 +722,6 @@ export function realActivate(context: ExtensionContext) {
 		Commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
 		statusBarItem
 	);
-
-	const editProvider = new ESLintEditProvider(client);
-    function registerFormatter() {
-		disposeFormatterHandlers();
-		if (!configuration.get<boolean>('format.enable', false) || !configuration.get<boolean>('enable', true)) {
-			return;
-		}
-
-		let validate = configuration.get<(ValidateItem | string)[]>('validate', defaultLanguages);
-		let filter: DocumentFilter[] = [];
-
-		for (let language of validate) {
-			if (ValidateItem.is(language)) {
-				filter.push({ scheme: 'file', language: language.language });
-			} else {
-				filter.push({ scheme: 'file', language: language });
-			}
-		}
-        formatterHandler = Languages.registerDocumentFormattingEditProvider(
-            filter,
-            editProvider
-        );
-        rangeFormatterHandler = Languages.registerDocumentRangeFormattingEditProvider(
-            filter,
-            editProvider
-        );
-    }
-    registerFormatter();
-    context.subscriptions.push(
-        Workspace.onDidChangeConfiguration(registerFormatter),
-        {
-            dispose: disposeFormatterHandlers,
-        }
-    );
 }
 
 export function deactivate() {

@@ -14,7 +14,7 @@ import {
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	WorkspaceFolder, DidChangeWorkspaceFoldersNotification,
-	DocumentFormattingRequest, DocumentRangeFormattingRequest, FormattingOptions
+	DocumentFormattingRequest, DocumentRangeFormattingRequest
 } from 'vscode-languageserver';
 
 import URI from 'vscode-uri';
@@ -674,7 +674,9 @@ connection.onInitialize((_params) => {
 			codeActionProvider: true,
 			executeCommandProvider: {
 				commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
-			}
+			},
+			documentFormattingProvider: true,
+			documentRangeFormattingProvider: true
 		}
 	};
 });
@@ -1143,36 +1145,33 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 	}
 });
 
-messageQueue.registerRequest(DocumentFormattingRequest.type,
-	(params: {
-		textDocument: VersionedTextDocumentIdentifier,
-		options: FormattingOptions
-	}) => {
-		return computeAllFixes(params.textDocument);
+messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
+	let textDocument: VersionedTextDocumentIdentifier = {
+		uri: params.textDocument.uri,
+		version: documents.get(params.textDocument.uri).version
+	};
+	return computeAllFixes(textDocument);
+});
+messageQueue.registerRequest(DocumentRangeFormattingRequest.type, (params) => {
+	let textDocument: VersionedTextDocumentIdentifier = {
+		uri: params.textDocument.uri,
+		version: documents.get(params.textDocument.uri).version
+	};
+	let edits = computeAllFixes(textDocument);
+	if (!edits) {
+		return [];
 	}
-);
-messageQueue.registerRequest(DocumentRangeFormattingRequest.type,
-	(params: {
-		textDocument: VersionedTextDocumentIdentifier,
-		range: Range,
-		options: FormattingOptions
-	}) => {
-		let edits = computeAllFixes(params.textDocument);
-		if (!edits) {
-			return [];
+	let rangedEdits = edits.filter((edit) => {
+		if (params.range.start.line < edit.range.start.line && edit.range.start.line < params.range.end.line) {
+			return true;
 		}
-		let rangedEdits = edits.filter((edit) => {
-			if (params.range.start.line < edit.range.start.line && edit.range.start.line < params.range.end.line) {
-				return true;
-			}
-			return (params.range.start.line === edit.range.start.line
-					&& params.range.start.character <= edit.range.start.character)
-				|| (params.range.end.line === edit.range.end.line
-					&& params.range.end.character >= edit.range.end.character);
-		});
-		return rangedEdits;
-	}
-);
+		return (params.range.start.line === edit.range.start.line
+				&& params.range.start.character <= edit.range.start.character)
+			|| (params.range.end.line === edit.range.end.line
+				&& params.range.end.character >= edit.range.end.character);
+	});
+	return rangedEdits;
+});
 
 connection.tracer.
 connection.listen();
