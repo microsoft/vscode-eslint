@@ -1,3 +1,7 @@
+### 1.4.9
+
+- Using latest vscode-languageclient library to fix problems with server restarts and double change notifications.
+
 ### 1.4.8
 
 - Using latest vscode-languageclient library to get rid of unnecessary console.log statements.
