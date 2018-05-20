@@ -210,7 +210,10 @@ function createDefaultConfiguration(): void {
 		if (!folder) {
 			return;
 		}
-		const terminal = Window.createTerminal(`ESLint init`);
+		const terminal = Window.createTerminal({
+			name: `ESLint init`,
+			cwd: folder.uri.fsPath
+		});
 		terminal.sendText('eslint --init');
 		terminal.show();
 	});
