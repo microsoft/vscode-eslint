@@ -19,6 +19,7 @@ import {
 	WorkspaceFolder
 } from 'vscode-languageclient';
 
+import { findEslint } from './command';
 import { TaskProvider } from './tasks';
 
 namespace Is {
@@ -206,15 +207,17 @@ function createDefaultConfiguration(): void {
 		}
 		return;
 	}
-	pickFolder(noConfigFolders, 'Select a workspace folder to generate a ESLint configuration for').then(folder => {
+	pickFolder(noConfigFolders, 'Select a workspace folder to generate a ESLint configuration for').then(async (folder) => {
 		if (!folder) {
 			return;
 		}
+		const folderRootPath = folder.uri.fsPath
 		const terminal = Window.createTerminal({
 			name: `ESLint init`,
-			cwd: folder.uri.fsPath
+			cwd: folderRootPath
 		});
-		terminal.sendText('eslint --init');
+		const eslintCommand = await findEslint(folderRootPath);
+		terminal.sendText(`${eslintCommand} --init`);
 		terminal.show();
 	});
 }
