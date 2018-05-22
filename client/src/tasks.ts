@@ -4,18 +4,9 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
-import * as fs from 'fs';
-import * as path from 'path';
-
 import * as vscode from 'vscode';
 
-function exists(file: string): Promise<boolean> {
-	return new Promise<boolean>((resolve, _reject) => {
-		fs.exists(file, (value) => {
-			resolve(value);
-		});
-	});
-}
+import { findEslint } from './command';
 
 interface EslintTaskDefinition extends vscode.TaskDefinition {
 }
@@ -44,15 +35,7 @@ class FolderTaskProvider {
 			return undefined;
 		}
 		try {
-			let platform = process.platform;
-			let command: string;
-			if (platform === 'win32' && await exists(path.join(rootPath, 'node_modules', '.bin', 'eslint.cmd'))) {
-				command = path.join('.', 'node_modules', '.bin', 'eslint.cmd');
-			} else if ((platform === 'linux' || platform === 'darwin') && await exists(path.join(rootPath!, 'node_modules', '.bin', 'eslint'))) {
-				command = path.join('.', 'node_modules', '.bin', 'eslint');
-			} else {
-				command = 'eslint';
-			}
+			let command = await findEslint(rootPath);
 
 			let kind: EslintTaskDefinition = {
 				type: "eslint"

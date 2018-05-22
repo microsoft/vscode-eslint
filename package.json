@@ -171,7 +171,7 @@
 				"command": "eslint.executeAutofix"
 			},
 			{
-				"title": "Create '.eslintrc.json' File",
+				"title": "Create ESLint configuration",
 				"category": "ESLint",
 				"command": "eslint.createConfig"
 			},
