@@ -19,7 +19,7 @@ import {
 	WorkspaceFolder
 } from 'vscode-languageclient';
 
-import { findEslint } from './command';
+import { findEslint } from './utils';
 import { TaskProvider } from './tasks';
 
 namespace Is {

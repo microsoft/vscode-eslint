@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 
-import { findEslint } from './command';
+import { findEslint } from './utils';
 
 interface EslintTaskDefinition extends vscode.TaskDefinition {
 }

@@ -1,3 +1,7 @@
+### 1.4.10
+
+- [Add Command to create a YAML configuration](https://github.com/Microsoft/vscode-eslint/issues/409)
+
 ### 1.4.9
 
 - Using latest vscode-languageclient library to fix problems with server restarts and double change notifications.
