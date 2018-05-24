@@ -200,6 +200,22 @@
 				"fileMatch": ".eslintrc.json",
 				"url": "http://json.schemastore.org/eslintrc"
 			}
+		],
+		"languages": [
+			{
+				"id": "eslintignore",
+				"filenames": [
+					".eslintignore"
+				],
+				"configuration": "./languages/eslintignore-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "eslintignore",
+				"scopeName": "text.eslintignore",
+				"path": "./languages/eslintignore-grammar.json"
+			}
 		]
 	},
 	"scripts": {

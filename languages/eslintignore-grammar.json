@@ -1,0 +1,13 @@
+{
+	"name": "eslintignore",
+	"scopeName": "text.eslintignore",
+	"fileTypes": [
+		".eslintignore"
+	],
+	"patterns": [
+		{
+			"match": "^#.*",
+			"name": "comment.line.number-sign.eslintignore"
+		}
+	]
+}
