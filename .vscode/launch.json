@@ -10,8 +10,8 @@
 			"args": ["--extensionDevelopmentPath=${workspaceRoot}" ],
 			"stopOnEntry": false,
 			"sourceMaps": true,
-			"outFiles": ["${workspaceRoot}/client/out/**/*.js"]
-			// "preLaunchTask": "watch"
+			"outFiles": ["${workspaceRoot}/client/out/**/*.js"],
+			"preLaunchTask": "npm: watch:client"
 		},
 		{
 			"type": "node",
