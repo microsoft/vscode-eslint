@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -373,16 +373,6 @@ export function realActivate(context: ExtensionContext) {
 				Workspace.createFileSystemWatcher('**/package.json')
 			]
 		},
-		initializationOptions: () => {
-			let configuration = Workspace.getConfiguration('eslint');
-			let folders = Workspace.workspaceFolders;
-			return {
-				legacyModuleResolve: configuration ? configuration.get('_legacyModuleResolve', false) : false,
-				nodePath: configuration ? configuration.get('nodePath', undefined) : undefined,
-				languageIds: configuration ? configuration.get('valiadate', defaultLanguages) : defaultLanguages,
-				workspaceFolders: folders ? folders.map(folder => folder.toString()) : []
-			};
-		},
 		initializationFailedHandler: (error) => {
 			client.error('Server initialization failed.', error);
 			client.outputChannel.show(true);
@@ -436,7 +426,7 @@ export function realActivate(context: ExtensionContext) {
 					next(document);
 				}
 			},
-			provideCodeActions: (document, range, context, token, next): ProviderResult<Command[]> => {
+			provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
 				if (!syncedDocuments.has(document.uri.toString()) || !context.diagnostics || context.diagnostics.length === 0) {
 					return [];
 				}

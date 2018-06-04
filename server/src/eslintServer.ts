@@ -13,7 +13,7 @@ import {
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification
+	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind
 } from 'vscode-languageserver';
 
 import URI from 'vscode-uri';
@@ -293,13 +293,13 @@ function getFilePath(documentOrUri: string | TextDocument): string {
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
 const nodeExit = process.exit;
-process.exit = (code?: number) => {
+process.exit = ((code?: number): void => {
 	let stack = new Error('stack');
 	connection.sendNotification(exitCalled, [code ? code : 0, stack.stack]);
 	setTimeout(() => {
 		nodeExit(code);
 	}, 1000);
-}
+}) as any;
 process.on('uncaughtException', (error: any) => {
 	let message: string;
 	if (error) {
@@ -1014,7 +1014,7 @@ class Fixes {
 let commands: Map<string, WorkspaceChange>;
 messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	commands = new Map<string, WorkspaceChange>();
-	let result: Command[] = [];
+	let result: CodeAction[] = [];
 	let uri = params.textDocument.uri;
 	let edits = codeActions.get(uri);
 	if (!edits) {
@@ -1048,13 +1048,16 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		let workspaceChange = new WorkspaceChange();
 		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
 		commands.set(CommandIds.applySingleFix, workspaceChange);
-		result.push(Command.create(editInfo.label, CommandIds.applySingleFix));
+		result.push(CodeAction.create(
+			editInfo.label,
+			Command.create(editInfo.label, CommandIds.applySingleFix),
+			CodeActionKind.QuickFix
+		));
 	};
 
 	if (result.length > 0) {
 		let same: AutoFix[] = [];
 		let all: AutoFix[] = [];
-
 
 		for (let editInfo of fixes.getAllSorted()) {
 			if (documentVersion === -1) {
@@ -1072,14 +1075,24 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			let sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
 			same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
 			commands.set(CommandIds.applySameFixes, sameFixes);
-			result.push(Command.create(`Fix all ${ruleId} problems`, CommandIds.applySameFixes));
+			let title = `Fix all ${ruleId} problems`;
+			result.push(CodeAction.create(
+				title,
+				Command.create(title, CommandIds.applySameFixes),
+				CodeActionKind.QuickFix
+			));
 		}
 		if (all.length > 1) {
 			let allFixes: WorkspaceChange = new WorkspaceChange();
 			let allTextChange = allFixes.getTextEditChange({uri, version: documentVersion});
 			all.map(createTextEdit).forEach(edit => allTextChange.add(edit));
 			commands.set(CommandIds.applyAllFixes, allFixes);
-			result.push(Command.create(`Fix all auto-fixable problems`, CommandIds.applyAllFixes));
+			let title = `Fix all auto-fixable problems`;
+			result.push(CodeAction.create(
+				title,
+				Command.create(title, CommandIds.applyAllFixes),
+				CodeActionKind.QuickFix
+			));
 		}
 	}
 	return result;

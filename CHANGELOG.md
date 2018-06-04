@@ -1,3 +1,12 @@
+### 1.4.12
+
+- Upgrade to latest version of the LSP libraries
+- Fixes [eslint server crashed 5 times in the last 3 minutes. the server will not be restarted.](https://github.com/Microsoft/vscode-eslint/issues/437)
+
+### 1.4.11
+
+Internal version to track down [eslint server crashed 5 times in the last 3 minutes. the server will not be restarted.](https://github.com/Microsoft/vscode-eslint/issues/437)
+
 ### 1.4.10
 
 - [Add Command to create a YAML configuration](https://github.com/Microsoft/vscode-eslint/issues/409)
