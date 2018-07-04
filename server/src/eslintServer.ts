@@ -1076,9 +1076,10 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
 			commands.set(CommandIds.applySameFixes, sameFixes);
 			let title = `Fix all ${ruleId} problems`;
+			let command = Command.create(title, CommandIds.applySameFixes);
 			result.push(CodeAction.create(
 				title,
-				Command.create(title, CommandIds.applySameFixes),
+				command,
 				CodeActionKind.QuickFix
 			));
 		}
@@ -1088,9 +1089,10 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			all.map(createTextEdit).forEach(edit => allTextChange.add(edit));
 			commands.set(CommandIds.applyAllFixes, allFixes);
 			let title = `Fix all auto-fixable problems`;
+			let command = Command.create(title, CommandIds.applyAllFixes);
 			result.push(CodeAction.create(
 				title,
-				Command.create(title, CommandIds.applyAllFixes),
+				command,
 				CodeActionKind.QuickFix
 			));
 		}
