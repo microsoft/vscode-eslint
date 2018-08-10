@@ -335,9 +335,10 @@ export function realActivate(context: ExtensionContext) {
 	// the output folder.
 	// serverModule
 	let serverModule = context.asAbsolutePath(path.join('server', 'out', 'eslintServer.js'));
+	let runtime = Workspace.getConfiguration('eslint').get('server.runtime', null);
 	let serverOptions: ServerOptions = {
-		run: { module: serverModule, transport: TransportKind.ipc, options: { cwd: process.cwd() } },
-		debug: { module: serverModule, transport: TransportKind.ipc, options: { execArgv: ["--nolazy", "--inspect=6010"], cwd: process.cwd() } }
+		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd() } },
+		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ["--nolazy", "--inspect=6010"], cwd: process.cwd() } }
 	};
 
 	let defaultErrorHandler: ErrorHandler;

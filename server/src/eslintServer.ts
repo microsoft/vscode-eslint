@@ -325,6 +325,7 @@ process.on('uncaughtException', (error: any) => {
 });
 
 let connection = createConnection();
+connection.console.info(`ESLint server running in node ${process.version}`);
 let documents: TextDocuments = new TextDocuments();
 
 let _globalNpmPath: string | null | undefined;
