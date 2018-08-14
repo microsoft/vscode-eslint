@@ -203,18 +203,10 @@
 		],
 		"languages": [
 			{
-				"id": "eslintignore",
+				"id": "ignore",
 				"filenames": [
 					".eslintignore"
-				],
-				"configuration": "./languages/eslintignore-configuration.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "eslintignore",
-				"scopeName": "text.eslintignore",
-				"path": "./languages/eslintignore-grammar.json"
+				]
 			}
 		]
 	},
