@@ -14,5 +14,6 @@
 	"typescript.tsc.autoDetect": "off",
 	"eslint.enable": false,
 	"tslint.enable": false,
-	"eslint.trace.server": "off"
+	"eslint.trace.server": "off",
+	"eslint.provideLintTask": true
 }
