@@ -1,3 +1,6 @@
+### 1.4.13
+
+- Upgraded to latest LSP libries to handle process spawn / fork crashes under Electron 2.x
 ### 1.4.12
 
 - Upgrade to latest version of the LSP libraries
