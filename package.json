@@ -200,6 +200,14 @@
 				"fileMatch": ".eslintrc.json",
 				"url": "http://json.schemastore.org/eslintrc"
 			}
+		],
+		"languages": [
+			{
+				"id": "ignore",
+				"filenames": [
+					".eslintignore"
+				]
+			}
 		]
 	},
 	"scripts": {
