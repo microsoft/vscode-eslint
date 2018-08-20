@@ -162,7 +162,7 @@
 					"default": false,
 					"description": "Controls whether a task for linting the whole workspace will be available."
 				},
-				"eslint.server.runtime": {
+				"eslint.runtime": {
 					"scope": "window",
 					"type": [
 						"string",
