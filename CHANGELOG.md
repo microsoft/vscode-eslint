@@ -1,3 +1,8 @@
+### 1.5.0
+
+- Allow setting the node runtime to use for the language server. Fixes #345 [PR #516](https://github.com/Microsoft/vscode-eslint/pull/516)
+- eslintignore comment syntax highlighting [PR #473](https://github.com/Microsoft/vscode-eslint/pull/473)
+
 ### 1.4.14
 
 - Include `semver` for client
