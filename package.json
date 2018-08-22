@@ -161,6 +161,15 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Controls whether a task for linting the whole workspace will be available."
+				},
+				"eslint.runtime": {
+					"scope": "window",
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "The location of the node binary to run ESLint under."
 				}
 			}
 		},
