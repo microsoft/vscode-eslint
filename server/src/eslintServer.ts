@@ -1086,18 +1086,20 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		let indentationText = /^([ \t]*)/.exec(lineText)[1];
 		workspaceChange.getTextEditChange({uri, version: editInfo.documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
 		commands.set(`${CommandIds.applyDisableLine}:${disableRuleId}`, workspaceChange);
+		let title = `Suppress ${disableRuleId} for this line`;
 		result.push(CodeAction.create(
-			`Suppress ${disableRuleId} for this line`,
-			Command.create(editInfo.label, CommandIds.applyDisableLine, disableRuleId),
+			title,
+			Command.create(title, CommandIds.applyDisableLine, disableRuleId),
 			CodeActionKind.QuickFix
 		));
 
 		workspaceChange = new WorkspaceChange();
 		workspaceChange.getTextEditChange({uri, version: editInfo.documentVersion}).add(createDisableFileTextEdit(editInfo));
 		commands.set(`${CommandIds.applyDisableFile}:${disableRuleId}`, workspaceChange);
+		title = `Suppress ${disableRuleId} for the entire file`;
 		result.push(CodeAction.create(
-			`Suppress ${disableRuleId} for the entire file`,
-			Command.create(editInfo.label, CommandIds.applyDisableFile, disableRuleId),
+			title,
+			Command.create(title, CommandIds.applyDisableFile, disableRuleId),
 			CodeActionKind.QuickFix
 		));
 	};
