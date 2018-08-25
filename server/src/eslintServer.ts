@@ -13,11 +13,12 @@ import {
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind
+	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position
 } from 'vscode-languageserver';
 
 import URI from 'vscode-uri';
 import * as path from 'path';
+import {EOL} from 'os';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -36,6 +37,8 @@ namespace CommandIds {
 	export const applySameFixes: string = 'eslint.applySameFixes';
 	export const applyAllFixes: string = 'eslint.applyAllFixes';
 	export const applyAutoFix: string = 'eslint.applyAutoFix';
+	export const applyDisableLine: string = 'eslint.applyDisableLine';
+	export const applyDisableFile: string = 'eslint.applyDisableFile';
 }
 
 interface ESLintError extends Error {
@@ -181,7 +184,8 @@ interface AutoFix {
 	label: string;
 	documentVersion: number;
 	ruleId: string;
-	edit: ESLintAutoFixEdit;
+	line: number;
+	edit?: ESLintAutoFixEdit;
 }
 
 function computeKey(diagnostic: Diagnostic): string {
@@ -191,7 +195,7 @@ function computeKey(diagnostic: Diagnostic): string {
 
 let codeActions: Map<string, Map<string, AutoFix>> = new Map<string, Map<string, AutoFix>>();
 function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, problem: ESLintProblem): void {
-	if (!problem.fix || !problem.ruleId) {
+	if (!problem.ruleId) {
 		return;
 	}
 	let uri = document.uri;
@@ -200,7 +204,7 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 		edits = new Map<string, AutoFix>();
 		codeActions.set(uri, edits);
 	}
-	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix });
+	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix, line: problem.line });
 }
 
 function convertSeverity(severity: number): DiagnosticSeverity {
@@ -602,7 +606,7 @@ function getFixes(textDocument: TextDocument): TextEdit[] {
 		if (fixes.isEmpty() || textDocument.version !== fixes.getDocumentVersion()) {
 			return [];
 		}
-		return fixes.getOverlapFree().map(createTextEdit);
+		return fixes.getOverlapFree().filter(fix => !!fix.edit).map(createTextEdit);
 	}
 	return [];
 }
@@ -673,7 +677,14 @@ connection.onInitialize((_params) => {
 			},
 			codeActionProvider: true,
 			executeCommandProvider: {
-				commands: [CommandIds.applySingleFix, CommandIds.applySameFixes, CommandIds.applyAllFixes, CommandIds.applyAutoFix]
+				commands: [
+					CommandIds.applySingleFix,
+					CommandIds.applySameFixes,
+					CommandIds.applyAllFixes,
+					CommandIds.applyAutoFix,
+					CommandIds.applyDisableLine,
+					CommandIds.applyDisableFile,
+				]
 			}
 		}
 	};
@@ -949,7 +960,7 @@ class Fixes {
 	}
 
 	public static overlaps(lastEdit: AutoFix, newEdit: AutoFix): boolean {
-		return !!lastEdit && lastEdit.edit.range[1] > newEdit.edit.range[0];
+		return !!lastEdit && !!lastEdit.edit && lastEdit.edit.range[1] > newEdit.edit.range[0];
 	}
 
 	public isEmpty(): boolean {
@@ -977,7 +988,11 @@ class Fixes {
 
 	public getAllSorted(): AutoFix[] {
 		let result: AutoFix[] = [];
-		this.edits.forEach((value) => result.push(value));
+		this.edits.forEach((value) => {
+			if (!!value.edit) {
+				result.push(value)
+			}
+		});
 		return result.sort((a, b) => {
 			let d = a.edit.range[0] - b.edit.range[0];
 			if (d !== 0) {
@@ -1035,6 +1050,14 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
 
+	function createDisableLineTextEdit(editInfo: AutoFix, indentationText: string): TextEdit {
+		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
+	}
+
+	function createDisableFileTextEdit(editInfo: AutoFix): TextEdit {
+		return TextEdit.insert(Position.create(0, 0), `/* eslint-disable ${editInfo.ruleId} */${EOL}`);
+	}
+
 	function getLastEdit(array: AutoFix[]): AutoFix {
 		let length = array.length;
 		if (length === 0) {
@@ -1044,14 +1067,37 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
-		documentVersion = editInfo.documentVersion;
-		ruleId = editInfo.ruleId;
+		if (!!editInfo.edit) {
+			documentVersion = editInfo.documentVersion;
+			ruleId = editInfo.ruleId;
+			let workspaceChange = new WorkspaceChange();
+			workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
+			commands.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
+			result.push(CodeAction.create(
+				editInfo.label,
+				Command.create(editInfo.label, CommandIds.applySingleFix, ruleId),
+				CodeActionKind.QuickFix
+			));
+		}
+
+		let disableRuleId = editInfo.ruleId;
 		let workspaceChange = new WorkspaceChange();
-		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
-		commands.set(CommandIds.applySingleFix, workspaceChange);
+		let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, 255)));
+		let indentationText = /^([ \t]*)/.exec(lineText)[1];
+		workspaceChange.getTextEditChange({uri, version: editInfo.documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
+		commands.set(`${CommandIds.applyDisableLine}:${disableRuleId}`, workspaceChange);
 		result.push(CodeAction.create(
-			editInfo.label,
-			Command.create(editInfo.label, CommandIds.applySingleFix),
+			`Suppress ${disableRuleId} for this line`,
+			Command.create(editInfo.label, CommandIds.applyDisableLine, disableRuleId),
+			CodeActionKind.QuickFix
+		));
+
+		workspaceChange = new WorkspaceChange();
+		workspaceChange.getTextEditChange({uri, version: editInfo.documentVersion}).add(createDisableFileTextEdit(editInfo));
+		commands.set(`${CommandIds.applyDisableFile}:${disableRuleId}`, workspaceChange);
+		result.push(CodeAction.create(
+			`Suppress ${disableRuleId} for the entire file`,
+			Command.create(editInfo.label, CommandIds.applyDisableFile, disableRuleId),
 			CodeActionKind.QuickFix
 		));
 	};
@@ -1118,7 +1164,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier): TextEdit[
 	if (edits) {
 		let fixes = new Fixes(edits);
 		if (!fixes.isEmpty()) {
-			return fixes.getOverlapFree().map(createTextEdit);
+			return fixes.getOverlapFree().filter(fix => !!fix.edit).map(createTextEdit);
 		}
 	}
 	return undefined;
@@ -1135,7 +1181,12 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 			edits.forEach(edit => textChange.add(edit));
 		}
 	} else {
-		workspaceChange = commands.get(params.command);
+		if ([CommandIds.applySingleFix, CommandIds.applyDisableLine, CommandIds.applyDisableFile].indexOf(params.command) !== -1) {
+			let ruleId = params.arguments[0];
+			workspaceChange = commands.get(`${params.command}:${ruleId}`);
+		} else {
+			workspaceChange = commands.get(params.command);
+		}
 	}
 
 	if (!workspaceChange) {
