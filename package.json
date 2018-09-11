@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "1.5.0",
+	"version": "1.6.0",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -78,11 +78,38 @@
 				},
 				"eslint.trace.server": {
 					"scope": "window",
-					"type": "string",
-					"enum": [
-						"off",
-						"messages",
-						"verbose"
+					"anyOf": [
+						{
+							"type": "string",
+							"enum": [
+								"off",
+								"messages",
+								"verbose"
+							],
+							"default": "off"
+						},
+						{
+							"type": "object",
+							"properties": {
+								"verbosity": {
+									"type": "string",
+									"enum": [
+										"off",
+										"messages",
+										"verbose"
+									],
+									"default": "off"
+								},
+								"format": {
+									"type": "string",
+									"enum": [
+										"text",
+										"json"
+									],
+									"default": "text"
+								}
+							}
+						}
 					],
 					"default": "off",
 					"description": "Traces the communication between VSCode and the eslint linter service."

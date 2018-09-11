@@ -1,3 +1,7 @@
+### 1.6.0
+
+- Adopt the LSP JSON tracing options from the LSP libraries to enable better tracing support
+
 ### 1.5.0
 
 - Allow setting the node runtime to use for the language server. Fixes #345 [PR #516](https://github.com/Microsoft/vscode-eslint/pull/516)
