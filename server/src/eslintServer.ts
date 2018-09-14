@@ -39,6 +39,7 @@ namespace CommandIds {
 	export const applyAutoFix: string = 'eslint.applyAutoFix';
 	export const applyDisableLine: string = 'eslint.applyDisableLine';
 	export const applyDisableFile: string = 'eslint.applyDisableFile';
+	export const openRuleDoc: string = 'eslint.openRuleDoc';
 }
 
 interface ESLintError extends Error {
@@ -83,6 +84,18 @@ interface NoESLintLibraryResult {
 
 namespace NoESLintLibraryRequest {
 	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
+}
+
+interface OpenESLintDocParams {
+	url: string;
+}
+
+interface OpenESLintDocResult {
+
+}
+
+namespace OpenESLintDocRequest {
+	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void, void>('eslint/openDoc');
 }
 
 type RunValues = 'onType' | 'onSave';
@@ -149,6 +162,7 @@ interface CLIOptions {
 
 interface CLIEngine {
 	executeOnText(content: string, file?:string): ESLintReport;
+	getRules(): Map<string, any>;
 }
 
 interface CLIEngineConstructor {
@@ -684,6 +698,7 @@ connection.onInitialize((_params) => {
 					CommandIds.applyAutoFix,
 					CommandIds.applyDisableLine,
 					CommandIds.applyDisableFile,
+					CommandIds.openRuleDoc,
 				]
 			}
 		}
@@ -757,6 +772,8 @@ function getMessage(err: any, document: TextDocument): string {
 	return result;
 }
 
+let ruleDocUrls = new Map<string, string>();
+
 function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true): void {
 	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let content = document.getText();
@@ -810,6 +827,14 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		if (publishDiagnostics) {
 			connection.sendDiagnostics({ uri, diagnostics });
 		}
+
+		// cache documentation urls for all rules
+		ruleDocUrls.clear();
+		cli.getRules().forEach((rule, key) => {
+			if (rule.meta && rule.meta.docs && rule.meta.docs.url) {
+				ruleDocUrls.set(key, rule.meta.docs.url);
+			}
+		});
 	} finally {
 		if (cwd !== process.cwd()) {
 			process.chdir(cwd);
@@ -1067,9 +1092,10 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
+		documentVersion = editInfo.documentVersion;
+		let ruleId = editInfo.ruleId;
+
 		if (!!editInfo.edit) {
-			documentVersion = editInfo.documentVersion;
-			ruleId = editInfo.ruleId;
 			let workspaceChange = new WorkspaceChange();
 			workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
 			commands.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
@@ -1080,28 +1106,36 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			));
 		}
 
-		let disableRuleId = editInfo.ruleId;
 		let workspaceChange = new WorkspaceChange();
 		let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, 255)));
 		let indentationText = /^([ \t]*)/.exec(lineText)[1];
-		workspaceChange.getTextEditChange({uri, version: editInfo.documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
-		commands.set(`${CommandIds.applyDisableLine}:${disableRuleId}`, workspaceChange);
-		let title = `Suppress ${disableRuleId} for this line`;
+		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
+		commands.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
+		let title = `Suppress ${ruleId} for this line`;
 		result.push(CodeAction.create(
 			title,
-			Command.create(title, CommandIds.applyDisableLine, disableRuleId),
+			Command.create(title, CommandIds.applyDisableLine, ruleId),
 			CodeActionKind.QuickFix
 		));
 
 		workspaceChange = new WorkspaceChange();
-		workspaceChange.getTextEditChange({uri, version: editInfo.documentVersion}).add(createDisableFileTextEdit(editInfo));
-		commands.set(`${CommandIds.applyDisableFile}:${disableRuleId}`, workspaceChange);
-		title = `Suppress ${disableRuleId} for the entire file`;
+		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableFileTextEdit(editInfo));
+		commands.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
+		title = `Suppress ${ruleId} for the entire file`;
 		result.push(CodeAction.create(
 			title,
-			Command.create(title, CommandIds.applyDisableFile, disableRuleId),
+			Command.create(title, CommandIds.applyDisableFile, ruleId),
 			CodeActionKind.QuickFix
 		));
+
+		if (ruleDocUrls.has(ruleId)) {
+			title = `Show documentation for ${ruleId}`;
+			result.push(CodeAction.create(
+				title,
+				Command.create(title, CommandIds.openRuleDoc, ruleId),
+				CodeActionKind.QuickFix
+			));
+		}
 	};
 
 	if (result.length > 0) {
@@ -1186,6 +1220,9 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 		if ([CommandIds.applySingleFix, CommandIds.applyDisableLine, CommandIds.applyDisableFile].indexOf(params.command) !== -1) {
 			let ruleId = params.arguments[0];
 			workspaceChange = commands.get(`${params.command}:${ruleId}`);
+		} else if (params.command === CommandIds.openRuleDoc) {
+			let ruleId = params.arguments[0];
+			connection.sendRequest(OpenESLintDocRequest.type, { url: ruleDocUrls.get(ruleId) });
 		} else {
 			workspaceChange = commands.get(params.command);
 		}
