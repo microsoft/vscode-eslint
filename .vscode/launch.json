@@ -7,10 +7,10 @@
 			"request": "launch",
 			"name": "Launch Extension",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--extensionDevelopmentPath=${workspaceRoot}" ],
+			"args": ["--extensionDevelopmentPath=${workspaceFolder}" ],
 			"stopOnEntry": false,
 			"sourceMaps": true,
-			"outFiles": ["${workspaceRoot}/client/out/**/*.js"],
+			"outFiles": ["${workspaceFolder}/client/out/**/*.js"],
 			"preLaunchTask": "npm: watch:client"
 		},
 		{
@@ -21,7 +21,7 @@
 			"protocol": "inspector",
 			"port": 6010,
 			"sourceMaps": true,
-			"outFiles": ["${workspaceRoot}/server/**/*.js"]
+			"outFiles": ["${workspaceFolder}/server/**/*.js"]
 		}
 	]
 }
