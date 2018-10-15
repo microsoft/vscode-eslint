@@ -14,8 +14,9 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-uri": "^1.0.1",
-		"vscode-languageserver": "^5.1.0"
+		"eslint-rule-documentation": "^1.0.21",
+		"vscode-languageserver": "^5.1.0",
+		"vscode-uri": "^1.0.1"
 	},
 	"scripts": {}
 }
