@@ -158,9 +158,7 @@ interface ESLintModule {
 }
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
-	let message = (problem.ruleId != null)
-		? `${problem.message} (${problem.ruleId})`
-		: `${problem.message}`;
+	let message = problem.message;
 	let startLine = Math.max(0, problem.line - 1);
 	let startChar = Math.max(0, problem.column - 1);
 	let endLine = problem.endLine != null ? Math.max(0, problem.endLine - 1) : startLine;

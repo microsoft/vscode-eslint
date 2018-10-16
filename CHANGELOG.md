@@ -1,3 +1,7 @@
+### 1.6.1
+
+- Fixes [#558](https://github.com/Microsoft/vscode-eslint/issues/558) to adopt new functionality in VS Code 1.28
+
 ### 1.6.0
 
 - Adopt the LSP JSON tracing options from the LSP libraries to enable better tracing support
