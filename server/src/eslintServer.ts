@@ -268,7 +268,7 @@ function getFileSystemPath(uri: URI): string {
 	let result = uri.fsPath;
 	if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
 		// Node by default uses an upper case drive letter and ESLint uses
-		// === to compare pathes which results in the equal check failing
+		// === to compare paths which results in the equal check failing
 		// if the drive letter is lower case in th URI. Ensure upper case.
 		return result[0].toUpperCase() + result.substr(1);
 	} else {
@@ -316,7 +316,7 @@ process.on('uncaughtException', (error: any) => {
 			}
 		}
 	}
-	console.error('Uncaught exception recevied.');
+	console.error('Uncaught exception received.');
 	if (message) {
 		console.error(message);
 	}
@@ -431,13 +431,13 @@ namespace Request {
 	}
 }
 
-interface Notifcation<P> {
+interface Notification<P> {
 	method: string;
 	params: P;
 	documentVersion: number;
 }
 
-type Message<P, R> = Notifcation<P> | Request<P, R>;
+type Message<P, R> = Notification<P> | Request<P, R>;
 
 interface VersionProvider<P> {
 	(params: P): number;
@@ -739,7 +739,7 @@ function getMessage(err: any, document: TextDocument): string {
 			result = result.substr(5);
 		}
 	} else {
-		result = `An unknown error occured while validating document: ${document.uri}`;
+		result = `An unknown error occurred while validating document: ${document.uri}`;
 	}
 	return result;
 }
@@ -892,7 +892,7 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 			} else {
 				connection.console.error([
 					`${error.message.toString()}`,
-					`Happend while validating ${fsPath ? fsPath : document.uri}`
+					`Happened while validating ${fsPath ? fsPath : document.uri}`
 				].join('\n'));
 			}
 		}
