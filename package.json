@@ -76,6 +76,52 @@
 					"default": {},
 					"description": "The eslint options object to provide args normally passed to eslint when executed from a command line (see http://eslint.org/docs/developer-guide/nodejs-api#cliengine)."
 				},
+				"eslint.globalSeverity": {
+					"examples": [
+						null,
+						0
+					],
+					"description": "Force a global rule severity. Overrides all ESLint rules.\n• \"severity\": null = Disable globalSeverity.\nEx.\n\t\"eslint.globalSeverity\": {\n\t\t\"severity\": \"warn\",\n\t\t\"exclude\": [\"no-console\", \"no-debugger\"]\n\t}",
+					"markdownDescription": "Force a global rule severity. Overrides all ESLint rules.\n• `\"severity\": null` = Disable globalSeverity.\nEx.`\n\t\"eslint.globalSeverity\": {\n\t\t\"severity\": \"warn\",\n\t\t\"exclude\": [\"no-console\", \"no-debugger\"]\n\t}`",
+					"scope": "resource",
+					"type": "object",
+					"default": {
+						"severity": null,
+						"exclude": []
+					},
+					"properties": {
+						"severity": {
+							"markdownDescription": "Global rule severity.\nSee https://eslint.org/docs/user-guide/getting-started#configuration",
+							"type": [
+								"null",
+								"number",
+								"string"
+							],
+							"enum": [
+								null,
+								0,
+								1,
+								2,
+								"off",
+								"warn",
+								"error"
+							],
+							"enumDescriptions": [
+								"Disable globalSeverity",
+								"Turn off all ESLint rules",
+								"Set all ESLint rules to severity \"warn\"",
+								"Set all ESLint rules to severity \"error\"",
+								"Turn off all ESLint rules",
+								"Set all ESLint rules to severity \"warn\"",
+								"Set all ESLint rules to severity \"error\""
+							]
+						},
+						"exclude": {
+							"markdownDescription": "A string array of rule ID/names to exclude from this setting. Ex. `[\"no-console\", \"no-debugger\"]`",
+							"type": "array"
+						}
+					}
+				},
 				"eslint.trace.server": {
 					"scope": "window",
 					"anyOf": [

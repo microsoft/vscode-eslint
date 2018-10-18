@@ -96,12 +96,18 @@ namespace DirectoryItem {
 	}
 }
 
+interface GlobalSeverity {
+	"severity": null | number | string,
+	"exclude": Array<String>,
+}
+
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: 'npm' | 'yarn';
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
+	globalSeverity: GlobalSeverity;
 	run: RunValues;
 	nodePath: string | undefined;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -157,7 +163,7 @@ interface ESLintModule {
 	CLIEngine: CLIEngineConstructor;
 }
 
-function makeDiagnostic(problem: ESLintProblem): Diagnostic {
+function makeDiagnostic(problem: ESLintProblem, settings: TextDocumentSettings): Diagnostic {
 	let message = problem.message;
 	let startLine = Math.max(0, problem.line - 1);
 	let startChar = Math.max(0, problem.column - 1);
@@ -165,7 +171,7 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	let endChar = problem.endColumn != null ? Math.max(0, problem.endColumn - 1) : startChar;
 	return {
 		message: message,
-		severity: convertSeverity(problem.severity),
+		severity: computeSeverity(problem, settings),
 		source: 'eslint',
 		range: {
 			start: { line: startLine, character: startChar },
@@ -201,15 +207,31 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix });
 }
 
-function convertSeverity(severity: number): DiagnosticSeverity {
+function convertSeverity(severity: null | number | string): null | DiagnosticSeverity {
 	switch (severity) {
 		// Eslint 1 is warning
+		case 0:
+		case "off":
+			return null;
 		case 1:
+		case "warn":
 			return DiagnosticSeverity.Warning;
 		case 2:
+		case "error":
 			return DiagnosticSeverity.Error;
 		default:
 			return DiagnosticSeverity.Error;
+	}
+}
+
+function computeSeverity(problem: ESLintProblem, settings: TextDocumentSettings) {
+	const severity = settings.globalSeverity.severity;
+	const isExcluded = settings.globalSeverity.exclude.includes(problem.ruleId);
+	if ((severity === null) || (isExcluded === true)) {
+		return convertSeverity(problem.severity);
+	}
+	else {
+		return convertSeverity(severity);
 	}
 }
 
@@ -785,8 +807,10 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
-						let diagnostic = makeDiagnostic(problem);
-						diagnostics.push(diagnostic);
+						let diagnostic = makeDiagnostic(problem, settings);
+						if (diagnostic.severity !== null) {
+							diagnostics.push(diagnostic);
+						}
 						if (settings.autoFix) {
 							recordCodeAction(document, diagnostic, problem);
 						}

@@ -66,6 +66,7 @@ interface TextDocumentSettings {
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
+	globalSeverity: object;
 	run: RunValues;
 	nodePath: string | undefined;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -463,6 +464,7 @@ export function realActivate(context: ExtensionContext) {
 							autoFix: false,
 							autoFixOnSave: false,
 							options: config.get('options', {}),
+							globalSeverity: config.get('globalSeverity'),
 							run: config.get('run', 'onType'),
 							nodePath: config.get('nodePath', undefined),
 							workingDirectory: undefined,
