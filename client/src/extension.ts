@@ -116,6 +116,18 @@ namespace NoESLintLibraryRequest {
 	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
 }
 
+interface OpenESLintDocParams {
+	url: string;
+}
+
+interface OpenESLintDocResult {
+
+}
+
+namespace OpenESLintDocRequest {
+	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void, void>('eslint/openDoc');
+}
+
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
 
@@ -659,6 +671,11 @@ export function realActivate(context: ExtensionContext) {
 					context.globalState.update(key, state);
 				}
 			}
+			return {};
+		});
+
+		client.onRequest(OpenESLintDocRequest.type, (params) => {
+			Commands.executeCommand('vscode.open', Uri.parse(params.url));
 			return {};
 		});
 	});
