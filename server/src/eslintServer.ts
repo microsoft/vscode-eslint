@@ -829,12 +829,13 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		}
 
 		// cache documentation urls for all rules
-		ruleDocUrls.clear();
-		cli.getRules().forEach((rule, key) => {
-			if (rule.meta && rule.meta.docs && rule.meta.docs.url) {
-				ruleDocUrls.set(key, rule.meta.docs.url);
-			}
-		});
+		if (ruleDocUrls.size === 0) {
+			cli.getRules().forEach((rule, key) => {
+				if (rule.meta && rule.meta.docs && rule.meta.docs.url) {
+					ruleDocUrls.set(key, rule.meta.docs.url);
+				}
+			});
+		}
 	} finally {
 		if (cwd !== process.cwd()) {
 			process.chdir(cwd);
@@ -957,6 +958,7 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
+	ruleDocUrls.clear();
 	noConfigReported = new Map<string, ESLintModule>();;
 	missingModuleReported = new Map<string, ESLintModule>();;
 	params.changes.forEach((change) => {
@@ -1107,7 +1109,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		}
 
 		let workspaceChange = new WorkspaceChange();
-		let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, 255)));
+		let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
 		let indentationText = /^([ \t]*)/.exec(lineText)[1];
 		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
 		commands.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
