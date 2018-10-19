@@ -160,9 +160,18 @@ interface CLIOptions {
 	cwd?: string;
 }
 
+// { meta: { docs: [Object], schema: [Array] }, create: [Function: create] }
+interface RuleData {
+	meta?: {
+		docs?: {
+			url?: string;
+		};
+	};
+}
+
 interface CLIEngine {
 	executeOnText(content: string, file?:string): ESLintReport;
-	getRules(): Map<string, any>;
+	getRules(): Map<string, RuleData>;
 }
 
 interface CLIEngineConstructor {
@@ -770,7 +779,13 @@ function getMessage(err: any, document: TextDocument): string {
 	return result;
 }
 
-let ruleDocUrls = new Map<string, string>();
+let ruleDocData: {
+	handled: Set<string>;
+	urls: Map<string, string>;
+} = {
+	handled: new Set<string>(),
+	urls: new Map<string, string>()
+}
 
 function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true): void {
 	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
@@ -827,10 +842,11 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		}
 
 		// cache documentation urls for all rules
-		if (ruleDocUrls.size === 0) {
+		if (!ruleDocData.handled.has(uri)) {
+			ruleDocData.handled.add(uri);
 			cli.getRules().forEach((rule, key) => {
-				if (rule.meta && rule.meta.docs && rule.meta.docs.url) {
-					ruleDocUrls.set(key, rule.meta.docs.url);
+				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
+					ruleDocData.urls.set(key, rule.meta.docs.url);
 				}
 			});
 		}
@@ -956,7 +972,8 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
-	ruleDocUrls.clear();
+	ruleDocData.handled.clear();
+	ruleDocData.urls.clear();
 	noConfigReported = new Map<string, ESLintModule>();;
 	missingModuleReported = new Map<string, ESLintModule>();;
 	params.changes.forEach((change) => {
@@ -1128,7 +1145,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			CodeActionKind.QuickFix
 		));
 
-		if (ruleDocUrls.has(ruleId)) {
+		if (ruleDocData.urls.has(ruleId)) {
 			title = `Show documentation for ${ruleId}`;
 			result.push(CodeAction.create(
 				title,
@@ -1222,7 +1239,10 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 			workspaceChange = commands.get(`${params.command}:${ruleId}`);
 		} else if (params.command === CommandIds.openRuleDoc) {
 			let ruleId = params.arguments[0];
-			connection.sendRequest(OpenESLintDocRequest.type, { url: ruleDocUrls.get(ruleId) });
+			let url = ruleDocData.urls.get(ruleId);
+			if (url) {
+				connection.sendRequest(OpenESLintDocRequest.type, { url });
+			}
 		} else {
 			workspaceChange = commands.get(params.command);
 		}
