@@ -17,6 +17,7 @@ import {
 } from 'vscode-languageserver';
 
 import URI from 'vscode-uri';
+import * as ruleURI from 'eslint-rule-documentation';
 import * as path from 'path';
 import {EOL} from 'os';
 
@@ -851,10 +852,17 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		// cache documentation urls for all rules
 		if (!ruleDocData.handled.has(uri)) {
 			ruleDocData.handled.add(uri);
-			cli.getRules().forEach((rule, key) => {
+			cli.getRules().forEach((rule, ruleId) => {
+				let url;
+
 				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
-					ruleDocData.urls.set(key, rule.meta.docs.url);
+					url = rule.meta.docs.url;
+				} else {
+					// @ts-ignore TODO: Should type-check the 3rd-party module.
+					url = ruleURI(ruleId).url;
 				}
+
+				ruleDocData.urls.set(ruleId, url);
 			});
 		}
 	} finally {
