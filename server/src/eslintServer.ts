@@ -183,13 +183,13 @@ interface ESLintModule {
 	CLIEngine: CLIEngineConstructor;
 }
 
-function makeDiagnostic(problem: ESLintProblem): Diagnostic {
+function makeDiagnostic(ruleURLs: Map<string, string>, problem: ESLintProblem): Diagnostic {
 	let message = problem.message;
 	let startLine = Math.max(0, problem.line - 1);
 	let startChar = Math.max(0, problem.column - 1);
 	let endLine = problem.endLine != null ? Math.max(0, problem.endLine - 1) : startLine;
 	let endChar = problem.endColumn != null ? Math.max(0, problem.endColumn - 1) : startChar;
-	return {
+	let diagnostic = {
 		message: message,
 		severity: convertSeverity(problem.severity),
 		source: 'eslint',
@@ -199,6 +199,13 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 		},
 		code: problem.ruleId
 	};
+
+	if (problem.ruleId) {
+		// @ts-ignore TODO Ignoring "property URL does not exist" for now. It will exist in the newest version of vscode.
+		diagnostic.url = ruleURLs.get(problem.ruleId);
+	}
+
+	return diagnostic;
 }
 
 interface FixableProblem {
@@ -828,7 +835,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
-						let diagnostic = makeDiagnostic(problem);
+						let diagnostic = makeDiagnostic(ruleDocData.urls, problem);
 						diagnostics.push(diagnostic);
 						if (settings.autoFix) {
 							recordCodeAction(document, diagnostic, problem);
