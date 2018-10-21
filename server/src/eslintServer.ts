@@ -202,8 +202,15 @@ function makeDiagnostic(ruleURLs: Map<string, string>, problem: ESLintProblem): 
 	};
 
 	if (problem.ruleId) {
+		let url = ruleURLs.get(problem.ruleId);
+
+		if (!url) {
+			// @ts-ignore TODO: Should type-check the 3rd-party module.
+			url = ruleURI(problem.ruleId).url;
+			ruleURLs.set(problem.ruleId, url);
+		}
 		// @ts-ignore TODO Ignoring "property URL does not exist" for now. It will exist in the newest version of vscode.
-		diagnostic.url = ruleURLs.get(problem.ruleId);
+		diagnostic.url = url;
 	}
 
 	return diagnostic;
@@ -827,6 +834,26 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		}
 
 		let cli = new settings.library.CLIEngine(newOptions);
+
+		// cache documentation urls for all rules
+		if (cli.getRules) {
+			if (!ruleDocData.handled.has(uri)) {
+				ruleDocData.handled.add(uri);
+				cli.getRules().forEach((rule, ruleId) => {
+					let url;
+
+					if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
+						url = rule.meta.docs.url;
+					} else {
+						// @ts-ignore TODO: Should type-check the 3rd-party module.
+						url = ruleURI(ruleId).url;
+					}
+
+					ruleDocData.urls.set(ruleId, url);
+				});
+			}
+		}
+
 		// Clean previously computed code actions.
 		codeActions.delete(uri);
 		let report: ESLintReport = cli.executeOnText(content, file);
@@ -847,23 +874,6 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		}
 		if (publishDiagnostics) {
 			connection.sendDiagnostics({ uri, diagnostics });
-		}
-
-		// cache documentation urls for all rules
-		if (!ruleDocData.handled.has(uri)) {
-			ruleDocData.handled.add(uri);
-			cli.getRules().forEach((rule, ruleId) => {
-				let url;
-
-				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
-					url = rule.meta.docs.url;
-				} else {
-					// @ts-ignore TODO: Should type-check the 3rd-party module.
-					url = ruleURI(ruleId).url;
-				}
-
-				ruleDocData.urls.set(ruleId, url);
-			});
 		}
 	} finally {
 		if (cwd !== process.cwd()) {
