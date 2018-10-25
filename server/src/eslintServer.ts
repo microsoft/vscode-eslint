@@ -18,7 +18,8 @@ import {
 
 import URI from 'vscode-uri';
 import * as path from 'path';
-import {EOL} from 'os';
+import { EOL } from 'os';
+import { isFunction } from 'util';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -171,7 +172,8 @@ interface RuleData {
 
 interface CLIEngine {
 	executeOnText(content: string, file?:string): ESLintReport;
-	getRules(): Map<string, RuleData>;
+	// This is only available from v4.15.0 forward
+	getRules?(): Map<string, RuleData>;
 }
 
 interface CLIEngineConstructor {
@@ -842,7 +844,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 		}
 
 		// cache documentation urls for all rules
-		if (!ruleDocData.handled.has(uri)) {
+		if (isFunction(cli.getRules) && !ruleDocData.handled.has(uri)) {
 			ruleDocData.handled.add(uri);
 			cli.getRules().forEach((rule, key) => {
 				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
