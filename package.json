@@ -197,6 +197,12 @@
 					],
 					"default": null,
 					"description": "The location of the node binary to run ESLint under."
+				},
+				"eslint.keepErrorCodes": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Controls whether to display rule name error codes."
 				}
 			}
 		},

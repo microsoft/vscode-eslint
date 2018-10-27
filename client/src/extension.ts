@@ -71,6 +71,7 @@ interface TextDocumentSettings {
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: undefined;
+	keepErrorCodes: boolean | undefined;
 }
 
 interface NoESLintState {
@@ -479,7 +480,8 @@ export function realActivate(context: ExtensionContext) {
 							nodePath: config.get('nodePath', undefined),
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
-							library: undefined
+							library: undefined,
+							keepErrorCodes: config.get('keepErrorCodes', false)
 						}
 						let document: TextDocument = syncedDocuments.get(item.scopeUri);
 						if (!document) {

@@ -125,6 +125,7 @@ interface TextDocumentSettings {
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 	resolvedGlobalPackageManagerPath: string | undefined;
+	keepErrorCodes: boolean | undefined;
 }
 
 interface ESLintAutoFixEdit {
@@ -185,8 +186,10 @@ interface ESLintModule {
 	CLIEngine: CLIEngineConstructor;
 }
 
-function makeDiagnostic(problem: ESLintProblem): Diagnostic {
-	let message = problem.message;
+function makeDiagnostic(problem: ESLintProblem, keepErrorCodes: boolean): Diagnostic {
+	let message = (keepErrorCodes && problem.ruleId != null)
+		? `${problem.message} (${problem.ruleId})`
+		: `${problem.message}`;
 	let startLine = Math.max(0, problem.line - 1);
 	let startChar = Math.max(0, problem.column - 1);
 	let endLine = problem.endLine != null ? Math.max(0, problem.endLine - 1) : startLine;
@@ -830,7 +833,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
-						let diagnostic = makeDiagnostic(problem);
+						let diagnostic = makeDiagnostic(problem, settings.keepErrorCodes);
 						diagnostics.push(diagnostic);
 						if (settings.autoFix) {
 							recordCodeAction(document, diagnostic, problem);

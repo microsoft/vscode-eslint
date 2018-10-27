@@ -24,6 +24,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.autoFixOnSave` - enables auto fix on save. Please note auto fix on save is only available if VS Code's `files.autoSave` is either `off`, `onFocusChange` or `onWindowChange`. It will not work with `afterDelay`.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
+- `eslint.keepErrorCodes` - use this setting to display the rule name on errors
 - `eslint.validate` - an array of language identifiers specify the files to be validated. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`. If the setting is missing, it defaults to `["javascript", "javascriptreact"]`. You can also control which plugins should provide autofix support. To do so simply provide an object literal in the validate setting with the properties `language` and `autoFix` instead of a simple `string`. An example is:
   ```json
   "eslint.validate": [ "javascript", "javascriptreact", { "language": "html", "autoFix": true } ]
