@@ -413,7 +413,7 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 					return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
 				});
 			} else {
-				promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
+				promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, undefined, trace);
 			}
 		} else {
 			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
