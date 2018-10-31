@@ -4,8 +4,8 @@ sudo: false
 node_js:
   - "6.11.2"
 
-install:
-  - npm install
-
-script:
-  - npm run compile
+jobs:
+  include:
+    - stage: "compile"
+      name: Compile
+      script: npm run compile
