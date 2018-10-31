@@ -6,6 +6,10 @@ node_js:
 
 jobs:
   include:
-    - stage: "compile"
-      name: Compile
-      script: npm run compile
+    - stage: "compile client"
+      name: Compile client
+      script: npm run compile:client
+
+    - stage: "compile server"
+      name: Compile server
+      script: npm run compile:server
