@@ -1,3 +1,7 @@
+### 1.7.0
+
+- Merged in [PR #530](https://github.com/Microsoft/vscode-eslint/pull/530) which adds support to diable a rule per line or for the whole file as well as navigating to the documentation.
+
 ### 1.6.1
 
 - Fixes [#558](https://github.com/Microsoft/vscode-eslint/issues/558) to adopt new functionality in VS Code 1.28
