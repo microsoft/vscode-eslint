@@ -18,6 +18,7 @@ import {
 
 import URI from 'vscode-uri';
 import * as path from 'path';
+import { execSync } from 'child_process'
 import { EOL } from 'os';
 import { isFunction } from 'util';
 
@@ -115,7 +116,7 @@ namespace DirectoryItem {
 
 interface TextDocumentSettings {
 	validate: boolean;
-	packageManager: 'npm' | 'yarn';
+	packageManager: 'npm' | 'yarn' | 'pnpm';
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
@@ -355,31 +356,40 @@ let connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
 let documents: TextDocuments = new TextDocuments();
 
-let _globalNpmPath: string | null | undefined;
-function globalNpmPath(): string {
-	if (_globalNpmPath === void 0) {
-		_globalNpmPath = Files.resolveGlobalNodePath(trace);
-		if (_globalNpmPath === void 0) {
-			_globalNpmPath = null;
+const _globalPaths :any = {
+	yarn: {
+		cache: undefined,
+		get(): string {
+			return Files.resolveGlobalYarnPath(trace);
+		}
+	},
+	npm: {
+		cache: undefined,
+		get(): string {
+			const npmPath = execSync('npm root -g').toString().trim();
+			return npmPath
+		}
+	},
+	pnpm: {
+		cache: undefined,
+		get(): string {
+			const pnpmPath = execSync('pnpm root -g').toString().trim();
+			return pnpmPath
 		}
 	}
-	if (_globalNpmPath === null) {
-		return undefined;
-	}
-	return _globalNpmPath;
 }
-let _globalYarnPath: string | undefined;
-function globalYarnPath(): string {
-	if (_globalYarnPath === void 0) {
-		_globalYarnPath = Files.resolveGlobalYarnPath(trace);
-		if (_globalYarnPath === void 0) {
-			_globalYarnPath = null;
-		}
-	}
-	if (_globalYarnPath === null) {
+function globalPathGet(packageManager: string): string {
+	const pm = _globalPaths[packageManager]
+	if (!pm) {
 		return undefined;
 	}
-	return _globalYarnPath;
+	if (!pm.cache) {
+		pm.cache = pm.get();
+	}
+	if (typeof pm.cache !== 'string') {
+		pm.cache = undefined;
+	}
+	return pm.cache
 }
 let path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 let document2Settings: Map<string, Thenable<TextDocumentSettings>> = new Map<string, Thenable<TextDocumentSettings>>();
@@ -391,11 +401,7 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		return resultPromise;
 	}
 	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((settings: TextDocumentSettings) => {
-		if (settings.packageManager === 'npm') {
-			settings.resolvedGlobalPackageManagerPath = globalNpmPath();
-		} else if (settings.packageManager === 'yarn') {
-			settings.resolvedGlobalPackageManagerPath = globalYarnPath();
-		}
+		settings.resolvedGlobalPackageManagerPath = globalPathGet(settings.packageManager);
 		let uri = URI.parse(document.uri);
 		let promise: Thenable<string>
 		if (uri.scheme === 'file') {
