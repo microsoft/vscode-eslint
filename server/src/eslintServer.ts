@@ -380,16 +380,12 @@ const _globalPaths :any = {
 }
 function globalPathGet(packageManager: string): string {
 	const pm = _globalPaths[packageManager]
-	if (!pm) {
-		return undefined;
-	}
-	if (!pm.cache) {
+	if (pm) {
 		pm.cache = pm.get();
+		pm.cache = !pm.cache ? undefined : pm.cache
+		return pm.cache
 	}
-	if (typeof pm.cache !== 'string') {
-		pm.cache = undefined;
-	}
-	return pm.cache
+	return undefined
 }
 let path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 let document2Settings: Map<string, Thenable<TextDocumentSettings>> = new Map<string, Thenable<TextDocumentSettings>>();
