@@ -4,8 +4,12 @@ sudo: false
 node_js:
   - "6.11.2"
 
-install:
-  - npm install
+jobs:
+  include:
+    - stage: "compile client"
+      name: Compile client
+      script: npm run compile:client
 
-script:
-  - npm run compile
+    - stage: "compile server"
+      name: Compile server
+      script: npm run compile:server
