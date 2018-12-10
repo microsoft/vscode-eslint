@@ -1088,7 +1088,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 	let textDocument = documents.get(uri);
 	let documentVersion: number = -1;
-	let ruleId: string;
+	let fixAllRuleIds: string[] = [];
 
 	function createTextEdit(editInfo: FixableProblem): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
@@ -1113,6 +1113,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
 		documentVersion = editInfo.documentVersion;
 		let ruleId = editInfo.ruleId;
+		fixAllRuleIds.push(ruleId);
 
 		if (!!editInfo.edit) {
 			let workspaceChange = new WorkspaceChange();
@@ -1158,33 +1159,38 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	};
 
 	if (result.length > 0) {
-		let same: FixableProblem[] = [];
+		let sameProblems: Map<string, FixableProblem[]> = new Map<string, FixableProblem[]>(fixAllRuleIds.map<[string, FixableProblem[]]>(s => [s, []]));
 		let all: FixableProblem[] = [];
 
 		for (let editInfo of fixes.getAllSorted()) {
 			if (documentVersion === -1) {
 				documentVersion = editInfo.documentVersion;
 			}
-			if (editInfo.ruleId === ruleId && !Fixes.overlaps(getLastEdit(same), editInfo)) {
-				same.push(editInfo);
+			if (sameProblems.has(editInfo.ruleId)) {
+				let same = sameProblems.get(editInfo.ruleId);
+				if (!Fixes.overlaps(getLastEdit(same), editInfo)) {
+					same.push(editInfo);
+				}
 			}
 			if (!Fixes.overlaps(getLastEdit(all), editInfo)) {
 				all.push(editInfo);
 			}
 		}
-		if (same.length > 1) {
-			let sameFixes: WorkspaceChange = new WorkspaceChange();
-			let sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
-			same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
-			commands.set(CommandIds.applySameFixes, sameFixes);
-			let title = `Fix all ${ruleId} problems`;
-			let command = Command.create(title, CommandIds.applySameFixes);
-			result.push(CodeAction.create(
-				title,
-				command,
-				CodeActionKind.QuickFix
-			));
-		}
+		sameProblems.forEach((same, ruleId) => {
+			if (same.length > 1) {
+				let sameFixes: WorkspaceChange = new WorkspaceChange();
+				let sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
+				same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
+				commands.set(CommandIds.applySameFixes, sameFixes);
+				let title = `Fix all ${ruleId} problems`;
+				let command = Command.create(title, CommandIds.applySameFixes);
+				result.push(CodeAction.create(
+					title,
+					command,
+					CodeActionKind.QuickFix
+				));
+			}
+		});
 		if (all.length > 1) {
 			let allFixes: WorkspaceChange = new WorkspaceChange();
 			let allTextChange = allFixes.getTextEditChange({uri, version: documentVersion});
