@@ -114,11 +114,11 @@ namespace DirectoryItem {
 	}
 }
 
-type packageManagers = 'npm' | 'yarn' | 'pnpm';
+type PackageManagers = 'npm' | 'yarn' | 'pnpm';
 
 interface TextDocumentSettings {
 	validate: boolean;
-	packageManager: packageManagers;
+	packageManager: PackageManagers;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
@@ -380,7 +380,7 @@ const _globalPaths: { [key: string]: { cache: string; get(): string; } } = {
 	}
 }
 
-function globalPathGet(packageManager: packageManagers): string {
+function globalPathGet(packageManager: PackageManagers): string {
 	const pm = _globalPaths[packageManager]
 	if (pm) {
 		if (pm.cache === undefined) {
