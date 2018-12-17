@@ -114,9 +114,11 @@ namespace DirectoryItem {
 	}
 }
 
+type packageManagers = 'npm' | 'yarn' | 'pnpm';
+
 interface TextDocumentSettings {
 	validate: boolean;
-	packageManager: 'npm' | 'yarn' | 'pnpm';
+	packageManager: packageManagers;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
@@ -356,7 +358,7 @@ let connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
 let documents: TextDocuments = new TextDocuments();
 
-const _globalPaths :any = {
+const _globalPaths: { [key: string]: { cache: string; get(): string; } } = {
 	yarn: {
 		cache: undefined,
 		get(): string {
@@ -366,8 +368,7 @@ const _globalPaths :any = {
 	npm: {
 		cache: undefined,
 		get(): string {
-			const npmPath = execSync('npm root -g').toString().trim();
-			return npmPath
+			return Files.resolveGlobalNodePath(trace);
 		}
 	},
 	pnpm: {
@@ -378,11 +379,13 @@ const _globalPaths :any = {
 		}
 	}
 }
-function globalPathGet(packageManager: string): string {
+
+function globalPathGet(packageManager: packageManagers): string {
 	const pm = _globalPaths[packageManager]
 	if (pm) {
-		pm.cache = pm.get();
-		pm.cache = !pm.cache ? undefined : pm.cache
+		if (pm.cache === undefined) {
+			pm.cache = pm.get();
+		}
 		return pm.cache
 	}
 	return undefined
