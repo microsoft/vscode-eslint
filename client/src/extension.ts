@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -85,7 +85,7 @@ enum Status {
 }
 
 interface StatusParams {
-	state: Status
+	state: Status;
 }
 
 namespace StatusNotification {
@@ -223,7 +223,7 @@ function createDefaultConfiguration(): void {
 		if (!folder) {
 			return;
 		}
-		const folderRootPath = folder.uri.fsPath
+		const folderRootPath = folder.uri.fsPath;
 		const terminal = Window.createTerminal({
 			name: `ESLint init`,
 			cwd: folderRootPath
@@ -479,7 +479,7 @@ export function realActivate(context: ExtensionContext) {
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
 							library: undefined
-						}
+						};
 						let document: TextDocument = syncedDocuments.get(item.scopeUri);
 						if (!document) {
 							result.push(settings);
@@ -564,7 +564,7 @@ export function realActivate(context: ExtensionContext) {
 	client.registerProposedFeatures();
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	const running = 'ESLint server is running.';
-	const stopped = 'ESLint server stopped.'
+	const stopped = 'ESLint server stopped.';
 	client.onDidChangeState((event) => {
 		if (event.newState === ClientState.Running) {
 			client.info(running);
@@ -621,13 +621,20 @@ export function realActivate(context: ExtensionContext) {
 				npm: 'npm install eslint',
 				pnpm: 'pnpm install pnpm',
 				yarn: 'yarn add eslint',
-			}
+			};
 			const globalInstall = {
 				npm: 'npm install -g eslint',
 				pnpm: 'pnpm install -g eslint',
 				yarn: 'yarn global add eslint'
+			};
+			const isPackageManagerNpm = packageManager === 'npm';
+			interface ButtonItem extends MessageItem {
+				id: number;
 			}
-			const isPackageManagerNpm = packageManager === 'npm'
+			const outputItem: ButtonItem = {
+				title: 'Go to output',
+				id: 1
+			};
 			if (workspaceFolder) {
 				client.info([
 					'',
@@ -645,8 +652,12 @@ export function realActivate(context: ExtensionContext) {
 				}
 				if (!state.workspaces[workspaceFolder.uri.toString()]) {
 					state.workspaces[workspaceFolder.uri.toString()] = true;
-					client.outputChannel.show(true);
 					context.globalState.update(key, state);
+					Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+						if (item && item.id === 1) {
+							client.outputChannel.show(true);
+						}
+					});
 				}
 			} else {
 				client.info([
@@ -658,8 +669,12 @@ export function realActivate(context: ExtensionContext) {
 
 				if (!state.global) {
 					state.global = true;
-					client.outputChannel.show(true);
 					context.globalState.update(key, state);
+					Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+						if (item && item.id === 1) {
+							client.outputChannel.show(true);
+						}
+					});
 				}
 			}
 			return {};
@@ -692,7 +707,7 @@ export function realActivate(context: ExtensionContext) {
 			let params: ExecuteCommandParams = {
 				command: 'eslint.applyAutoFix',
 				arguments: [textDocument]
-			}
+			};
 			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
 				Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});
