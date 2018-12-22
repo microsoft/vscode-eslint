@@ -198,27 +198,43 @@
 					"default": null,
 					"description": "The location of the node binary to run ESLint under."
 				},
-				"eslint.suppressCodeActionComment": {
+				"eslint.codeAction.suppressComment": {
 					"scope": "resource",
-					"type": "string",
-					"enum": [
-						"newLine",
-						"sameLine"
-					],
-					"default": "newLine",
-					"description": "Configure the suppress rule code action to insert the disable comment on the same line or a new line."
+					"type": "object",
+					"default": {
+						"enable": true,
+						"location": "newLine"
+					},
+					"properties": {
+						"enable": {
+							"type": "boolean",
+							"default": true,
+							"description": "Show the suppress code actions."
+						},
+						"location": {
+							"type": "string",
+							"enum": [
+								"newLine",
+								"sameLine"
+							],
+							"default": "newLine",
+							"description": "Configure the suppress rule code action to insert the disable comment on the same line or a new line."
+						}
+					}
 				},
-				"eslint.showSuppressCodeAction": {
+				"eslint.codeAction.showDocumentation": {
 					"scope": "resource",
-					"type": "boolean",
-					"default": true,
-					"description": "Show the suppress code actions."
-				},
-				"eslint.showDocumentationCodeAction": {
-					"scope": "resource",
-					"type": "boolean",
-					"default": true,
-					"description": "Show the documentation code actions."
+					"type": "object",
+					"default": {
+						"enable": true
+					},
+					"properties": {
+						"enable": {
+							"type": "boolean",
+							"default": true,
+							"description": "Show the documentation code actions."
+						}
+					}
 				}
 			}
 		},

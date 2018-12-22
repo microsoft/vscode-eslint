@@ -113,6 +113,11 @@ namespace DirectoryItem {
 	}
 }
 
+interface SuppressCodeActionSettings {
+	enable: boolean;
+	location: 'newLine' | 'sameLine'
+}
+
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: 'npm' | 'yarn';
@@ -125,9 +130,8 @@ interface TextDocumentSettings {
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 	resolvedGlobalPackageManagerPath: string | undefined;
-	suppressCodeActionComment: 'newLine' | 'sameLine';
-	showSuppressCodeAction: boolean;
-	showDocumentationCodeAction: boolean;
+	suppressCodeAction: SuppressCodeActionSettings;
+	documentationCodeAction: { enable: boolean };
 }
 
 interface ESLintAutoFixEdit {
@@ -1134,9 +1138,9 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				));
 			}
 
-			if (settings.showSuppressCodeAction) {
+			if (settings.suppressCodeAction.enable) {
 				let workspaceChange = new WorkspaceChange();
-				if (settings.suppressCodeActionComment === 'sameLine') {
+				if (settings.suppressCodeAction.location === 'sameLine') {
 					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableSameLineTextEdit(editInfo));
 				} else {
 					let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
@@ -1162,7 +1166,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				));
 			}
 
-			if (settings.showDocumentationCodeAction) {
+			if (settings.documentationCodeAction.enable) {
 				if (ruleDocData.urls.has(ruleId)) {
 					let title = `Show documentation for ${ruleId}`;
 					result.push(CodeAction.create(
