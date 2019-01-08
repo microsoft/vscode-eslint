@@ -2,6 +2,7 @@
 
 - Moved to latest LSP libraries
 - Merged in [PR #588](https://github.com/Microsoft/vscode-eslint/pull/588/) which adds to turn off the actions to disable rules per line and to open the documentation.
+- Merged in [PR #572](https://github.com/Microsoft/vscode-eslint/pull/572) which adds support for pnpm.
 
 ### 1.7.0
 
