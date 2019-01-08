@@ -60,6 +60,11 @@ namespace DirectoryItem {
 
 type RunValues = 'onType' | 'onSave';
 
+interface SuppressCodeActionSettings {
+	enable: boolean;
+	location: 'newLine' | 'sameLine'
+}
+
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -71,6 +76,8 @@ interface TextDocumentSettings {
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: undefined;
+	suppressCodeAction: SuppressCodeActionSettings;
+	documentationCodeAction: { enable: boolean };
 }
 
 interface NoESLintState {
@@ -478,8 +485,10 @@ export function realActivate(context: ExtensionContext) {
 							nodePath: config.get('nodePath', undefined),
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
-							library: undefined
-						};
+							library: undefined,
+							suppressCodeAction: config.get('codeAction.suppressComment', {enable: true, location: 'newLine'} as SuppressCodeActionSettings),
+							documentationCodeAction: config.get('codeAction.showDocumentation', {enable: true}),
+						}
 						let document: TextDocument = syncedDocuments.get(item.scopeUri);
 						if (!document) {
 							result.push(settings);

@@ -114,6 +114,11 @@ namespace DirectoryItem {
 	}
 }
 
+interface SuppressCodeActionSettings {
+	enable: boolean;
+	location: 'newLine' | 'sameLine'
+}
+
 type PackageManagers = 'npm' | 'yarn' | 'pnpm';
 
 interface TextDocumentSettings {
@@ -128,6 +133,8 @@ interface TextDocumentSettings {
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 	resolvedGlobalPackageManagerPath: string | undefined;
+	suppressCodeAction: SuppressCodeActionSettings;
+	documentationCodeAction: { enable: boolean };
 }
 
 interface ESLintAutoFixEdit {
@@ -1093,7 +1100,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 	let textDocument = documents.get(uri);
 	let documentVersion: number = -1;
-	let ruleId: string;
+	let fixAllRuleIds: string[] = [];
 
 	function createTextEdit(editInfo: FixableProblem): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
@@ -1101,6 +1108,10 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 	function createDisableLineTextEdit(editInfo: FixableProblem, indentationText: string): TextEdit {
 		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
+	}
+
+	function createDisableSameLineTextEdit(editInfo: FixableProblem): TextEdit {
+		return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), ` // eslint-disable-line ${editInfo.ruleId}`);
 	}
 
 	function createDisableFileTextEdit(editInfo: FixableProblem): TextEdit {
@@ -1115,96 +1126,112 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return array[length - 1];
 	}
 
-	for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
-		documentVersion = editInfo.documentVersion;
-		let ruleId = editInfo.ruleId;
+	return resolveSettings(textDocument).then((settings) => {
+		for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
+			documentVersion = editInfo.documentVersion;
+			let ruleId = editInfo.ruleId;
+			fixAllRuleIds.push(ruleId);
 
-		if (!!editInfo.edit) {
-			let workspaceChange = new WorkspaceChange();
-			workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
-			commands.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
-			result.push(CodeAction.create(
-				editInfo.label,
-				Command.create(editInfo.label, CommandIds.applySingleFix, ruleId),
-				CodeActionKind.QuickFix
-			));
-		}
-
-		let workspaceChange = new WorkspaceChange();
-		let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
-		let indentationText = /^([ \t]*)/.exec(lineText)[1];
-		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
-		commands.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
-		let title = `Suppress ${ruleId} for this line`;
-		result.push(CodeAction.create(
-			title,
-			Command.create(title, CommandIds.applyDisableLine, ruleId),
-			CodeActionKind.QuickFix
-		));
-
-		workspaceChange = new WorkspaceChange();
-		workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableFileTextEdit(editInfo));
-		commands.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
-		title = `Suppress ${ruleId} for the entire file`;
-		result.push(CodeAction.create(
-			title,
-			Command.create(title, CommandIds.applyDisableFile, ruleId),
-			CodeActionKind.QuickFix
-		));
-
-		if (ruleDocData.urls.has(ruleId)) {
-			title = `Show documentation for ${ruleId}`;
-			result.push(CodeAction.create(
-				title,
-				Command.create(title, CommandIds.openRuleDoc, ruleId),
-				CodeActionKind.QuickFix
-			));
-		}
-	}
-
-	if (result.length > 0) {
-		let same: FixableProblem[] = [];
-		let all: FixableProblem[] = [];
-
-		for (let editInfo of fixes.getAllSorted()) {
-			if (documentVersion === -1) {
-				documentVersion = editInfo.documentVersion;
+			if (!!editInfo.edit) {
+				let workspaceChange = new WorkspaceChange();
+				workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
+				commands.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
+				result.push(CodeAction.create(
+					editInfo.label,
+					Command.create(editInfo.label, CommandIds.applySingleFix, ruleId),
+					CodeActionKind.QuickFix
+				));
 			}
-			if (editInfo.ruleId === ruleId && !Fixes.overlaps(getLastEdit(same), editInfo)) {
-				same.push(editInfo);
+
+			if (settings.suppressCodeAction.enable) {
+				let workspaceChange = new WorkspaceChange();
+				if (settings.suppressCodeAction.location === 'sameLine') {
+					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableSameLineTextEdit(editInfo));
+				} else {
+					let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
+					let indentationText = /^([ \t]*)/.exec(lineText)[1];
+					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
+				}
+				commands.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
+				let title = `Suppress ${ruleId} for this line`;
+				result.push(CodeAction.create(
+					title,
+					Command.create(title, CommandIds.applyDisableLine, ruleId),
+					CodeActionKind.QuickFix
+				));
+
+				workspaceChange = new WorkspaceChange();
+				workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableFileTextEdit(editInfo));
+				commands.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
+				title = `Suppress ${ruleId} for the entire file`;
+				result.push(CodeAction.create(
+					title,
+					Command.create(title, CommandIds.applyDisableFile, ruleId),
+					CodeActionKind.QuickFix
+				));
 			}
-			if (!Fixes.overlaps(getLastEdit(all), editInfo)) {
-				all.push(editInfo);
+
+			if (settings.documentationCodeAction.enable) {
+				if (ruleDocData.urls.has(ruleId)) {
+					let title = `Show documentation for ${ruleId}`;
+					result.push(CodeAction.create(
+						title,
+						Command.create(title, CommandIds.openRuleDoc, ruleId),
+						CodeActionKind.QuickFix
+					));
+				}
 			}
 		}
-		if (same.length > 1) {
-			let sameFixes: WorkspaceChange = new WorkspaceChange();
-			let sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
-			same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
-			commands.set(CommandIds.applySameFixes, sameFixes);
-			let title = `Fix all ${ruleId} problems`;
-			let command = Command.create(title, CommandIds.applySameFixes);
-			result.push(CodeAction.create(
-				title,
-				command,
-				CodeActionKind.QuickFix
-			));
+
+		if (result.length > 0) {
+			let sameProblems: Map<string, FixableProblem[]> = new Map<string, FixableProblem[]>(fixAllRuleIds.map<[string, FixableProblem[]]>(s => [s, []]));
+			let all: FixableProblem[] = [];
+
+			for (let editInfo of fixes.getAllSorted()) {
+				if (documentVersion === -1) {
+					documentVersion = editInfo.documentVersion;
+				}
+				if (sameProblems.has(editInfo.ruleId)) {
+					let same = sameProblems.get(editInfo.ruleId);
+					if (!Fixes.overlaps(getLastEdit(same), editInfo)) {
+						same.push(editInfo);
+					}
+				}
+				if (!Fixes.overlaps(getLastEdit(all), editInfo)) {
+					all.push(editInfo);
+				}
+			}
+			sameProblems.forEach((same, ruleId) => {
+				if (same.length > 1) {
+					let sameFixes: WorkspaceChange = new WorkspaceChange();
+					let sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
+					same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
+					commands.set(CommandIds.applySameFixes, sameFixes);
+					let title = `Fix all ${ruleId} problems`;
+					let command = Command.create(title, CommandIds.applySameFixes);
+					result.push(CodeAction.create(
+						title,
+						command,
+						CodeActionKind.QuickFix
+					));
+				}
+			});
+			if (all.length > 1) {
+				let allFixes: WorkspaceChange = new WorkspaceChange();
+				let allTextChange = allFixes.getTextEditChange({uri, version: documentVersion});
+				all.map(createTextEdit).forEach(edit => allTextChange.add(edit));
+				commands.set(CommandIds.applyAllFixes, allFixes);
+				let title = `Fix all auto-fixable problems`;
+				let command = Command.create(title, CommandIds.applyAllFixes);
+				result.push(CodeAction.create(
+					title,
+					command,
+					CodeActionKind.QuickFix
+				));
+			}
 		}
-		if (all.length > 1) {
-			let allFixes: WorkspaceChange = new WorkspaceChange();
-			let allTextChange = allFixes.getTextEditChange({uri, version: documentVersion});
-			all.map(createTextEdit).forEach(edit => allTextChange.add(edit));
-			commands.set(CommandIds.applyAllFixes, allFixes);
-			let title = `Fix all auto-fixable problems`;
-			let command = Command.create(title, CommandIds.applyAllFixes);
-			result.push(CodeAction.create(
-				title,
-				command,
-				CodeActionKind.QuickFix
-			));
-		}
-	}
-	return result;
+		return result;
+	});
 }, (params): number => {
 	let document = documents.get(params.textDocument.uri);
 	return document ? document.version : undefined;
