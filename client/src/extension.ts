@@ -634,7 +634,7 @@ export function realActivate(context: ExtensionContext) {
 			const packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
 			const localInstall = {
 				npm: 'npm install eslint',
-				pnpm: 'pnpm install pnpm',
+				pnpm: 'pnpm install eslint',
 				yarn: 'yarn add eslint',
 			};
 			const globalInstall = {
