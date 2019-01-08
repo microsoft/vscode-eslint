@@ -114,9 +114,14 @@ namespace DirectoryItem {
 	}
 }
 
-interface SuppressCodeActionSettings {
-	enable: boolean;
-	location: 'newLine' | 'sameLine'
+interface CodeActionSettings {
+	disableRuleComment: {
+		enable: boolean;
+		location: 'separateLine' | 'sameLine';
+	};
+	showDocumentation: {
+		enable: boolean;
+	};
 }
 
 type PackageManagers = 'npm' | 'yarn' | 'pnpm';
@@ -133,8 +138,7 @@ interface TextDocumentSettings {
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 	resolvedGlobalPackageManagerPath: string | undefined;
-	suppressCodeAction: SuppressCodeActionSettings;
-	documentationCodeAction: { enable: boolean };
+	codeAction: CodeActionSettings;
 }
 
 interface ESLintAutoFixEdit {
@@ -1083,24 +1087,85 @@ class Fixes {
 	}
 }
 
+interface RuleCodeActions {
+	fixes: CodeAction[];
+	disable?: CodeAction;
+	fixAll?: CodeAction;
+	disableFile?: CodeAction;
+	showDocumentation?: CodeAction;
+}
+
+class CodeActionResult {
+	private _actions: Map<string, RuleCodeActions>;
+	private _fixAll: CodeAction | undefined;
+
+	public constructor() {
+		this._actions = new Map();
+	}
+
+	public get(ruleId: string): RuleCodeActions {
+		let result: RuleCodeActions = this._actions.get(ruleId);
+		if (result === undefined) {
+			result = { fixes: [] };
+			this._actions.set(ruleId, result);
+		}
+		return result;
+	}
+
+	public set fixAll(action: CodeAction) {
+		this._fixAll = action;
+	}
+
+	public all(): CodeAction[] {
+		let result: CodeAction[] = [];
+		for (let actions of this._actions.values()) {
+			result.push(...actions.fixes);
+			if (actions.disable) {
+				result.push(actions.disable);
+			}
+			if (actions.fixAll) {
+				result.push(actions.fixAll);
+			}
+			if (actions.disableFile) {
+				result.push(actions.disableFile);
+			}
+			if (actions.showDocumentation) {
+				result.push(actions.showDocumentation);
+			}
+		}
+		if (this._fixAll !== undefined) {
+			result.push(this._fixAll);
+		}
+		return result;
+	}
+
+	public get length(): number {
+		let result: number = 0;
+		for (let actions of this._actions.values()) {
+			result += actions.fixes.length;
+		}
+		return result;
+	}
+}
+
 let commands: Map<string, WorkspaceChange>;
 messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	commands = new Map<string, WorkspaceChange>();
-	let result: CodeAction[] = [];
+	let result: CodeActionResult = new CodeActionResult();
 	let uri = params.textDocument.uri;
 	let edits = codeActions.get(uri);
 	if (!edits) {
-		return result;
+		return result.all();
 	}
 
 	let fixes = new Fixes(edits);
 	if (fixes.isEmpty()) {
-		return result;
+		return result.all();
 	}
 
 	let textDocument = documents.get(uri);
 	let documentVersion: number = -1;
-	let fixAllRuleIds: string[] = [];
+	let allFixableRuleIds: string[] = [];
 
 	function createTextEdit(editInfo: FixableProblem): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
@@ -1130,22 +1195,22 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
 			documentVersion = editInfo.documentVersion;
 			let ruleId = editInfo.ruleId;
-			fixAllRuleIds.push(ruleId);
+			allFixableRuleIds.push(ruleId);
 
 			if (!!editInfo.edit) {
 				let workspaceChange = new WorkspaceChange();
 				workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
 				commands.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
-				result.push(CodeAction.create(
+				result.get(ruleId).fixes.push(CodeAction.create(
 					editInfo.label,
 					Command.create(editInfo.label, CommandIds.applySingleFix, ruleId),
 					CodeActionKind.QuickFix
 				));
 			}
 
-			if (settings.suppressCodeAction.enable) {
+			if (settings.codeAction.disableRuleComment.enable) {
 				let workspaceChange = new WorkspaceChange();
-				if (settings.suppressCodeAction.location === 'sameLine') {
+				if (settings.codeAction.disableRuleComment.location === 'sameLine') {
 					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableSameLineTextEdit(editInfo));
 				} else {
 					let lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
@@ -1153,38 +1218,40 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
 				}
 				commands.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
-				let title = `Suppress ${ruleId} for this line`;
-				result.push(CodeAction.create(
+				let title = `Disable ${ruleId} for this line`;
+				result.get(ruleId).disable = CodeAction.create(
 					title,
 					Command.create(title, CommandIds.applyDisableLine, ruleId),
 					CodeActionKind.QuickFix
-				));
+				);
 
-				workspaceChange = new WorkspaceChange();
-				workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableFileTextEdit(editInfo));
-				commands.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
-				title = `Suppress ${ruleId} for the entire file`;
-				result.push(CodeAction.create(
-					title,
-					Command.create(title, CommandIds.applyDisableFile, ruleId),
-					CodeActionKind.QuickFix
-				));
+				if (result.get(ruleId).disableFile === undefined) {
+					workspaceChange = new WorkspaceChange();
+					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableFileTextEdit(editInfo));
+					commands.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
+					title = `Disable ${ruleId} for the entire file`;
+					result.get(ruleId).disableFile = CodeAction.create(
+						title,
+						Command.create(title, CommandIds.applyDisableFile, ruleId),
+						CodeActionKind.QuickFix
+					);
+				}
 			}
 
-			if (settings.documentationCodeAction.enable) {
+			if (settings.codeAction.showDocumentation.enable && result.get(ruleId).showDocumentation === undefined) {
 				if (ruleDocData.urls.has(ruleId)) {
 					let title = `Show documentation for ${ruleId}`;
-					result.push(CodeAction.create(
+					result.get(ruleId).showDocumentation = CodeAction.create(
 						title,
 						Command.create(title, CommandIds.openRuleDoc, ruleId),
 						CodeActionKind.QuickFix
-					));
+					);
 				}
 			}
 		}
 
 		if (result.length > 0) {
-			let sameProblems: Map<string, FixableProblem[]> = new Map<string, FixableProblem[]>(fixAllRuleIds.map<[string, FixableProblem[]]>(s => [s, []]));
+			let sameProblems: Map<string, FixableProblem[]> = new Map<string, FixableProblem[]>(allFixableRuleIds.map<[string, FixableProblem[]]>(s => [s, []]));
 			let all: FixableProblem[] = [];
 
 			for (let editInfo of fixes.getAllSorted()) {
@@ -1209,11 +1276,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					commands.set(CommandIds.applySameFixes, sameFixes);
 					let title = `Fix all ${ruleId} problems`;
 					let command = Command.create(title, CommandIds.applySameFixes);
-					result.push(CodeAction.create(
+					result.get(ruleId).fixAll = CodeAction.create(
 						title,
 						command,
 						CodeActionKind.QuickFix
-					));
+					);
 				}
 			});
 			if (all.length > 1) {
@@ -1223,14 +1290,14 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				commands.set(CommandIds.applyAllFixes, allFixes);
 				let title = `Fix all auto-fixable problems`;
 				let command = Command.create(title, CommandIds.applyAllFixes);
-				result.push(CodeAction.create(
+				result.fixAll = CodeAction.create(
 					title,
 					command,
 					CodeActionKind.QuickFix
-				));
+				);
 			}
 		}
-		return result;
+		return result.all();
 	});
 }, (params): number => {
 	let document = documents.get(params.textDocument.uri);

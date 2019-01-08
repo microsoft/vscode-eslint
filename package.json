@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "1.7.2",
+	"version": "1.8.0",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.28.0"
+		"vscode": "^1.30.0"
 	},
 	"activationEvents": [
 		"*"
@@ -199,7 +199,7 @@
 					"default": null,
 					"description": "The location of the node binary to run ESLint under."
 				},
-				"eslint.codeAction.suppressComment": {
+				"eslint.codeAction.disableRuleComment": {
 					"scope": "resource",
 					"type": "object",
 					"default": {
@@ -210,16 +210,16 @@
 						"enable": {
 							"type": "boolean",
 							"default": true,
-							"description": "Show the suppress code actions."
+							"description": "Show the disable code actions."
 						},
 						"location": {
 							"type": "string",
 							"enum": [
-								"newLine",
+								"separateLine",
 								"sameLine"
 							],
 							"default": "newLine",
-							"description": "Configure the suppress rule code action to insert the disable comment on the same line or a new line."
+							"description": "Configure the disable rule code action to insert the comment on the same line or a new line."
 						}
 					}
 				},

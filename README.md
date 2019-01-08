@@ -26,7 +26,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.autoFixOnSave` - enables auto fix on save. Please note auto fix on save is only available if VS Code's `files.autoSave` is either `off`, `onFocusChange` or `onWindowChange`. It will not work with `afterDelay`.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
-- `eslint.validate` - an array of language identifiers specify the files to be validated. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`. If the setting is missing, it defaults to `["javascript", "javascriptreact"]`. You can also control which plugins should provide autofix support. To do so simply provide an object literal in the validate setting with the properties `language` and `autoFix` instead of a simple `string`. An example is:
+- `eslint.validate` - an array of language identifiers specify the files to be validated. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`. If the setting is missing, it defaults to `["javascript", "javascriptreact"]`. You can also control which plugins should provide auto fix support. To do so simply provide an object literal in the validate setting with the properties `language` and `autoFix` instead of a simple `string`. An example is:
   ```json
   "eslint.validate": [ "javascript", "javascriptreact", { "language": "html", "autoFix": true } ]
   ```
@@ -51,12 +51,12 @@ This extension contributes the following variables to the [settings](https://cod
   will validate files inside the server directory with the server directory as the current working directory. Same for files in the client directory. If the setting is omitted the working directory is the workspace folder.
 
   The setting also supports literals of the form `{ "directory": string, "changeProcessCWD": boolean }` as elements. Use this form if you want to instruct ESLint to change the current working directory of the ESLint validation process to the value of `directory` as well. This is for example necessary if ESLint is used to validate relative import statements like `import A from 'components/A';` which would otherwise be resolved to the workspace folder root.
-- `eslint.codeAction.suppressComment` - object with properties:
-  - `enable` - show suppress lint rule in the quick fix menu. `true` by default.
-  - `location` - choose to either add the `eslint-disable` comment on the `newLine` or `sameLine`. `newLine` is the default.
+- `eslint.codeAction.disableRuleComment` - object with properties:
+  - `enable` - show disable lint rule in the quick fix menu. `true` by default.
+  - `location` - choose to either add the `eslint-disable` comment on the `separateLine` or `sameLine`. `separateLine` is the default.
   Example:
   ```json
-  {"enable": true, "location": "sameLine"}
+  { "enable": true, "location": "sameLine" }
   ```
 - `eslint.codeAction.showDocumentation` - object with properties:
   - `enable` - show open lint rule documentation web page in the quick fix menu. `true` by default.
@@ -72,4 +72,4 @@ This extension contributes the following commands to the Command palette.
 
 ## Using the extension with VS Code's task running
 
-The extension lints an individual file only on typing. If you want to lint the whole workspace set `eslint.provideLintTask` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
+The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.provideLintTask` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.

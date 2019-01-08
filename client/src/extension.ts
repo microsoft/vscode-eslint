@@ -60,9 +60,14 @@ namespace DirectoryItem {
 
 type RunValues = 'onType' | 'onSave';
 
-interface SuppressCodeActionSettings {
-	enable: boolean;
-	location: 'newLine' | 'sameLine'
+interface CodeActionSettings {
+	disableRuleComment: {
+		enable: boolean;
+		location: 'separateLine' | 'sameLine';
+	};
+	showDocumentation: {
+		enable: boolean;
+	};
 }
 
 interface TextDocumentSettings {
@@ -76,8 +81,7 @@ interface TextDocumentSettings {
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: undefined;
-	suppressCodeAction: SuppressCodeActionSettings;
-	documentationCodeAction: { enable: boolean };
+	codeAction: CodeActionSettings;
 }
 
 interface NoESLintState {
@@ -486,9 +490,11 @@ export function realActivate(context: ExtensionContext) {
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
 							library: undefined,
-							suppressCodeAction: config.get('codeAction.suppressComment', {enable: true, location: 'newLine'} as SuppressCodeActionSettings),
-							documentationCodeAction: config.get('codeAction.showDocumentation', {enable: true}),
-						}
+							codeAction: {
+								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
+								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
+							}
+						};
 						let document: TextDocument = syncedDocuments.get(item.scopeUri);
 						if (!document) {
 							result.push(settings);

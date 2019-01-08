@@ -1,6 +1,6 @@
 {
 	"name": "eslint-server",
-	"version": "1.3.0",
+	"version": "1.8.0",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -15,7 +15,7 @@
 	},
 	"dependencies": {
 		"vscode-uri": "^1.0.1",
-		"vscode-languageserver": "5.1.0"
+		"vscode-languageserver": "5.2.1"
 	},
 	"scripts": {}
 }

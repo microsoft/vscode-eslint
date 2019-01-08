@@ -1,6 +1,6 @@
 ### 1.7.0
 
-- Merged in [PR #530](https://github.com/Microsoft/vscode-eslint/pull/530) which adds support to diable a rule per line or for the whole file as well as navigating to the documentation.
+- Merged in [PR #530](https://github.com/Microsoft/vscode-eslint/pull/530) which adds support to disable a rule per line or for the whole file as well as navigating to the documentation.
 
 ### 1.6.1
 
