@@ -1,3 +1,8 @@
+### 1.8.0
+
+- Moved to latest LSP libraries
+- Merged in [PR #588](https://github.com/Microsoft/vscode-eslint/pull/588/) which adds to turn off the actions to disable rules per line and to open the documentation.
+
 ### 1.7.0
 
 - Merged in [PR #530](https://github.com/Microsoft/vscode-eslint/pull/530) which adds support to disable a rule per line or for the whole file as well as navigating to the documentation.
@@ -21,7 +26,7 @@
 
 ### 1.4.13
 
-- Upgraded to latest LSP libries to handle process spawn / fork crashes under Electron 2.x
+- Upgraded to latest LSP libraries to handle process spawn / fork crashes under Electron 2.x
 
 ### 1.4.12
 
@@ -93,7 +98,7 @@ Fixes:
 
 ### 1.3.0
 
-- Add support for multi workspace folder setups. Adding this supoort required a major code change both on the extension and the server side. So if you recognized problems with this version please report them as quick as possbible in the [GitHub repository](https://github.com/Microsoft/vscode-eslint).
+- Add support for multi workspace folder setups. Adding this support required a major code change both on the extension and the server side. So if you recognized problems with this version please report them as quick as possible in the [GitHub repository](https://github.com/Microsoft/vscode-eslint).
 
   Version 1.3.0 of the ESLint extension requires at least version 1.16 of VS Code.
 
@@ -135,7 +140,7 @@ This version was an internal test release which wasn't available in the market p
 
 ### <a name="RN125"></a>1.2.5
 
-- Validdating a single file (no workspace folder open) will set the working directory to the directory containing the file.
+- Validating a single file (no workspace folder open) will set the working directory to the directory containing the file.
 - Added support for working directories. ESLint resolves configuration files relative to a working directory. This new settings allows users to control which working directory is used for which files. Consider the following setups:
 
 ```
@@ -203,7 +208,7 @@ in a `node_modules` folder in the `server` and the `client` directory.
 ### 1.0.8
 
 - Supports auto fix on save. Needs to be enabled via `"eslint.autoFixOnSave": true`. Please note that auto fix on save will only happen
-if the save happened manually or via focus lost. This is consistent with VS Code's format on save behaviour. Auto fix on save requires
+if the save happened manually or via focus lost. This is consistent with VS Code's format on save behavior. Auto fix on save requires
 VS Code version 1.6 or newer.
 
 ### 1.0.7
