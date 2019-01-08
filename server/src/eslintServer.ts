@@ -369,7 +369,7 @@ let connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
 let documents: TextDocuments = new TextDocuments();
 
-const _globalPaths: { [key: string]: { cache: string; get(): string; } } = {
+const _globalPaths: Record<PackageManagers, { cache?: string; get(): string; }> = {
 	yarn: {
 		cache: undefined,
 		get(): string {
