@@ -12,7 +12,7 @@
 	"editor.tabSize": 4,
 	"typescript.tsdk": "./node_modules/typescript/lib",
 	"typescript.tsc.autoDetect": "off",
-	"tslint.enable": false,
+	"tslint.enable": true,
 	"eslint.enable": false,
 	"eslint.trace.server": "off",
 	"eslint.provideLintTask": false

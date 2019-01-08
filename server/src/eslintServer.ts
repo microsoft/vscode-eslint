@@ -18,6 +18,7 @@ import {
 
 import URI from 'vscode-uri';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { EOL } from 'os';
 import { isFunction } from 'util';
 
@@ -47,7 +48,7 @@ interface ESLintError extends Error {
 	messageTemplate?: string;
 	messageData?: {
 		pluginName?: string;
-	}
+	};
 }
 
 enum Status {
@@ -57,7 +58,7 @@ enum Status {
 }
 
 interface StatusParams {
-	state: Status
+	state: Status;
 }
 
 namespace StatusNotification {
@@ -118,9 +119,11 @@ interface SuppressCodeActionSettings {
 	location: 'newLine' | 'sameLine'
 }
 
+type PackageManagers = 'npm' | 'yarn' | 'pnpm';
+
 interface TextDocumentSettings {
 	validate: boolean;
-	packageManager: 'npm' | 'yarn';
+	packageManager: PackageManagers;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
@@ -362,31 +365,37 @@ let connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
 let documents: TextDocuments = new TextDocuments();
 
-let _globalNpmPath: string | null | undefined;
-function globalNpmPath(): string {
-	if (_globalNpmPath === void 0) {
-		_globalNpmPath = Files.resolveGlobalNodePath(trace);
-		if (_globalNpmPath === void 0) {
-			_globalNpmPath = null;
+const _globalPaths: { [key: string]: { cache: string; get(): string; } } = {
+	yarn: {
+		cache: undefined,
+		get(): string {
+			return Files.resolveGlobalYarnPath(trace);
+		}
+	},
+	npm: {
+		cache: undefined,
+		get(): string {
+			return Files.resolveGlobalNodePath(trace);
+		}
+	},
+	pnpm: {
+		cache: undefined,
+		get(): string {
+			const pnpmPath = execSync('pnpm root -g').toString().trim();
+			return pnpmPath;
 		}
 	}
-	if (_globalNpmPath === null) {
-		return undefined;
-	}
-	return _globalNpmPath;
-}
-let _globalYarnPath: string | undefined;
-function globalYarnPath(): string {
-	if (_globalYarnPath === void 0) {
-		_globalYarnPath = Files.resolveGlobalYarnPath(trace);
-		if (_globalYarnPath === void 0) {
-			_globalYarnPath = null;
+};
+
+function globalPathGet(packageManager: PackageManagers): string {
+	const pm = _globalPaths[packageManager];
+	if (pm) {
+		if (pm.cache === undefined) {
+			pm.cache = pm.get();
 		}
+		return pm.cache;
 	}
-	if (_globalYarnPath === null) {
-		return undefined;
-	}
-	return _globalYarnPath;
+	return undefined;
 }
 let path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 let document2Settings: Map<string, Thenable<TextDocumentSettings>> = new Map<string, Thenable<TextDocumentSettings>>();
@@ -398,13 +407,9 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		return resultPromise;
 	}
 	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((settings: TextDocumentSettings) => {
-		if (settings.packageManager === 'npm') {
-			settings.resolvedGlobalPackageManagerPath = globalNpmPath();
-		} else if (settings.packageManager === 'yarn') {
-			settings.resolvedGlobalPackageManagerPath = globalYarnPath();
-		}
+		settings.resolvedGlobalPackageManagerPath = globalPathGet(settings.packageManager);
 		let uri = URI.parse(document.uri);
-		let promise: Thenable<string>
+		let promise: Thenable<string>;
 		if (uri.scheme === 'file') {
 			let file = uri.fsPath;
 			let directory = path.dirname(file);
@@ -598,7 +603,7 @@ namespace ValidateNotification {
 messageQueue.onNotification(ValidateNotification.type, (document) => {
 	validateSingle(document, true);
 }, (document): number => {
-	return document.version
+	return document.version;
 });
 
 // The documents manager listen for text document create, change
@@ -626,7 +631,7 @@ documents.onDidChangeContent((event) => {
 });
 
 function getFixes(textDocument: TextDocument): TextEdit[] {
-	let uri = textDocument.uri
+	let uri = textDocument.uri;
 	let edits = codeActions.get(uri);
 	function createTextEdit(editInfo: FixableProblem): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
@@ -669,7 +674,7 @@ documents.onDidSave((event) => {
 			return;
 		}
 		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-	})
+	});
 });
 
 documents.onDidClose((event) => {
@@ -724,7 +729,7 @@ connection.onInitialize((_params) => {
 connection.onInitialized(() => {
 	connection.client.register(DidChangeConfigurationNotification.type, undefined);
 	connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
-})
+});
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
 	environmentChanged();
@@ -794,7 +799,7 @@ let ruleDocData: {
 } = {
 	handled: new Set<string>(),
 	urls: new Map<string, string>()
-}
+};
 
 function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true): void {
 	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
@@ -983,8 +988,8 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 	// Simply revalidate all file.
 	ruleDocData.handled.clear();
 	ruleDocData.urls.clear();
-	noConfigReported = new Map<string, ESLintModule>();;
-	missingModuleReported = new Map<string, ESLintModule>();;
+	noConfigReported = new Map<string, ESLintModule>();
+	missingModuleReported = new Map<string, ESLintModule>();
 	params.changes.forEach((change) => {
 		let fsPath = getFilePath(change.uri);
 		if (!fsPath || isUNC(fsPath)) {
@@ -1041,7 +1046,7 @@ class Fixes {
 		let result: FixableProblem[] = [];
 		this.edits.forEach((value) => {
 			if (!!value.edit) {
-				result.push(value)
+				result.push(value);
 			}
 		});
 		return result.sort((a, b) => {
@@ -1176,7 +1181,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					));
 				}
 			}
-		};
+		}
 
 		if (result.length > 0) {
 			let sameProblems: Map<string, FixableProblem[]> = new Map<string, FixableProblem[]>(fixAllRuleIds.map<[string, FixableProblem[]]>(s => [s, []]));
@@ -1250,7 +1255,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier): TextEdit[
 		}
 	}
 	return undefined;
-};
+}
 
 messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 	let workspaceChange: WorkspaceChange;

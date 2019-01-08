@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -67,7 +67,7 @@ interface SuppressCodeActionSettings {
 
 interface TextDocumentSettings {
 	validate: boolean;
-	packageManager: 'npm' | 'yarn';
+	packageManager: 'npm' | 'yarn' | 'pnpm';
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	options: any | undefined;
@@ -92,7 +92,7 @@ enum Status {
 }
 
 interface StatusParams {
-	state: Status
+	state: Status;
 }
 
 namespace StatusNotification {
@@ -230,7 +230,7 @@ function createDefaultConfiguration(): void {
 		if (!folder) {
 			return;
 		}
-		const folderRootPath = folder.uri.fsPath
+		const folderRootPath = folder.uri.fsPath;
 		const terminal = Window.createTerminal({
 			name: `ESLint init`,
 			cwd: folderRootPath
@@ -475,10 +475,9 @@ export function realActivate(context: ExtensionContext) {
 						}
 						let resource = client.protocol2CodeConverter.asUri(item.scopeUri);
 						let config = Workspace.getConfiguration('eslint', resource);
-						let pm = config.get('packageManager', 'npm');
 						let settings: TextDocumentSettings = {
 							validate: false,
-							packageManager: pm === 'yarn' ? 'yarn' : 'npm',
+							packageManager: config.get('packageManager', 'npm'),
 							autoFix: false,
 							autoFixOnSave: false,
 							options: config.get('options', {}),
@@ -574,7 +573,7 @@ export function realActivate(context: ExtensionContext) {
 	client.registerProposedFeatures();
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	const running = 'ESLint server is running.';
-	const stopped = 'ESLint server stopped.'
+	const stopped = 'ESLint server stopped.';
 	client.onDidChangeState((event) => {
 		if (event.newState === ClientState.Running) {
 			client.info(running);
@@ -626,58 +625,65 @@ export function realActivate(context: ExtensionContext) {
 			let state = context.globalState.get<NoESLintState>(key, {});
 			let uri: Uri = Uri.parse(params.source.uri);
 			let workspaceFolder = Workspace.getWorkspaceFolder(uri);
-			let packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
+			const packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
+			const localInstall = {
+				npm: 'npm install eslint',
+				pnpm: 'pnpm install pnpm',
+				yarn: 'yarn add eslint',
+			};
+			const globalInstall = {
+				npm: 'npm install -g eslint',
+				pnpm: 'pnpm install -g eslint',
+				yarn: 'yarn global add eslint'
+			};
+			const isPackageManagerNpm = packageManager === 'npm';
+			interface ButtonItem extends MessageItem {
+				id: number;
+			}
+			const outputItem: ButtonItem = {
+				title: 'Go to output',
+				id: 1
+			};
 			if (workspaceFolder) {
-				if (packageManager === 'yarn') {
-					client.info([
-						'',
-						`Failed to load the ESLint library for the document ${uri.fsPath}`,
-						'',
-						`To use ESLint please install eslint by running \'yarn add eslint\' in the workspace folder ${workspaceFolder.name}`,
-						'or globally using \'yarn global add eslint\'. You need to reopen the workspace after installing eslint.',
-						'',
-						`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
-					].join('\n'));
-				} else {
-					client.info([
-						'',
-						`Failed to load the ESLint library for the document ${uri.fsPath}`,
-						'',
-						`To use ESLint please install eslint by running \'npm install eslint\' in the workspace folder ${workspaceFolder.name}`,
-						'or globally using \'npm install -g eslint\'. You need to reopen the workspace after installing eslint.',
-						'',
-						'If you are using yarn instead of npm set the setting `"eslint.packageManager": "yarn"`',
-						'',
-						`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
-					].join('\n'));
-				}
+				client.info([
+					'',
+					`Failed to load the ESLint library for the document ${uri.fsPath}`,
+					'',
+					`To use ESLint please install eslint by running ${localInstall[packageManager]} in the workspace folder ${workspaceFolder.name}`,
+					`or globally using '${globalInstall[packageManager]}'. You need to reopen the workspace after installing eslint.`,
+					'',
+					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
+				].filter((str=>(str !== null))).join('\n'));
+
 				if (!state.workspaces) {
 					state.workspaces = Object.create(null);
 				}
 				if (!state.workspaces[workspaceFolder.uri.toString()]) {
 					state.workspaces[workspaceFolder.uri.toString()] = true;
-					client.outputChannel.show(true);
 					context.globalState.update(key, state);
+					Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+						if (item && item.id === 1) {
+							client.outputChannel.show(true);
+						}
+					});
 				}
 			} else {
-				if (packageManager === 'yarn') {
-					client.info([
-						`Failed to load the ESLint library for the document ${uri.fsPath}`,
-						'To use ESLint for single JavaScript file install eslint globally using \'yarn global add eslint\'.',
-						'You need to reopen VS Code after installing eslint.',
-					].join('\n'));
-				} else {
-					client.info([
-						`Failed to load the ESLint library for the document ${uri.fsPath}`,
-						'To use ESLint for single JavaScript file install eslint globally using \'npm install -g eslint\'.',
-						'If you are using yarn instead of npm set the setting `"eslint.packageManager": "yarn"`',
-                                      		'You need to reopen VS Code after installing eslint.',
-					].join('\n'));
-				}
+				client.info([
+					`Failed to load the ESLint library for the document ${uri.fsPath}`,
+					`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
+					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+					'You need to reopen VS Code after installing eslint.',
+				].filter((str=>(str !== null))).join('\n'));
+
 				if (!state.global) {
 					state.global = true;
-					client.outputChannel.show(true);
 					context.globalState.update(key, state);
+					Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+						if (item && item.id === 1) {
+							client.outputChannel.show(true);
+						}
+					});
 				}
 			}
 			return {};
@@ -710,7 +716,7 @@ export function realActivate(context: ExtensionContext) {
 			let params: ExecuteCommandParams = {
 				command: 'eslint.applyAutoFix',
 				arguments: [textDocument]
-			}
+			};
 			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
 				Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});

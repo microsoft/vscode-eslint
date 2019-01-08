@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "1.7.0",
+	"version": "1.7.2",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -44,7 +44,8 @@
 					"type": "string",
 					"enum": [
 						"npm",
-						"yarn"
+						"yarn",
+						"pnpm"
 					],
 					"default": "npm",
 					"description": "The package manager you use to install node modules."
@@ -295,6 +296,7 @@
 	},
 	"devDependencies": {
 		"typescript": "^3.1.3",
-		"@types/node": "^8.0.0"
+		"@types/node": "^8.0.0",
+		"tslint": "^5.11.0"
 	}
 }
