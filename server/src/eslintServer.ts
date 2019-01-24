@@ -110,7 +110,7 @@ interface DirectoryItem {
 namespace DirectoryItem {
 	export function is(item: any): item is DirectoryItem {
 		let candidate = item as DirectoryItem;
-		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate.changeProcessCWD) || candidate.changeProcessCWD === void 0);
+		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate.changeProcessCWD) || candidate.changeProcessCWD === undefined);
 	}
 }
 
@@ -126,12 +126,13 @@ interface CodeActionSettings {
 
 type PackageManagers = 'npm' | 'yarn' | 'pnpm';
 
+type ESLintOptions = object & { fixTypes?: string[] };
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: PackageManagers;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
-	options: any | undefined;
+	options: ESLintOptions | undefined;
 	run: RunValues;
 	nodePath: string | undefined;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -173,6 +174,7 @@ interface ESLintReport {
 
 interface CLIOptions {
 	cwd?: string;
+	fixTypes?: string[];
 }
 
 // { meta: { docs: [Object], schema: [Array] }, create: [Function: create] }
@@ -181,6 +183,7 @@ interface RuleData {
 		docs?: {
 			url?: string;
 		};
+		type?: string;
 	};
 }
 
@@ -419,7 +422,7 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 			let directory = path.dirname(file);
 			if (settings.nodePath) {
 				let nodePath = settings.nodePath;
-				if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== void 0) {
+				if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== undefined) {
 					let uri = URI.parse(settings.workspaceFolder.uri);
 					if (uri.scheme === 'file') {
 						nodePath = path.join(uri.fsPath, nodePath);
@@ -572,7 +575,7 @@ class BufferedMessageQueue {
 				return;
 			}
 			let elem = this.requestHandlers.get(requestMessage.method);
-			if (elem.versionProvider && requestMessage.documentVersion !== void 0 && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
+			if (elem.versionProvider && requestMessage.documentVersion !== undefined && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
 				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
@@ -589,7 +592,7 @@ class BufferedMessageQueue {
 		} else {
 			let notificationMessage = message;
 			let elem = this.notificationHandlers.get(notificationMessage.method);
-			if (elem.versionProvider && notificationMessage.documentVersion !== void 0 && notificationMessage.documentVersion !== elem.versionProvider(notificationMessage.params)) {
+			if (elem.versionProvider && notificationMessage.documentVersion !== undefined && notificationMessage.documentVersion !== elem.versionProvider(notificationMessage.params)) {
 				return;
 			}
 			elem.handler(notificationMessage.params);
@@ -805,8 +808,22 @@ let ruleDocData: {
 	urls: new Map<string, string>()
 };
 
+
+const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
 function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true): void {
 	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
+	let fixTypes: Set<string> | undefined = undefined;
+	if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
+		fixTypes = new Set();
+		for (let item of newOptions.fixTypes) {
+			if (validFixTypes.has(item)) {
+				fixTypes.add(item);
+			}
+		}
+		if (fixTypes.size === 0) {
+			fixTypes = undefined;
+		}
+	}
 	let content = document.getText();
 	let uri = document.uri;
 	let file = getFilePath(document);
@@ -849,7 +866,14 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 						let diagnostic = makeDiagnostic(problem);
 						diagnostics.push(diagnostic);
 						if (settings.autoFix) {
-							recordCodeAction(document, diagnostic, problem);
+							if (fixTypes !== undefined && isFunction(cli.getRules) && problem.ruleId !== undefined && problem.fix !== undefined) {
+								let rule = cli.getRules().get(problem.ruleId);
+								if (rule !== undefined && fixTypes.has(rule.meta.type)) {
+									recordCodeAction(document, diagnostic, problem);
+								}
+							} else {
+								recordCodeAction(document, diagnostic, problem);
+							}
 						}
 					}
 				});

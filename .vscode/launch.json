@@ -5,7 +5,7 @@
 		{
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "Launch Extension",
+			"name": "Launch Client",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}" ],
 			"stopOnEntry": false,
@@ -22,6 +22,12 @@
 			"port": 6010,
 			"sourceMaps": true,
 			"outFiles": ["${workspaceFolder}/server/**/*.js"]
+		}
+	],
+	"compounds": [
+		{
+			"name": "Client + Server",
+			"configurations": ["Launch Client", "Attach to Server"]
 		}
 	]
 }
