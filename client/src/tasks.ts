@@ -29,6 +29,10 @@ class FolderTaskProvider {
 	public dispose(): void {
 	}
 
+	public workingDirectories() : string []{
+		return vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri).get('workingDirectories', undefined) || [];
+	}
+
 	public async getTask(): Promise<vscode.Task> {
 		let rootPath = this._workspaceFolder.uri.scheme === 'file' ? this._workspaceFolder.uri.fsPath : undefined;
 		if (!rootPath) {
@@ -42,9 +46,14 @@ class FolderTaskProvider {
 			};
 
 			let options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
+
+			let args: string[] = this.workingDirectories()
+			args = args.length === 0 ? ['.'] : args
+
 			return new vscode.Task(
 				kind, this.workspaceFolder,
-				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} .`,
+				'lint whole folder', 'eslint', new vscode.ShellExecution(command,
+				args,
 				options),
 				'$eslint-stylish'
 			);
