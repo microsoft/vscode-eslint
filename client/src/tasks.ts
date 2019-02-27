@@ -47,8 +47,8 @@ class FolderTaskProvider {
 
 			let options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
 
-			let args: string[] = this.workingDirectories()
-			args = args.length === 0 ? ['.'] : args
+			let args: string[] = this.workingDirectories();
+			args = args.length === 0 ? ['.'] : args;
 
 			return new vscode.Task(
 				kind, this.workspaceFolder,
