@@ -1,3 +1,8 @@
+### 1.8.1
+
+- Moved to latest LSP libraries
+- Web pack extension and server
+
 ### 1.8.0
 
 - Moved to latest LSP libraries

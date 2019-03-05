@@ -202,6 +202,18 @@ interface ESLintModule {
 	CLIEngine: CLIEngineConstructor;
 }
 
+declare const __webpack_require__: typeof require;
+declare const __non_webpack_require__: typeof require;
+function loadNodeModule<T>(moduleName: string): T | undefined {
+	const r =  typeof __webpack_require__ === 'function' ? __non_webpack_require__ : require;
+	try {
+		return r(moduleName);
+	} catch (err) {
+		// Not available.
+	}
+	return undefined;
+}
+
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	let message = problem.message;
 	let startLine = Math.max(0, problem.line - 1);
@@ -440,7 +452,7 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 		return promise.then((path) => {
 			let library = path2Library.get(path);
 			if (!library) {
-				library = require(path);
+				library = loadNodeModule(path);
 				if (!library.CLIEngine) {
 					settings.validate = false;
 					connection.console.error(`The eslint library loaded from ${path} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
