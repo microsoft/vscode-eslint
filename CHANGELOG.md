@@ -2,6 +2,7 @@
 
 - Moved to latest LSP libraries
 - Web pack extension and server
+- Fixes [Extension causes high cpu load](https://github.com/Microsoft/vscode-eslint/issues/620)
 
 ### 1.8.0
 
