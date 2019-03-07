@@ -297,7 +297,7 @@ export function activate(context: ExtensionContext) {
 	openListener = Workspace.onDidOpenTextDocument(didOpenTextDocument);
 	configurationListener = Workspace.onDidChangeConfiguration(configurationChanged);
 
-	let notValidating = () => Window.showInformationMessage('ESLint is not validating any files yet.');
+	let notValidating = () => Window.showInformationMessage('ESLint is not running. By default only JavaScript files are validated. If you want to validate other file types please specify them in the \'eslint.validate\' setting.');
 	dummyCommands = [
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
 		Commands.registerCommand('eslint.showOutputChannel', notValidating)
