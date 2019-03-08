@@ -2,7 +2,7 @@
 	"name": "client",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "1.8.0",
+	"version": "1.8.2",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -13,7 +13,7 @@
 		"url": "https://github.com/Microsoft/vscode-eslint/issues"
 	},
 	"engines": {
-		"vscode": "^1.30.0"
+		"vscode": "^1.31.0"
 	},
 	"scripts": {
 		"update-vscode": "node ./node_modules/vscode/bin/install",

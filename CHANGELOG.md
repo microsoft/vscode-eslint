@@ -1,3 +1,7 @@
+### 1.8.2
+
+- Fix version mismatch problem between LSP client lib and VS Code version.
+
 ### 1.8.1
 
 - Moved to latest LSP libraries

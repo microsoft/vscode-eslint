@@ -313,7 +313,7 @@ export function activate(context: ExtensionContext) {
 	configurationChanged();
 }
 
-export function realActivate(context: ExtensionContext) {
+export function realActivate(context: ExtensionContext): void {
 
 	let statusBarItem = Window.createStatusBarItem(StatusBarAlignment.Right, 0);
 	let eslintStatus: Status = Status.ok;
@@ -575,7 +575,13 @@ export function realActivate(context: ExtensionContext) {
 		}
 	};
 
-	let client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	let client: LanguageClient;
+	try {
+		client = new LanguageClient('ESLint', serverOptions, clientOptions);
+	} catch (err) {
+		Window.showErrorMessage(`The ESLint extension couldn't be started. See the ESLint output channel for details.`);
+		return;
+	}
 	client.registerProposedFeatures();
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	const running = 'ESLint server is running.';
