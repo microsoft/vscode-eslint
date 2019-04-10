@@ -46,14 +46,14 @@ This extension contributes the following variables to the [settings](https://cod
       server.js
   ```
   
-  ```json
+  ```javascript
     "eslint.workingDirectories": [
       "./client", // changeProcessCWD defaults to false
       { "directory": "./server", "changeProcessCWD": true }
     ]
   ```
-  In the above example, `client.js` will be evaluated from `root` using `root/client/.eslintrc.json`
-  `server.js` will be evaluated from `root/server` using `root/server/.eslintrc.json`
+  In the above example, `client.js` will be evaluated from `root` using `root/client/.eslintrc.json`,
+  while `server.js` will be evaluated from `root/server` using `root/server/.eslintrc.json`
  
   Using `changeProcessCWD` causes vscode-eslint to change the current working directory of the eslint process to `directory` as well. This is often necessary if ESLint is used to validate relative import statements like `import A from 'components/A';` which would otherwise be resolved to the workspace folder root.
   
