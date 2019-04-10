@@ -31,26 +31,34 @@ This extension contributes the following variables to the [settings](https://cod
   "eslint.validate": [ "javascript", "javascriptreact", { "language": "html", "autoFix": true } ]
   ```
 
-- `eslint.workingDirectories` - an array for working directories to be used. ESLint resolves configuration files relative to a working directory. This new settings allows users to control which working directory is used for which files. Consider the following setups:
+- `eslint.workingDirectories` - an array for working directories to be used. ESLint resolves configuration files relative to a working directory. This new settings allows users to control which working directory is used for which files.
+
+  Example:
   ```
-  client/
-    .eslintignore
-    .eslintrc.json
-    client.js
-  server/
-    .eslintignore
-    .eslintrc.json
-    server.js
+  root/
+    client/
+      .eslintignore
+      .eslintrc.json
+      client.js
+    server/
+      .eslintignore
+      .eslintrc.json
+      server.js
   ```
-  Then using the setting:
+  
   ```json
     "eslint.workingDirectories": [
-      "./client", "./server"
+      "./client", // changeProcessCWD defaults to false
+      { "directory": "./server", "changeProcessCWD": true }
     ]
   ```
-  will validate files inside the server directory with the server directory as the current working directory. Same for files in the client directory. If the setting is omitted the working directory is the workspace folder.
+  In the above example, `client.js` will be evaluated from `root` using `root/client/.eslintrc.json`
+  `server.js` will be evaluated from `root/server` using `root/server/.eslintrc.json`
+ 
+  Using `changeProcessCWD` causes vscode-eslint to change the current working directory of the eslint process to `directory` as well. This is often necessary if ESLint is used to validate relative import statements like `import A from 'components/A';` which would otherwise be resolved to the workspace folder root.
+  
+  If the `workingDirectories` setting is omitted the working directory is the workspace folder.
 
-  The setting also supports literals of the form `{ "directory": string, "changeProcessCWD": boolean }` as elements. Use this form if you want to instruct ESLint to change the current working directory of the ESLint validation process to the value of `directory` as well. This is for example necessary if ESLint is used to validate relative import statements like `import A from 'components/A';` which would otherwise be resolved to the workspace folder root.
 - `eslint.codeAction.disableRuleComment` - object with properties:
   - `enable` - show disable lint rule in the quick fix menu. `true` by default.
   - `location` - choose to either add the `eslint-disable` comment on the `separateLine` or `sameLine`. `separateLine` is the default.
