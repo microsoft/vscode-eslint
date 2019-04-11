@@ -31,13 +31,11 @@ This extension contributes the following variables to the [settings](https://cod
   "eslint.validate": [ "javascript", "javascriptreact", { "language": "html", "autoFix": true } ]
   ```
 
-- `eslint.workingDirectories` - an array for working directories to be used. ESLint resolves configuration files relative to a working directory. This new settings allows users to control which working directory is used for which files.
-
+- `eslint.workingDirectories` - an array for working directories to be used. ESLint resolves configuration files (e.g. `eslintrc`) relative to a working directory. This new settings allows users to control which working directory is used for which files (see also [CLIEngine options#cwd](https://eslint.org/docs/developer-guide/nodejs-api#cliengine)).
   Example:
   ```
   root/
     client/
-      .eslintignore
       .eslintrc.json
       client.js
     server/
@@ -45,19 +43,28 @@ This extension contributes the following variables to the [settings](https://cod
       .eslintrc.json
       server.js
   ```
-  
+
+  Then using the setting:
+
   ```javascript
     "eslint.workingDirectories": [
-      "./client", // changeProcessCWD defaults to false
+      "./client", "./server"
+    ]
+  ```
+
+  will validate files inside the server directory with the server directory as the current eslint working directory. Same for files in the client directory.
+
+  ESLint also considers the process's working directory when resolving `.eslintignore` files or when validating relative import statements like `import A from 'components/A';` for which no base URI can be found. To make this work correctly the eslint validation process needs to switch the process's working directory as well. Since changing the processes`s working directory needs to be handled with care it must be explicitly enabled. To do so use the object literal syntax as show below for the server directory:
+
+   ```javascript
+    "eslint.workingDirectories": [
+      "./client", // Does not change the process's working directory
       { "directory": "./server", "changeProcessCWD": true }
     ]
   ```
-  In the above example, `client.js` will be evaluated from `root` using `root/client/.eslintrc.json`,
-  while `server.js` will be evaluated from `root/server` using `root/server/.eslintrc.json`
- 
-  Using `changeProcessCWD` causes vscode-eslint to change the current working directory of the eslint process to `directory` as well. This is often necessary if ESLint is used to validate relative import statements like `import A from 'components/A';` which would otherwise be resolved to the workspace folder root.
-  
-  If the `workingDirectories` setting is omitted the working directory is the workspace folder.
+  This validates files in the client folder with the process's working directory set to the `workspace folder` and files in the server folder with the process's working directory set to the `server` folder. This is like switching to the `server` folder in a terminal if ESLint is used as a shell command.
+
+  If the `workingDirectories` setting is omitted the eslint working directory and the process's working directory is the `workspace folder`.
 
 - `eslint.codeAction.disableRuleComment` - object with properties:
   - `enable` - show disable lint rule in the quick fix menu. `true` by default.
