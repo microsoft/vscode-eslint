@@ -666,22 +666,34 @@ function getFixes(textDocument: TextDocument): TextEdit[] {
 }
 
 documents.onWillSaveWaitUntil((event) => {
+	console.log(`will save::received request for document ${event.document.uri}.`);
 	if (event.reason === TextDocumentSaveReason.AfterDelay) {
+		console.log(`will save::TextDocumentSaveReason.AfterDelay early return.`);
 		return [];
 	}
 
 	let document = event.document;
 	return resolveSettings(document).then((settings) => {
+		console.log(`will save::resolved settings.`);
 		if (!settings.autoFixOnSave) {
+			console.log(`will save::auto fix off.`);
 			return [];
 		}
 		// If we validate on save and want to apply fixes on will save
 		// we need to validate the file.
 		if (settings.run === 'onSave') {
+			console.log(`will save::computing fixes -> run onSave`);
 			// Do not queue this since we want to get the fixes as fast as possible.
-			return validateSingle(document, false).then(() => getFixes(document));
+			return validateSingle(document, false).then(() => {
+				let result = getFixes(document);
+				console.log(`will save::fixes ready -> run onSave`);
+				return result;
+			});
 		} else {
-			return getFixes(document);
+			console.log(`will save::computing fixes -> run onType`);
+			let result = getFixes(document);
+			console.log(`will save::fixes ready -> run onType`);
+			return result;
 		}
 	});
 });
@@ -1405,5 +1417,4 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 	}
 });
 
-connection.tracer.
 connection.listen();
