@@ -132,6 +132,7 @@ interface TextDocumentSettings {
 	packageManager: PackageManagers;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
+	quiet: boolean;
 	options: ESLintOptions | undefined;
 	run: RunValues;
 	nodePath: string | undefined;
@@ -875,6 +876,11 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
+						const isWarning = convertSeverity(problem.severity) === DiagnosticSeverity.Warning;
+						if (settings.quiet && isWarning) {
+							// Filter out warnings when quiet mode is enabled
+							return;
+						}
 						let diagnostic = makeDiagnostic(problem);
 						diagnostics.push(diagnostic);
 						if (settings.autoFix) {
