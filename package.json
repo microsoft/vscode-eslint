@@ -125,6 +125,12 @@
 					"default": false,
 					"description": "Turns auto fix on save on or off."
 				},
+				"eslint.quiet": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Turns on quiet mode, which ignores warnings."
+				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
 					"type": "array",

@@ -75,6 +75,7 @@ interface TextDocumentSettings {
 	packageManager: 'npm' | 'yarn' | 'pnpm';
 	autoFix: boolean;
 	autoFixOnSave: boolean;
+	quiet: boolean;
 	options: any | undefined;
 	run: RunValues;
 	nodePath: string | undefined;
@@ -484,6 +485,7 @@ export function realActivate(context: ExtensionContext): void {
 							packageManager: config.get('packageManager', 'npm'),
 							autoFix: false,
 							autoFixOnSave: false,
+							quiet: config.get('quiet', false),
 							options: config.get('options', {}),
 							run: config.get('run', 'onType'),
 							nodePath: config.get('nodePath', undefined),
