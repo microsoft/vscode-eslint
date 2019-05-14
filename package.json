@@ -204,7 +204,7 @@
 					"type": "object",
 					"default": {
 						"enable": true,
-						"location": "newLine"
+						"location": "separateLine"
 					},
 					"properties": {
 						"enable": {
@@ -218,7 +218,7 @@
 								"separateLine",
 								"sameLine"
 							],
-							"default": "newLine",
+							"default": "separateLine",
 							"description": "Configure the disable rule code action to insert the comment on the same line or a new line."
 						}
 					}
