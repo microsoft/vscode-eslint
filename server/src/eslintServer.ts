@@ -516,7 +516,7 @@ class BufferedMessageQueue {
 	private queue: Message<any, any>[];
 	private requestHandlers: Map<string, {handler: RequestHandler<any, any, any>, versionProvider?: VersionProvider<any>}>;
 	private notificationHandlers: Map<string, {handler: NotificationHandler<any>, versionProvider?: VersionProvider<any>}>;
-	private timer: NodeJS.Timer | undefined;
+	private timer: NodeJS.Immediate | undefined;
 
 	constructor(private connection: IConnection) {
 		this.queue = [];

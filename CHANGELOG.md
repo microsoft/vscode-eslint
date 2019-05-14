@@ -1,3 +1,8 @@
+### 1.9.0
+
+- Moved to latest LSP libraries
+- Added support for [eslint.quiet](https://github.com/microsoft/vscode-eslint/pull/661)
+
 ### 1.8.2
 
 - Fix version mismatch problem between LSP client lib and VS Code version.
@@ -6,7 +11,7 @@
 
 - Moved to latest LSP libraries
 - Web pack extension and server
-- Fixes [Extension causes high cpu load](https://github.com/Microsoft/vscode-eslint/issues/620)
+- Fixes [Extension causes high CPU load](https://github.com/Microsoft/vscode-eslint/issues/620)
 
 ### 1.8.0
 

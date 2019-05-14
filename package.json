@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "1.8.2",
+	"version": "1.9.0",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.31.0"
+		"vscode": "^1.33.0"
 	},
 	"activationEvents": [
 		"*"
@@ -297,11 +297,11 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"typescript": "^3.2.4",
-		"@types/node": "^8.0.0",
-		"tslint": "^5.11.0",
-		"webpack": "^4.29.6",
-		"webpack-cli": "^3.2.3",
+		"typescript": "^3.4.5",
+		"@types/node": "^10.14.6",
+		"tslint": "^5.16.0",
+		"webpack": "^4.30.0",
+		"webpack-cli": "^3.3.2",
 		"ts-loader": "^5.3.3",
 		"merge-options": "^1.0.1",
 		"rimraf": "^2.6.3"
