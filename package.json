@@ -125,6 +125,12 @@
 					"default": false,
 					"description": "Turns auto fix on save on or off."
 				},
+				"eslint.hideAutoFixedIssues": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Don't show issues that will be autofixed on the next save."
+				},
 				"eslint.quiet": {
 					"scope": "resource",
 					"type": "boolean",

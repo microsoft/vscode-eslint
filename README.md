@@ -24,6 +24,7 @@ This extension contributes the following variables to the [settings](https://cod
   ```
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.autoFixOnSave` - enables auto fix on save. Please note auto fix on save is only available if VS Code's `files.autoSave` is either `off`, `onFocusChange` or `onWindowChange`. It will not work with `afterDelay`.
+- `eslint.hideAutoFixedIssues` - don't show issues that will be fixed by `eslint.autoFixOnSave` on the next save.
 - `eslint.quiet` - ignore warnings.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.

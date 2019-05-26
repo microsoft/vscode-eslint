@@ -132,6 +132,7 @@ interface TextDocumentSettings {
 	packageManager: PackageManagers;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
+	hideAutoFix: boolean;
 	quiet: boolean;
 	options: ESLintOptions | undefined;
 	run: RunValues;
@@ -821,6 +822,17 @@ let ruleDocData: {
 	urls: new Map<string, string>()
 };
 
+function requiresAction(problem: ESLintProblem, fixTypes: Set<string>, cli: CLIEngine): Boolean {
+	if (problem.fix === undefined || problem.ruleId === undefined || !isFunction(cli.getRules)) {
+		return false;
+	}
+	if (fixTypes === undefined) {
+		return true;
+	}
+
+	let rule = cli.getRules().get(problem.ruleId);
+	return (rule !== undefined && fixTypes.has(rule.meta.type));
+}
 
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
 function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true): void {
@@ -882,16 +894,15 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 							return;
 						}
 						let diagnostic = makeDiagnostic(problem);
-						diagnostics.push(diagnostic);
-						if (settings.autoFix) {
-							if (fixTypes !== undefined && isFunction(cli.getRules) && problem.ruleId !== undefined && problem.fix !== undefined) {
-								let rule = cli.getRules().get(problem.ruleId);
-								if (rule !== undefined && fixTypes.has(rule.meta.type)) {
-									recordCodeAction(document, diagnostic, problem);
-								}
-							} else {
-								recordCodeAction(document, diagnostic, problem);
+
+						if (settings.autoFix && requiresAction(problem, fixTypes, cli)) {
+							recordCodeAction(document, diagnostic, problem);
+
+							if (!settings.hideAutoFix) {
+								diagnostics.push(diagnostic);
 							}
+						} else {
+							diagnostics.push(diagnostic);
 						}
 					}
 				});
