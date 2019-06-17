@@ -282,6 +282,12 @@
 				"filenames": [
 					".eslintignore"
 				]
+			},
+			{
+				"id": "jsonc",
+				"filenames": [
+					".eslintrc.json"
+				]
 			}
 		]
 	},
