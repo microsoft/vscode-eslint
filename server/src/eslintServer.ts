@@ -383,7 +383,7 @@ process.on('uncaughtException', (error: any) => {
 
 let connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
-let documents: TextDocuments = new TextDocuments();
+let documents: TextDocuments = new TextDocuments(TextDocumentSyncKind.Incremental);
 
 const _globalPaths: { [key: string]: { cache: string; get(): string; } } = {
 	yarn: {
@@ -724,7 +724,7 @@ connection.onInitialize((_params) => {
 		capabilities: {
 			textDocumentSync: {
 				openClose: true,
-				change: TextDocumentSyncKind.Full,
+				change: TextDocumentSyncKind.Incremental,
 				willSaveWaitUntil: true,
 				save: {
 					includeText: false
