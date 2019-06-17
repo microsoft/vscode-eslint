@@ -14,7 +14,7 @@
 		"url": "https://github.com/Microsoft/vscode-eslint/issues"
 	},
 	"engines": {
-		"vscode": "^1.33.0"
+		"vscode": "^1.34.0"
 	},
 	"scripts": {
 		"update-vscode": "node ./node_modules/vscode/bin/install",

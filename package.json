@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.33.0"
+		"vscode": "^1.34.0"
 	},
 	"activationEvents": [
 		"*"
@@ -191,7 +191,7 @@
 					"description": "Controls whether a task for linting the whole workspace will be available."
 				},
 				"eslint.runtime": {
-					"scope": "window",
+					"scope": "machine",
 					"type": [
 						"string",
 						"null"
