@@ -77,7 +77,6 @@ interface TextDocumentSettings {
 	autoFixOnSave: boolean;
 	quiet: boolean;
 	options: any | undefined;
-	lintTaskOptions: string;
 	run: RunValues;
 	nodePath: string | undefined;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -488,7 +487,6 @@ export function realActivate(context: ExtensionContext): void {
 							autoFixOnSave: false,
 							quiet: config.get('quiet', false),
 							options: config.get('options', {}),
-							lintTaskOptions: config.get('lintTaskOptions', ""),
 							run: config.get('run', 'onType'),
 							nodePath: config.get('nodePath', undefined),
 							workingDirectory: undefined,

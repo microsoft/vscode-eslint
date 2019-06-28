@@ -134,7 +134,6 @@ interface TextDocumentSettings {
 	autoFixOnSave: boolean;
 	quiet: boolean;
 	options: ESLintOptions | undefined;
-	lintTaskOptions: string;
 	run: RunValues;
 	nodePath: string | undefined;
 	workspaceFolder: WorkspaceFolder | undefined;
