@@ -210,7 +210,7 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	try {
 		return r(moduleName);
 	} catch (err) {
-		// Not available.
+		connection.console.error(err.stack.toString());
 	}
 	return undefined;
 }
@@ -383,7 +383,8 @@ process.on('uncaughtException', (error: any) => {
 
 let connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
-let documents: TextDocuments = new TextDocuments(TextDocumentSyncKind.Incremental);
+// Is instantiated in the initalize handle;
+let documents!: TextDocuments;
 
 const _globalPaths: { [key: string]: { cache: string; get(): string; } } = {
 	yarn: {
@@ -454,7 +455,10 @@ function resolveSettings(document: TextDocument): Thenable<TextDocumentSettings>
 			let library = path2Library.get(path);
 			if (!library) {
 				library = loadNodeModule(path);
-				if (!library.CLIEngine) {
+				if (!library) {
+					settings.validate = false;
+					connection.console.error(`Failed to load eslint library from ${path}. See output panel for more information.`);
+				} else if (!library.CLIEngine) {
 					settings.validate = false;
 					connection.console.error(`The eslint library loaded from ${path} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
 				} else {
@@ -626,30 +630,6 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 	return document.version;
 });
 
-// The documents manager listen for text document create, change
-// and close on the connection
-documents.listen(connection);
-documents.onDidOpen((event) => {
-	resolveSettings(event.document).then((settings) => {
-		if (!settings.validate) {
-			return;
-		}
-		if (settings.run === 'onSave') {
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-		}
-	});
-});
-
-// A text document has changed. Validate the document according the run setting.
-documents.onDidChangeContent((event) => {
-	resolveSettings(event.document).then((settings) => {
-		if (!settings.validate || settings.run !== 'onType') {
-			return;
-		}
-		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-	});
-});
-
 function getFixes(textDocument: TextDocument): TextEdit[] {
 	let uri = textDocument.uri;
 	let edits = codeActions.get(uri);
@@ -666,47 +646,73 @@ function getFixes(textDocument: TextDocument): TextEdit[] {
 	return [];
 }
 
-documents.onWillSaveWaitUntil((event) => {
-	if (event.reason === TextDocumentSaveReason.AfterDelay) {
-		return [];
-	}
+function setupDocumentsListeners() {
+	// The documents manager listen for text document create, change
+	// and close on the connection
+	documents.listen(connection);
+	documents.onDidOpen((event) => {
+		resolveSettings(event.document).then((settings) => {
+			if (!settings.validate) {
+				return;
+			}
+			if (settings.run === 'onSave') {
+				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+			}
+		});
+	});
 
-	let document = event.document;
-	return resolveSettings(document).then((settings) => {
-		if (!settings.autoFixOnSave) {
+	// A text document has changed. Validate the document according the run setting.
+	documents.onDidChangeContent((event) => {
+		resolveSettings(event.document).then((settings) => {
+			if (!settings.validate || settings.run !== 'onType') {
+				return;
+			}
+			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+		});
+	});
+
+	documents.onWillSaveWaitUntil((event) => {
+		if (event.reason === TextDocumentSaveReason.AfterDelay) {
 			return [];
 		}
-		// If we validate on save and want to apply fixes on will save
-		// we need to validate the file.
-		if (settings.run === 'onSave') {
-			// Do not queue this since we want to get the fixes as fast as possible.
-			return validateSingle(document, false).then(() => getFixes(document));
-		} else {
-			return getFixes(document);
-		}
-	});
-});
 
-// A text document has been saved. Validate the document according the run setting.
-documents.onDidSave((event) => {
-	resolveSettings(event.document).then((settings) => {
-		if (!settings.validate || settings.run !== 'onSave') {
-			return;
-		}
-		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+		let document = event.document;
+		return resolveSettings(document).then((settings) => {
+			if (!settings.autoFixOnSave) {
+				return [];
+			}
+			// If we validate on save and want to apply fixes on will save
+			// we need to validate the file.
+			if (settings.run === 'onSave') {
+				// Do not queue this since we want to get the fixes as fast as possible.
+				return validateSingle(document, false).then(() => getFixes(document));
+			} else {
+				return getFixes(document);
+			}
+		});
 	});
-});
 
-documents.onDidClose((event) => {
-	resolveSettings(event.document).then((settings) => {
-		let uri = event.document.uri;
-		document2Settings.delete(uri);
-		codeActions.delete(uri);
-		if (settings.validate) {
-			connection.sendDiagnostics({ uri: uri, diagnostics: [] });
-		}
+	// A text document has been saved. Validate the document according the run setting.
+	documents.onDidSave((event) => {
+		resolveSettings(event.document).then((settings) => {
+			if (!settings.validate || settings.run !== 'onSave') {
+				return;
+			}
+			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+		});
 	});
-});
+
+	documents.onDidClose((event) => {
+		resolveSettings(event.document).then((settings) => {
+			let uri = event.document.uri;
+			document2Settings.delete(uri);
+			codeActions.delete(uri);
+			if (settings.validate) {
+				connection.sendDiagnostics({ uri: uri, diagnostics: [] });
+			}
+		});
+	});
+}
 
 function environmentChanged() {
 	document2Settings.clear();
@@ -719,12 +725,15 @@ function trace(message: string, verbose?: string): void {
 	connection.tracer.log(message, verbose);
 }
 
-connection.onInitialize((_params) => {
+connection.onInitialize((params) => {
+	let syncKind: TextDocumentSyncKind = (params.initializationOptions && !!params.initializationOptions.incrementalSync) ? TextDocumentSyncKind.Incremental : TextDocumentSyncKind.Full;
+	documents = new TextDocuments(syncKind);
+	setupDocumentsListeners();
 	return {
 		capabilities: {
 			textDocumentSync: {
 				openClose: true,
-				change: TextDocumentSyncKind.Incremental,
+				change: syncKind,
 				willSaveWaitUntil: true,
 				save: {
 					includeText: false

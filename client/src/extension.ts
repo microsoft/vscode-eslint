@@ -362,7 +362,7 @@ export function realActivate(context: ExtensionContext): void {
 	let runtime = Workspace.getConfiguration('eslint').get('runtime', null);
 	let serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd() } },
-		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ["--nolazy", "--inspect=6010"], cwd: process.cwd() } }
+		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ["--nolazy", "--inspect=6011"], cwd: process.cwd() } }
 	};
 
 	let defaultErrorHandler: ErrorHandler;
@@ -386,10 +386,17 @@ export function realActivate(context: ExtensionContext): void {
 			}
 		}
 	});
+
+	let config = Workspace.getConfiguration('eslint');
+	let incrementalSync = config.get('experimental.incrementalSync', false);
+
 	let clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled'}],
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
+		initializationOptions: {
+			incrementalSync
+		},
 		synchronize: {
 			// configurationSection: 'eslint',
 			fileEvents: [

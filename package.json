@@ -236,6 +236,12 @@
 							"description": "Show the documentation code actions."
 						}
 					}
+				},
+				"eslint.experimental.incrementalSync": {
+					"scope": "machine",
+					"type": "boolean",
+					"default": false,
+					"description": "Controls whether the new incremental text document synchronization should be used."
 				}
 			}
 		},
