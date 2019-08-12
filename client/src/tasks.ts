@@ -20,7 +20,8 @@ class FolderTaskProvider {
 	}
 
 	public isEnabled(): boolean {
-		return vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri).get('provideLintTask');
+		const config = vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri);
+		return config.get('provideLintTask') || config.get('lintTask.enable');
 	}
 
 	public start(): void {
@@ -30,22 +31,23 @@ class FolderTaskProvider {
 	}
 
 	public async getTask(): Promise<vscode.Task> {
-		let rootPath = this._workspaceFolder.uri.scheme === 'file' ? this._workspaceFolder.uri.fsPath : undefined;
+		const rootPath = this._workspaceFolder.uri.scheme === 'file' ? this._workspaceFolder.uri.fsPath : undefined;
 		if (!rootPath) {
 			return undefined;
 		}
 		try {
-			let command = await findEslint(rootPath);
+			const command = await findEslint(rootPath);
 
-			let kind: EslintTaskDefinition = {
+			const kind: EslintTaskDefinition = {
 				type: "eslint"
 			};
 
-			let options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
-			let lintTaskOptions= vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri).get('lintTaskOptions');
+			const options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
+			const config = vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri);
+			const lintTaskOptions= config.get('lintTask.options', undefined);
 			return new vscode.Task(
 				kind, this.workspaceFolder,
-				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} . ` + lintTaskOptions,
+				'lint whole folder', 'eslint', new vscode.ShellExecution(lintTaskOptions === undefined ? `${command} . ` : `${command} ${lintTaskOptions}`,
 				options),
 				'$eslint-stylish'
 			);
@@ -64,7 +66,7 @@ export class TaskProvider {
 	}
 
 	public start(): void {
-		let folders = vscode.workspace.workspaceFolders;
+		const folders = vscode.workspace.workspaceFolders;
 		if (folders) {
 			this.updateWorkspaceFolders(folders, []);
 		}
@@ -82,14 +84,14 @@ export class TaskProvider {
 
 	private updateWorkspaceFolders(added: vscode.WorkspaceFolder[], removed: vscode.WorkspaceFolder[]): void {
 		for (let remove of removed) {
-			let provider = this.providers.get(remove.uri.toString());
+			const provider = this.providers.get(remove.uri.toString());
 			if (provider) {
 				provider.dispose();
 				this.providers.delete(remove.uri.toString());
 			}
 		}
 		for (let add of added) {
-			let provider = new FolderTaskProvider(add);
+			const provider = new FolderTaskProvider(add);
 			if (provider.isEnabled()) {
 				this.providers.set(add.uri.toString(), provider);
 				provider.start();
@@ -105,7 +107,7 @@ export class TaskProvider {
 				this.providers.delete(detector.workspaceFolder.uri.toString());
 			}
 		}
-		let folders = vscode.workspace.workspaceFolders;
+		const folders = vscode.workspace.workspaceFolders;
 		if (folders) {
 			for (let folder of folders) {
 				if (!this.providers.has(folder.uri.toString())) {
@@ -141,7 +143,7 @@ export class TaskProvider {
 		if (this.providers.size === 0) {
 			return Promise.resolve([]);
 		} else {
-			let promises: Promise<vscode.Task>[] = [];
+			const promises: Promise<vscode.Task>[] = [];
 			for (let provider of this.providers.values()) {
 				promises.push(provider.getTask());
 			}

@@ -71,12 +71,6 @@
 					"default": {},
 					"description": "The eslint options object to provide args normally passed to eslint when executed from a command line (see http://eslint.org/docs/developer-guide/nodejs-api#cliengine)."
 				},
-				"eslint.lintTaskOptions": {
-					"scope": "resource",
-					"type": "string",
-					"default": "",
-					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
-				},
 				"eslint.trace.server": {
 					"scope": "window",
 					"anyOf": [
@@ -194,7 +188,20 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
+					"deprecationMessage": "This option is deprecated. Use eslint.lintTask.enable instead.",
 					"description": "Controls whether a task for linting the whole workspace will be available."
+				},
+				"eslint.lintTask.enable": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Controls whether a task for linting the whole workspace will be available."
+				},
+				"eslint.lintTask.options": {
+					"scope": "resource",
+					"type": "string",
+					"default": "",
+					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
 				},
 				"eslint.runtime": {
 					"scope": "machine",

@@ -13,20 +13,20 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
 - `eslint.enable`: enable/disable ESLint. Is enabled by default.
-- `eslint.provideLintTask`: whether the extension contributes a lint task to lint a whole workspace folder.
+- `eslint.lintTask.enable`: whether the extension contributes a lint task to lint a whole workspace folder.
+- `eslint.lintTask.options`: Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
+  An example to point to a custom `.eslintrc.json` file and a custom `.eslintignore` is:
+  ```json
+  {
+    "eslint.lintTask.options": "-c C:/mydirectory/.eslintrc.json --ignore-path C:/mydirectory/.eslintignore ."
+  }
+  ```
 - `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"` or `"pnpm"`.
 - `eslint.options`: options to configure how ESLint is started using the [ESLint CLI Engine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengine). Defaults to an empty option bag.
   An example to point to a custom `.eslintrc.json` file is:
   ```json
   {
     "eslint.options": { "configFile": "C:/mydirectory/.eslintrc.json" }
-  }
-  ```
-- `eslint.lintTaskOptions` - Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
-  An example to point to a custom `.eslintrc.json` file and a custom `.eslintignore` is:
-  ```json
-  {
-    "eslint.lintTaskOptions": "-c C:/mydirectory/.eslintrc.json --ignore-path C:/mydirectory/.eslintignore"
   }
   ```
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
