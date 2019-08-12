@@ -42,9 +42,10 @@ class FolderTaskProvider {
 			};
 
 			let options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
+			let lintTaskOptions= vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri).get('lintTaskOptions');
 			return new vscode.Task(
 				kind, this.workspaceFolder,
-				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} .`,
+				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} . ` + lintTaskOptions,
 				options),
 				'$eslint-stylish'
 			);

@@ -22,6 +22,13 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.options": { "configFile": "C:/mydirectory/.eslintrc.json" }
   }
   ```
+- `eslint.lintTaskOptions` - Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
+  An example to point to a custom `.eslintrc.json` file and a custom `.eslintignore` is:
+  ```json
+  {
+    "eslint.lintTaskOptions": "-c C:/mydirectory/.eslintrc.json --ignore-path C:/mydirectory/.eslintignore"
+  }
+  ```
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.autoFixOnSave` - enables auto fix on save. Please note auto fix on save is only available if VS Code's `files.autoSave` is either `off`, `onFocusChange` or `onWindowChange`. It will not work with `afterDelay`.
 - `eslint.quiet` - ignore warnings.
