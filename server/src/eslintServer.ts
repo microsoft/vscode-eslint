@@ -16,7 +16,7 @@ import {
 	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position
 } from 'vscode-languageserver';
 
-import URI from 'vscode-uri';
+import { URI } from 'vscode-uri';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { EOL } from 'os';
