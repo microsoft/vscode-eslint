@@ -725,10 +725,12 @@ function trace(message: string, verbose?: string): void {
 	connection.tracer.log(message, verbose);
 }
 
-connection.onInitialize((params) => {
+connection.onInitialize((params, _cancel, progress) => {
+	progress.begin('Initializing ESLint Server');
 	let syncKind: TextDocumentSyncKind = (params.initializationOptions && !!params.initializationOptions.incrementalSync) ? TextDocumentSyncKind.Incremental : TextDocumentSyncKind.Full;
 	documents = new TextDocuments(syncKind);
 	setupDocumentsListeners();
+	progress.done();
 	return {
 		capabilities: {
 			textDocumentSync: {

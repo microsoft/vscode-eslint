@@ -44,10 +44,10 @@ class FolderTaskProvider {
 
 			const options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
 			const config = vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri);
-			const lintTaskOptions= config.get('lintTask.options', undefined);
+			const lintTaskOptions= config.get('lintTask.options', '.');
 			return new vscode.Task(
 				kind, this.workspaceFolder,
-				'lint whole folder', 'eslint', new vscode.ShellExecution(lintTaskOptions === undefined ? `${command} . ` : `${command} ${lintTaskOptions}`,
+				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} ${lintTaskOptions}`,
 				options),
 				'$eslint-stylish'
 			);
@@ -82,7 +82,7 @@ export class TaskProvider {
 		this.providers.clear();
 	}
 
-	private updateWorkspaceFolders(added: vscode.WorkspaceFolder[], removed: vscode.WorkspaceFolder[]): void {
+	private updateWorkspaceFolders(added: ReadonlyArray<vscode.WorkspaceFolder>, removed: ReadonlyArray<vscode.WorkspaceFolder>): void {
 		for (let remove of removed) {
 			const provider = this.providers.get(remove.uri.toString());
 			if (provider) {

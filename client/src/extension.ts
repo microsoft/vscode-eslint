@@ -397,6 +397,7 @@ export function realActivate(context: ExtensionContext): void {
 		initializationOptions: {
 			incrementalSync
 		},
+		progressOnInitialization: true,
 		synchronize: {
 			// configurationSection: 'eslint',
 			fileEvents: [
