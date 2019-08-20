@@ -84,6 +84,8 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.codeAction.showDocumentation` - object with properties:
   - `enable` - show open lint rule documentation web page in the quick fix menu. `true` by default.
 
+- `eslint.experimental.incrementalSync`: enables incremental document sync for improved performance.
+
 ## Commands:
 
 This extension contributes the following commands to the Command palette.

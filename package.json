@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "1.9.0",
+	"version": "1.9.1",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.34.0"
+		"vscode": "^1.36.0"
 	},
 	"activationEvents": [
 		"*"
@@ -200,7 +200,7 @@
 				"eslint.lintTask.options": {
 					"scope": "resource",
 					"type": "string",
-					"default": "",
+					"default": ".",
 					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
 				},
 				"eslint.runtime": {
@@ -283,6 +283,11 @@
 				"title": "Show Output Channel",
 				"category": "ESLint",
 				"command": "eslint.showOutputChannel"
+			}
+		],
+		"taskDefinitions": [
+			{
+				"type": "eslint"
 			}
 		],
 		"jsonValidation": [

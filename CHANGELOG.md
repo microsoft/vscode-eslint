@@ -1,3 +1,10 @@
+### 1.9.1
+
+- Moved to latest LSP libraries
+- Add experimental support for delta document sync
+- Add support for [eslint.lintTask.options] (https://github.com/microsoft/vscode-eslint/pull/698)
+- Add support for `eslint.experimental.incrementalSync` which enable incremental document synchronization for improved performance.
+
 ### 1.9.0
 
 - Moved to latest LSP libraries
