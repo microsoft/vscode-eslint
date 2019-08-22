@@ -1,7 +1,7 @@
-function string(): boolean {
+function number(): boolean {
 	return true;
 }
 
-function foo(): string {
-	return '';
+function foo(): number {
+	return 1;
 }
