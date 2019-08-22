@@ -1,7 +1,9 @@
-function number(): boolean {
-	return true;
+interface Bar {
 }
 
-function foo(): number {
-	return 1;
+let b: Bar;
+
+class Foo {
 }
+
+let f: Foo;
