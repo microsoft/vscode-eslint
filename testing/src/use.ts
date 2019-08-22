@@ -4,8 +4,8 @@ function foo(): number {
 
 function bar(): void {
 	{
-		let foo = () => {
-		};
+		function foo() {
+		}
 		foo();
 	}
 	foo();
