@@ -1,9 +1,4 @@
-function foo(): void {
-}
+import { foo, bar } from './provide';
 
-namespace Baz {
-	export function foo(): void {
-	}
-}
-
-Baz.foo();
+foo();
+bar();
