@@ -3,5 +3,10 @@ function foo(): number {
 }
 
 function bar(): void {
+	{
+		let foo = () => {
+		};
+		foo();
+	}
 	foo();
 }
