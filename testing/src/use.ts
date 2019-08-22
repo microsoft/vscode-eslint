@@ -1,12 +1,16 @@
-function foo(): number {
-	return 10;
+class A {
+	public foo(): void {
+	}
 }
 
-function bar(): void {
-	{
-		function foo() {
-		}
-		foo();
+class B {
+	public foo(): void {
 	}
-	foo();
 }
+
+let a: A = new A();
+let b: B = new B();
+
+a.foo();
+
+b.foo();
