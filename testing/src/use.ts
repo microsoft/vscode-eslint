@@ -1,16 +1,7 @@
-class A {
-	public foo(): void {
-	}
+function string(): boolean {
+	return true;
 }
 
-class B {
-	public foo(): void {
-	}
+function foo(): string {
+	return '';
 }
-
-let a: A = new A();
-let b: B = new B();
-
-a.foo();
-
-b.foo();
