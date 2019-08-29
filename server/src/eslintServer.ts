@@ -1059,7 +1059,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 			if (library) {
 				let cli = new library.CLIEngine({});
 				try {
-					cli.executeOnText("", path.join(dirname, "___test___.js"));
+					cli.executeOnText('', path.join(dirname, '___test___.js'));
 					configErrorReported.delete(fsPath);
 				} catch (error) {
 				}

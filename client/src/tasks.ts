@@ -39,7 +39,7 @@ class FolderTaskProvider {
 			const command = await findEslint(rootPath);
 
 			const kind: EslintTaskDefinition = {
-				type: "eslint"
+				type: 'eslint'
 			};
 
 			const options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
