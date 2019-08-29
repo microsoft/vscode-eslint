@@ -97,4 +97,38 @@ This extension contributes the following commands to the Command palette.
 
 ## Using the extension with VS Code's task running
 
-The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.provideLintTask` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
+The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.lintTaks.enable` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
+
+## Using ESLint to validate TypeScript files
+
+A great introduction on how to lint TypeScript using ESlint can be found in the [TypeScript - ESLint](https://github.com/typescript-eslint/typescript-eslint). Please make yourself familiar with the introduction before using the VS Code ESLint extension in a TypeScript setup. Especially make sure that you can validate TypeScript files successfully in a terminal using the `eslint` command.
+
+This project itself uses ESLint to validate its TypeScript files. So it can be used as a blueprint to get started.
+
+### Enable TypeScript file validation
+
+To enable TypeScript file validation in the ESLint extension please add the following to your VS Code settings (either user or workspace):
+
+```json
+	"eslint.validate": [
+		{ "language": "typescript", "autoFix": true }
+	]
+```
+
+To avoid validation from any TSLint installation disable TSLint using `"tslint.enable": false`.
+
+### Mono repository setup
+
+As with JavaScript validating TypeScript in a mono repository requires that you tell the VS Code ESLint extension what the current working directories are. Use the `eslint.workingDirectories` setting to do so. For this repository the working directory setup looks as follows:
+
+```json
+	"eslint.workingDirectories": [
+		{ "directory": "./client", "changeProcessCWD": true },
+		{ "directory": "./server", "changeProcessCWD": true }
+	]
+```
+
+## ESLint 6.x
+
+Migrating from ESLint 5.x to ESLint 6.x might need some adaption (see the [ESLint Migration Guide](https://eslint.org/docs/user-guide/migrating-to-6.0.0) for details). Before filing an issue against the VS Code ESLint extension please ensure that you can successfully validate your files in a terminal using the eslint command.
+

@@ -1,0 +1,15 @@
+{
+	"parser": "@typescript-eslint/parser",
+	"parserOptions": {
+		"ecmaVersion": 6,
+        "sourceType": "module"
+	},
+	"rules": {
+		"semi": "error",
+		"no-extra-semi": "warn",
+		"curly": "warn",
+		"no-console": "error",
+		"eqeqeq": "error",
+		"indent": ["warn", "tab", { "SwitchCase": 1 } ]
+	}
+}

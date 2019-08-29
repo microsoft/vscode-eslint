@@ -12,8 +12,15 @@
 	"editor.tabSize": 4,
 	"typescript.tsdk": "./node_modules/typescript/lib",
 	"typescript.tsc.autoDetect": "off",
-	"tslint.enable": true,
-	"eslint.enable": false,
+	"tslint.enable": false,
+	"eslint.enable": true,
+	"eslint.validate": [
+		{ "language": "typescript", "autoFix": true }
+	],
+	"eslint.workingDirectories": [
+		{ "directory": "./client", "changeProcessCWD": true },
+		{ "directory": "./server", "changeProcessCWD": true }
+	],
 	"eslint.trace.server": "off",
-	"eslint.provideLintTask": false
+	"eslint.lintTask.enable": false
 }

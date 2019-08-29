@@ -198,7 +198,6 @@ interface CLIEngineConstructor {
 	new (options: CLIOptions): CLIEngine;
 }
 
-
 interface ESLintModule {
 	CLIEngine: CLIEngineConstructor;
 }
@@ -219,8 +218,8 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	let message = problem.message;
 	let startLine = Math.max(0, problem.line - 1);
 	let startChar = Math.max(0, problem.column - 1);
-	let endLine = problem.endLine != null ? Math.max(0, problem.endLine - 1) : startLine;
-	let endChar = problem.endColumn != null ? Math.max(0, problem.endColumn - 1) : startChar;
+	let endLine = problem.endLine !== null ? Math.max(0, problem.endLine - 1) : startLine;
+	let endChar = problem.endColumn !== null ? Math.max(0, problem.endColumn - 1) : startChar;
 	return {
 		message: message,
 		severity: convertSeverity(problem.severity),
@@ -375,8 +374,10 @@ process.on('uncaughtException', (error: any) => {
 			}
 		}
 	}
+	// eslint-disable-next-line no-console
 	console.error('Uncaught exception received.');
 	if (message) {
+		// eslint-disable-next-line no-console
 		console.error(message);
 	}
 });
@@ -947,8 +948,8 @@ function tryHandleNoConfig(error: any, document: TextDocument, library: ESLintMo
 				document: {
 					uri: document.uri
 				}
-			})
-		.then(undefined, () => { });
+			}
+		).then(undefined, () => { });
 		noConfigReported.set(document.uri, library);
 	}
 	return Status.warn;
@@ -1422,5 +1423,4 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 	}
 });
 
-connection.tracer.
 connection.listen();

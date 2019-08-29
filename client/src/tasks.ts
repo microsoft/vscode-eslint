@@ -47,8 +47,7 @@ class FolderTaskProvider {
 			const lintTaskOptions= config.get('lintTask.options', '.');
 			return new vscode.Task(
 				kind, this.workspaceFolder,
-				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} ${lintTaskOptions}`,
-				options),
+				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} ${lintTaskOptions}`, options),
 				'$eslint-stylish'
 			);
 		} catch (error) {
