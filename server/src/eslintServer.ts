@@ -29,6 +29,10 @@ namespace Is {
 		return value === true || value === false;
 	}
 
+	export function nullOrUndefined(value: any): value is boolean {
+		return value === null || value === undefined;
+	}
+
 	export function string(value: any): value is string {
 		return toString.call(value) === '[object String]';
 	}
@@ -218,8 +222,8 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	let message = problem.message;
 	let startLine = Math.max(0, problem.line - 1);
 	let startChar = Math.max(0, problem.column - 1);
-	let endLine = problem.endLine !== null ? Math.max(0, problem.endLine - 1) : startLine;
-	let endChar = problem.endColumn !== null ? Math.max(0, problem.endColumn - 1) : startChar;
+	let endLine = Is.nullOrUndefined(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
+	let endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
 	return {
 		message: message,
 		severity: convertSeverity(problem.severity),
