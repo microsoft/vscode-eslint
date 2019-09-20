@@ -13,7 +13,7 @@ import {
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position
+	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest
 } from 'vscode-languageserver';
 
 import { URI } from 'vscode-uri';
@@ -179,6 +179,7 @@ interface ESLintReport {
 
 interface CLIOptions {
 	cwd?: string;
+	fix?: boolean;
 	fixTypes?: string[];
 }
 
@@ -250,6 +251,7 @@ function computeKey(diagnostic: Diagnostic): string {
 }
 
 let codeActions: Map<string, Map<string, FixableProblem>> = new Map<string, Map<string, FixableProblem>>();
+let fixedFileOutput: Map<string, string> = new Map();
 function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, problem: ESLintProblem): void {
 	if (!problem.ruleId) {
 		return;
@@ -757,7 +759,8 @@ connection.onInitialize((params, _cancel, progress) => {
 					CommandIds.applyDisableFile,
 					CommandIds.openRuleDoc,
 				]
-			}
+			},
+			documentFormattingProvider: true
 		}
 	};
 });
@@ -782,7 +785,7 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 	showErrorMessage
 ];
 
-function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Thenable<void> {
+function validateSingle(document: TextDocument, publishDiagnostics: boolean = true, runFixes: boolean = false): Thenable<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
 	if (!documents.get(document.uri)) {
@@ -793,7 +796,7 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 			return;
 		}
 		try {
-			validate(document, settings, publishDiagnostics);
+			validate(document, settings, publishDiagnostics, runFixes);
 			connection.sendNotification(StatusNotification.type, { state: Status.ok });
 		} catch (err) {
 			let status = undefined;
@@ -839,7 +842,7 @@ let ruleDocData: {
 
 
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
-function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true): void {
+function validate(document: TextDocument, settings: TextDocumentSettings, publishDiagnostics: boolean = true, runFixes: boolean = false): void {
 	let newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let fixTypes: Set<string> | undefined = undefined;
 	if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
@@ -881,14 +884,23 @@ function validate(document: TextDocument, settings: TextDocumentSettings, publis
 				}
 			}
 		}
+		if (runFixes) {
+			newOptions.fix = true;
+		}
 
 		let cli = new settings.library.CLIEngine(newOptions);
 		// Clean previously computed code actions.
 		codeActions.delete(uri);
+		// Clean previous `--fix` output.
+		fixedFileOutput.delete(uri);
 		let report: ESLintReport = cli.executeOnText(content, file);
 		let diagnostics: Diagnostic[] = [];
 		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
 			let docReport = report.results[0];
+			if (typeof docReport.output === 'string') {
+				// Store autofix output for use in document formatting
+				fixedFileOutput.set(uri, docReport.output);
+			}
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
@@ -1425,6 +1437,23 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 	} else {
 		return undefined;
 	}
+});
+
+messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
+	let uri = params.textDocument.uri;
+	let document = documents.get(uri);
+	if (!document) {
+		return [];
+	}
+	return validateSingle(document, false, true).then(() => {
+		const output = fixedFileOutput.get(uri);
+		if (typeof output !== 'string') {
+			return [];
+		}
+		const range = Range.create(Position.create(0, 0), document.positionAt(document.getText().length));
+		const edit = TextEdit.replace(range, output);
+		return [edit];
+	});
 });
 
 connection.listen();
