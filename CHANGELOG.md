@@ -1,3 +1,9 @@
+### 1.9.2
+
+- Moved to latest LSP libraries
+- Fixed [Document change might not cause re-validation. Results in stale errors](https://github.com/microsoft/vscode-eslint/issues/758)
+- Merged [Fix None position values in publishDiagnostics message](https://github.com/microsoft/vscode-eslint/pull/753)
+
 ### 1.9.1
 
 - Moved to latest LSP libraries
