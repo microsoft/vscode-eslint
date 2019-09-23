@@ -582,6 +582,7 @@ class BufferedMessageQueue {
 		this.timer = setImmediate(() => {
 			this.timer = undefined;
 			this.processQueue();
+			this.trigger();
 		});
 	}
 
@@ -619,7 +620,6 @@ class BufferedMessageQueue {
 			}
 			elem.handler(notificationMessage.params);
 		}
-		this.trigger();
 	}
 }
 
