@@ -111,7 +111,8 @@ To enable TypeScript file validation in the ESLint extension please add the foll
 
 ```json
 	"eslint.validate": [
-		{ "language": "typescript", "autoFix": true }
+		{ "language": "typescript", "autoFix": true },
+		{ "language": "typescriptreact", "autoFix": true }
 	]
 ```
 
