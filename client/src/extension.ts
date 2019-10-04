@@ -74,7 +74,7 @@ interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
 	autoFix: boolean;
-	autoFixOnSave: boolean;
+	autoFixOnSave: boolean | string[];
 	quiet: boolean;
 	options: any | undefined;
 	run: RunValues;
@@ -168,7 +168,7 @@ function enable() {
 		Window.showWarningMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	let disabledFolders = folders.filter(folder => !Workspace.getConfiguration('eslint',folder.uri).get('enable', true));
+	let disabledFolders = folders.filter(folder => !Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
 	if (disabledFolders.length === 0) {
 		if (folders.length === 1) {
 			Window.showInformationMessage('ESLint is already enabled in the workspace.');
@@ -191,7 +191,7 @@ function disable() {
 		Window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	let enabledFolders = folders.filter(folder => Workspace.getConfiguration('eslint',folder.uri).get('enable', true));
+	let enabledFolders = folders.filter(folder => Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
 	if (enabledFolders.length === 0) {
 		if (folders.length === 1) {
 			Window.showInformationMessage('ESLint is already disabled in the workspace.');
@@ -391,7 +391,7 @@ export function realActivate(context: ExtensionContext): void {
 	let incrementalSync = config.get('experimental.incrementalSync', false);
 
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled'}],
+		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		initializationOptions: {
@@ -676,7 +676,7 @@ export function realActivate(context: ExtensionContext): void {
 					'',
 					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
-				].filter((str=>(str !== null))).join('\n'));
+				].filter((str => (str !== null))).join('\n'));
 
 				if (!state.workspaces) {
 					state.workspaces = Object.create(null);
@@ -696,7 +696,7 @@ export function realActivate(context: ExtensionContext): void {
 					`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
 					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					'You need to reopen VS Code after installing eslint.',
-				].filter((str=>(str !== null))).join('\n'));
+				].filter((str => (str !== null))).join('\n'));
 
 				if (!state.global) {
 					state.global = true;

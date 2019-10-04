@@ -120,10 +120,16 @@
 					"description": "Run the linter on save (onSave) or on type (onType)"
 				},
 				"eslint.autoFixOnSave": {
-					"scope": "resource",
-					"type": "boolean",
+					"type": [
+						"boolean",
+						"array"
+					],
+					"items": {
+						"type": "string"
+					},
 					"default": false,
-					"description": "Turns auto fix on save on or off."
+					"description": "Turns auto fix on save on or off, or defines which rules (e.g. `no-var-keyword`) to auto fix on save.",
+					"scope": "resource"
 				},
 				"eslint.quiet": {
 					"scope": "resource",

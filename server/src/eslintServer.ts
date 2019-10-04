@@ -135,7 +135,7 @@ interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: PackageManagers;
 	autoFix: boolean;
-	autoFixOnSave: boolean;
+	autoFixOnSave: boolean | string[];
 	quiet: boolean;
 	options: ESLintOptions | undefined;
 	run: RunValues;
@@ -635,13 +635,20 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 	return document.version;
 });
 
-function getFixes(textDocument: TextDocument): TextEdit[] {
+function getFixes(textDocument: TextDocument, settings: TextDocumentSettings): TextEdit[] {
 	let uri = textDocument.uri;
 	let edits = codeActions.get(uri);
 	function createTextEdit(editInfo: FixableProblem): TextEdit {
 		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
 	if (edits) {
+		if (Array.isArray(settings.autoFixOnSave)) {
+			for (const edit of edits) {
+				if (settings.autoFixOnSave.indexOf(edit[1].ruleId) === -1) {
+					edits.delete(edit[0]);
+				}
+			}
+		}
 		let fixes = new Fixes(edits);
 		if (fixes.isEmpty() || textDocument.version !== fixes.getDocumentVersion()) {
 			return [];
@@ -690,9 +697,9 @@ function setupDocumentsListeners() {
 			// we need to validate the file.
 			if (settings.run === 'onSave') {
 				// Do not queue this since we want to get the fixes as fast as possible.
-				return validateSingle(document, false).then(() => getFixes(document));
+				return validateSingle(document, false).then(() => getFixes(document, settings));
 			} else {
-				return getFixes(document);
+				return getFixes(document, settings);
 			}
 		});
 	});
