@@ -97,7 +97,7 @@ This extension contributes the following commands to the Command palette.
 
 ## Using the extension with VS Code's task running
 
-The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.lintTaks.enable` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
+The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.lintTask.enable` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
 
 ## Using ESLint to validate TypeScript files
 
