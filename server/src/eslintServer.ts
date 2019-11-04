@@ -9,12 +9,16 @@ import {
 	ResponseError, RequestType, NotificationType, ErrorCodes,
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
-	TextDocuments, TextDocument, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
+	TextDocuments, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position
 } from 'vscode-languageserver';
+
+import {
+	TextDocument
+} from 'vscode-languageserver-textdocument';
 
 import { URI } from 'vscode-uri';
 import * as path from 'path';
@@ -389,7 +393,7 @@ process.on('uncaughtException', (error: any) => {
 let connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
 // Is instantiated in the initalize handle;
-let documents!: TextDocuments;
+let documents!: TextDocuments<TextDocument>;
 
 const _globalPaths: { [key: string]: { cache: string; get(): string; } } = {
 	yarn: {
@@ -733,7 +737,7 @@ function trace(message: string, verbose?: string): void {
 connection.onInitialize((params, _cancel, progress) => {
 	progress.begin('Initializing ESLint Server');
 	let syncKind: TextDocumentSyncKind = (params.initializationOptions && !!params.initializationOptions.incrementalSync) ? TextDocumentSyncKind.Incremental : TextDocumentSyncKind.Full;
-	documents = new TextDocuments(syncKind);
+	documents = new TextDocuments(TextDocument.createTextDocumentsConfiguration());
 	setupDocumentsListeners();
 	progress.done();
 	return {
