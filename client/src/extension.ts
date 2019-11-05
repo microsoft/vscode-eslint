@@ -75,6 +75,7 @@ interface TextDocumentSettings {
 	packageManager: 'npm' | 'yarn' | 'pnpm';
 	autoFix: boolean;
 	autoFixOnSave: boolean;
+	format: boolean;
 	quiet: boolean;
 	options: any | undefined;
 	run: RunValues;
@@ -490,6 +491,7 @@ export function realActivate(context: ExtensionContext): void {
 						let config = Workspace.getConfiguration('eslint', resource);
 						let settings: TextDocumentSettings = {
 							validate: false,
+							format: false,
 							packageManager: config.get('packageManager', 'npm'),
 							autoFix: false,
 							autoFixOnSave: false,
@@ -529,6 +531,7 @@ export function realActivate(context: ExtensionContext): void {
 						}
 						if (settings.validate) {
 							settings.autoFixOnSave = settings.autoFix && config.get('autoFixOnSave', false);
+							settings.format = !!config.get('format.enable', false);
 						}
 						let workspaceFolder = Workspace.getWorkspaceFolder(resource);
 						if (workspaceFolder) {
