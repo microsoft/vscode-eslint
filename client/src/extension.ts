@@ -491,10 +491,10 @@ export function realActivate(context: ExtensionContext): void {
 						let config = Workspace.getConfiguration('eslint', resource);
 						let settings: TextDocumentSettings = {
 							validate: false,
-							format: false,
 							packageManager: config.get('packageManager', 'npm'),
 							autoFix: false,
 							autoFixOnSave: false,
+							format: false,
 							quiet: config.get('quiet', false),
 							options: config.get('options', {}),
 							run: config.get('run', 'onType'),

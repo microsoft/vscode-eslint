@@ -13,7 +13,7 @@ import {
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable
+	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter
 } from 'vscode-languageserver';
 
 import {
@@ -24,6 +24,7 @@ import { URI } from 'vscode-uri';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { EOL } from 'os';
+import { stringDiff } from './diff';
 
 // import { stringDiff } from './diff';
 
@@ -192,6 +193,7 @@ interface ESLintReport {
 interface CLIOptions {
 	cwd?: string;
 	fixTypes?: string[];
+	fix?: boolean;
 }
 
 // { meta: { docs: [Object], schema: [Array] }, create: [Function: create] }
@@ -211,7 +213,7 @@ namespace RuleData {
 }
 
 interface CLIEngine {
-	executeOnText(content: string, file?:string): ESLintReport;
+	executeOnText(content: string, file?: string, warn?: boolean): ESLintReport;
 	isPathIgnored(path: string): boolean;
 	// This is only available from v4.15.0 forward
 	getRules?(): Map<string, RuleData>;
@@ -374,11 +376,15 @@ function getFileSystemPath(uri: URI): string {
 }
 
 
-function getFilePath(documentOrUri: string | TextDocument | undefined): string | undefined {
+function getFilePath(documentOrUri: string | TextDocument | URI | undefined): string | undefined {
 	if (!documentOrUri) {
 		return undefined;
 	}
-	const uri = Is.string(documentOrUri) ? URI.parse(documentOrUri) : URI.parse(documentOrUri.uri);
+	const uri = Is.string(documentOrUri)
+		? URI.parse(documentOrUri)
+		: documentOrUri instanceof URI
+			? documentOrUri
+			: URI.parse(documentOrUri.uri);
 	if (uri.scheme !== 'file') {
 		return undefined;
 	}
@@ -703,18 +709,22 @@ function setupDocumentsListeners() {
 				return;
 			}
 			if (settings.format) {
-				const file = getFilePath(event.document.uri);
-				const options: DocumentFormattingRegistrationOptions = {
-					documentSelector: [{ pattern: event.document.uri }]
-				};
-				if (file === undefined) {
+				const uri = URI.parse(event.document.uri);
+				const isFile = uri.scheme === 'file';
+				const filter: DocumentFilter = isFile
+					? { scheme: uri.scheme, pattern: uri.fsPath.replace(/\\/g, '/') }
+					: { scheme: uri.scheme, pattern: uri.path };
+
+				const options: DocumentFormattingRegistrationOptions = { documentSelector: [ filter ] };
+				if (!isFile) {
 					formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
 				} else {
-					withCLIEngine(file, settings, (cli) => {
-						if (!cli.isPathIgnored(file)) {
+					const filePath = getFilePath(uri)!;
+					withCLIEngine((cli) => {
+						if (!cli.isPathIgnored(filePath)) {
 							formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
 						}
-					});
+					}, filePath, settings);
 				}
 			}
 			if (settings.run === 'onSave') {
@@ -772,6 +782,7 @@ function setupDocumentsListeners() {
 			const unregister = formatterRegistrations.get(event.document.uri);
 			if (unregister !== undefined) {
 				unregister.then(disposable => disposable.dispose());
+				formatterRegistrations.delete(event.document.uri);
 			}
 			if (settings.validate) {
 				connection.sendDiagnostics({ uri: uri, diagnostics: [] });
@@ -947,7 +958,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 		const cli = new settings.library.CLIEngine(newOptions);
 		// Clean previously computed code actions.
 		codeActions.delete(uri);
-		const report: ESLintReport = cli.executeOnText(content, file);
+		const report: ESLintReport = cli.executeOnText(content, file, true);
 		const diagnostics: Diagnostic[] = [];
 		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
 			const docReport = report.results[0];
@@ -995,8 +1006,10 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	}
 }
 
-function withCLIEngine(file: string | undefined, settings: TextDocumentSettings & { library: ESLintModule }, func: (cli: CLIEngine) => void): void {
-	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
+function withCLIEngine<T>(func: (cli: CLIEngine) => T, file: string | undefined, settings: TextDocumentSettings & { library: ESLintModule }, options?: CLIOptions): T {
+	const newOptions: CLIOptions = options === undefined
+		? Object.assign(Object.create(null), settings.options)
+		: Object.assign(Object.create(null), settings.options, options);
 
 	const cwd = process.cwd();
 	try {
@@ -1023,8 +1036,8 @@ function withCLIEngine(file: string | undefined, settings: TextDocumentSettings 
 			}
 		}
 		const cli = new settings.library.CLIEngine(newOptions);
-		func(cli);
-	} catch (error) {
+		return func(cli);
+	} finally {
 		if (cwd !== process.cwd()) {
 			process.chdir(cwd);
 		}
@@ -1357,11 +1370,13 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				const workspaceChange = new WorkspaceChange();
 				workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
 				commands.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
-				result.get(ruleId).fixes.push(CodeAction.create(
+				const action = CodeAction.create(
 					editInfo.label,
 					Command.create(editInfo.label, CommandIds.applySingleFix, ruleId),
 					CodeActionKind.QuickFix
-				));
+				);
+				action.isPreferred = true;
+				result.get(ruleId).fixes.push(action);
 			}
 
 			if (settings.codeAction.disableRuleComment.enable) {
@@ -1527,8 +1542,36 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, (params) => {
 });
 
 
-messageQueue.registerRequest(DocumentFormattingRequest.type, (_params) => {
-	return [];
+messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
+	const textDocument = documents.get(params.textDocument.uri);
+	if (textDocument === undefined) {
+		return [];
+	}
+	return resolveSettings(textDocument).then((settings) => {
+		if (!settings.validate || !settings.format || !TextDocumentSettings.hasLibrary(settings)) {
+			return [];
+		}
+		const filePath = getFilePath(textDocument);
+		return withCLIEngine((cli) => {
+			const content = textDocument.getText();
+			const report = cli.executeOnText(content, filePath);
+			const result: TextEdit[] = [];
+			if (Array.isArray(report.results) && report.results.length === 1 && report.results[0].output !== undefined) {
+				const formatted = report.results[0].output;
+				const diffs = stringDiff(content, formatted, true);
+				for (let diff of diffs) {
+					result.push({
+						range: {
+							start: textDocument.positionAt(diff.originalStart),
+							end: textDocument.positionAt(diff.originalStart + diff.originalLength)
+						},
+						newText: formatted.substr(diff.modifiedStart, diff.modifiedLength)
+					});
+				}
+			}
+			return result;
+		}, filePath, settings, { fix: true });
+	});
 }, (params) => {
 	const document = documents.get(params.textDocument.uri);
 	return document !== undefined ? document.version : undefined;
