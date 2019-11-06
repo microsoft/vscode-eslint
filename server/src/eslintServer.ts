@@ -857,7 +857,7 @@ interface LintResults {
  * Note: the field names are intentionally not validated against a whitelist so
  * that should ESLint expose more fields this extension won't have to be updated.
  */
-function makeFixFilter(fix: any) {
+function makeFixFilter(fix: any = true) {
 	if (typeof fix === `object` && fix !== null) {
 		const checks = Object.keys(fix).map(field => {
 			if (Array.isArray(fix[field])) {
