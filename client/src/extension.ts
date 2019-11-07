@@ -461,7 +461,7 @@ export function realActivate(context: ExtensionContext): void {
 				}
 			},
 			provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
-				if (!syncedDocuments.has(document.uri.toString()) || !context.diagnostics || context.diagnostics.length === 0) {
+				if (context.only === undefined && (!syncedDocuments.has(document.uri.toString()) || !context.diagnostics || context.diagnostics.length === 0)) {
 					return [];
 				}
 				let eslintDiagnostics: Diagnostic[] = [];
@@ -470,7 +470,7 @@ export function realActivate(context: ExtensionContext): void {
 						eslintDiagnostics.push(diagnostic);
 					}
 				}
-				if (eslintDiagnostics.length === 0) {
+				if (context.only === undefined && eslintDiagnostics.length === 0) {
 					return [];
 				}
 				let newContext: CodeActionContext = Object.assign({}, context, { diagnostics: eslintDiagnostics } as CodeActionContext);

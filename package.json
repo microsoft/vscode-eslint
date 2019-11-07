@@ -343,10 +343,10 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"@types/node": "^10.14.6",
-		"typescript": "^3.6.4",
-		"eslint": "^6.2.2",
-		"@typescript-eslint/parser": "^2.0.0",
+		"@types/node": "^12.12.6",
+		"typescript": "^3.7.2",
+		"eslint": "^6.6.0",
+		"@typescript-eslint/parser": "^2.6.1",
 		"webpack": "^4.39.2",
 		"webpack-cli": "^3.3.7",
 		"ts-loader": "^5.4.5",
