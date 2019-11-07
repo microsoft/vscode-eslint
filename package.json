@@ -252,15 +252,8 @@
 				},
 				"eslint.format": {
 					"scope": "resource",
-					"type": "array",
-					"items": {
-						"anyOf": [
-							{
-								"type": "string"
-							}
-						]
-					},
-					"default": [],
+					"type": "boolean",
+					"default": false,
 					"description": "Enables ESLint as a formatter."
 				},
 				"eslint.experimental.incrementalSync": {
