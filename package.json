@@ -250,7 +250,7 @@
 						}
 					}
 				},
-				"eslint.format": {
+				"eslint.format.enable": {
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,

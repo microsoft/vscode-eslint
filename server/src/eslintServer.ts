@@ -813,7 +813,7 @@ connection.onInitialize((params, _cancel, progress) => {
 			textDocumentSync: {
 				openClose: true,
 				change: syncKind,
-				willSaveWaitUntil: true,
+				willSaveWaitUntil: false,
 				save: {
 					includeText: false
 				}
@@ -1319,6 +1319,26 @@ class CodeActionResult {
 	}
 }
 
+class CodeActionFilter {
+
+	private static defaults: Set<string> = new Set(['source', 'source.fixAll', 'source.fixAll.eslint']);
+
+	constructor(private values: string[] | undefined) {
+	}
+
+	interpret(textDocument: TextDocument): { type: 'source' | 'quickfix'; kind: string } | undefined {
+		if (this.values === undefined) {
+			return undefined;
+		}
+		for (let value of this.values) {
+			if (CodeActionFilter.defaults.has(value) || (value.startsWith('source.fixAll.eslint.') && value.substr(21) === textDocument.languageId)) {
+				return { type: 'source', kind: value };
+			}
+		}
+		return undefined;
+	}
+}
+
 class Changes {
 
 	private readonly values: Map<string, WorkspaceChange>;
@@ -1331,9 +1351,14 @@ class Changes {
 		this.version = undefined;
 	}
 
-	public clear(textDocument: TextDocument): void {
-		this.uri = textDocument.uri;
-		this.version = textDocument.version;
+	public clear(textDocument?: TextDocument): void {
+		if (textDocument === undefined) {
+			this.uri = undefined;
+			this.version = undefined;
+		} else {
+			this.uri = textDocument.uri;
+			this.version = textDocument.version;
+		}
 		this.values.clear();
 	}
 
@@ -1368,8 +1393,11 @@ const changes = new Changes();
 messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	const result: CodeActionResult = new CodeActionResult();
 	const uri = params.textDocument.uri;
-	const textDocument = documents.get(uri)!;
-	changes.clear(textDocument);
+	const textDocument = documents.get(uri);
+	if (textDocument === undefined) {
+		changes.clear(textDocument);
+		return result.all();
+	}
 
 	const problems = codeActions.get(uri);
 	if (!problems) {
@@ -1387,7 +1415,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	function createTextEdit(editInfo: FixableProblem): TextEdit {
-		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
+		return TextEdit.replace(Range.create(textDocument!.positionAt(editInfo.edit.range[0]), textDocument!.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
 
 	function createDisableLineTextEdit(editInfo: Problem, indentationText: string): TextEdit {
@@ -1410,11 +1438,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return array[length - 1];
 	}
 
-	const only: Set<string> = Array.isArray(params.context.only) ? new Set(params.context.only) : new Set();
-	if (only.has('source')) {
+	const filter = (new CodeActionFilter(params.context.only)).interpret(textDocument);
+	if (filter !== undefined && filter.type === 'source') {
 		result.fixAll.push(createCodeAction(
 			`Fix all ESLint auto-fixable problems`,
-			`${CodeActionKind.SourceFixAll}.eslint`,
+			filter.kind,
 			CommandIds.applyAllFixes,
 			CommandParams.create(textDocument)
 		));
