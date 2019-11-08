@@ -139,6 +139,7 @@ type ESLintOptions = object & { fixTypes?: string[] };
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: PackageManagers;
+	codeActionOnSave: boolean;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	format: boolean;
@@ -1319,26 +1320,6 @@ class CodeActionResult {
 	}
 }
 
-class CodeActionFilter {
-
-	private static defaults: Set<string> = new Set(['source', 'source.fixAll', 'source.fixAll.eslint']);
-
-	constructor(private values: string[] | undefined) {
-	}
-
-	interpret(textDocument: TextDocument): { type: 'source' | 'quickfix'; kind: string } | undefined {
-		if (this.values === undefined) {
-			return undefined;
-		}
-		for (let value of this.values) {
-			if (CodeActionFilter.defaults.has(value) || (value.startsWith('source.fixAll.eslint.') && value.substr(21) === textDocument.languageId)) {
-				return { type: 'source', kind: value };
-			}
-		}
-		return undefined;
-	}
-}
-
 class Changes {
 
 	private readonly values: Map<string, WorkspaceChange>;
@@ -1438,26 +1419,26 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return array[length - 1];
 	}
 
-	const filter = (new CodeActionFilter(params.context.only)).interpret(textDocument);
-	if (filter !== undefined && filter.type === 'source') {
-		result.fixAll.push(createCodeAction(
-			`Fix all ESLint auto-fixable problems`,
-			filter.kind,
-			CommandIds.applyAllFixes,
-			CommandParams.create(textDocument)
-		));
-		return result.all();
-	}
-
-	const fixes = new Fixes(problems);
-	if (fixes.isEmpty()) {
-		return result.all();
-	}
-
-	let documentVersion: number = -1;
-	const allFixableRuleIds: string[] = [];
-
 	return resolveSettings(textDocument).then((settings) => {
+		if (params.context.only !== undefined && settings.codeActionOnSave) {
+			result.fixAll.push(createCodeAction(
+				`Fix all ESLint auto-fixable problems`,
+				params.context.only[0],
+				CommandIds.applyAllFixes,
+				CommandParams.create(textDocument)
+			));
+			return result.all();
+		}
+
+
+		const fixes = new Fixes(problems);
+		if (fixes.isEmpty()) {
+			return result.all();
+		}
+
+		let documentVersion: number = -1;
+		const allFixableRuleIds: string[] = [];
+
 		for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
 			documentVersion = editInfo.documentVersion;
 			const ruleId = editInfo.ruleId;

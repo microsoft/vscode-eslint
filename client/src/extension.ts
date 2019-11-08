@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -73,6 +73,7 @@ interface CodeActionSettings {
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
+	codeActionOnSave: boolean;
 	autoFix: boolean;
 	autoFixOnSave: boolean;
 	format: boolean;
@@ -312,10 +313,90 @@ export function activate(context: ExtensionContext) {
 	);
 	taskProvider = new TaskProvider();
 	taskProvider.start();
+
 	configurationChanged();
 }
 
-export function realActivate(context: ExtensionContext): void {
+async function migrateSettings(resource: Uri): Promise<void> {
+	async function migrateAutoFixOnSave(resource: Uri): Promise<boolean> {
+		const eslintConfig = Workspace.getConfiguration('eslint', resource);
+		const autoFixOnSave = eslintConfig.inspect<boolean>('autoFixOnSave');
+		const editorConfig = Workspace.getConfiguration('editor', resource);
+		const codeActionOnSave = editorConfig.inspect<{ [key: string]: boolean }>('codeActionsOnSave');
+
+		// The setting is already converted.
+		if (autoFixOnSave.workspaceFolderValue === undefined && autoFixOnSave.workspaceValue === undefined && autoFixOnSave.globalValue === undefined) {
+			return false;
+		}
+
+		async function migrate(value: boolean, targetValue: { [key: string]: boolean }, target: ConfigurationTarget): Promise<boolean> {
+			if (value === undefined) {
+				return false;
+			}
+			const newValue: typeof targetValue = Object.assign(Object.create(null), targetValue);
+			newValue['source.fixAll.eslint'] = value;
+			await editorConfig.update('codeActionsOnSave', newValue, target);
+			await eslintConfig.update('autoFixOnSave', undefined, target);
+			return true;
+		}
+
+		return [
+			// await migrate(autoFixOnSave.workspaceFolderValue, codeActionOnSave.workspaceFolderValue || Object.create(null), ConfigurationTarget.WorkspaceFolder),
+			await migrate(autoFixOnSave.workspaceValue, codeActionOnSave.workspaceValue || Object.create(null), ConfigurationTarget.Workspace),
+			await migrate(autoFixOnSave.globalValue, codeActionOnSave.globalValue || Object.create(null), ConfigurationTarget.Global)
+		].some(value => value);
+	}
+
+	async function migrateValidateSetting(resource: Uri): Promise<boolean> {
+		const eslintConfig = Workspace.getConfiguration('eslint', resource);
+		const validate = eslintConfig.inspect<(ValidateItem | string)[]>('validate');
+		const editorConfig = Workspace.getConfiguration('editor', resource);
+		const codeActionOnSave = editorConfig.inspect<{ [key: string]: boolean }>('codeActionsOnSave');
+
+		async function migrate(value: (ValidateItem | string)[], targetValue: { [key: string]: boolean }, target: ConfigurationTarget): Promise<boolean> {
+			if (value === undefined) {
+				return false;
+			}
+			let saveChanged: boolean = false;
+			let validateChanged: boolean = false;
+			for (let i = 0; i < value.length; i++) {
+				const item = value[i];
+				if (typeof item === 'string') {
+					continue;
+				}
+				if (item.autoFix === false) {
+					targetValue[`source.fixAll.eslint.${item.language}`] = false;
+					saveChanged = true;
+				}
+				value[i] = item.language;
+				validateChanged = true;
+			}
+
+			if (saveChanged) {
+				await editorConfig.update('codeActionsOnSave', targetValue, target);
+			}
+			if (validateChanged) {
+				await eslintConfig.update('validate', value, target);
+			}
+			return saveChanged || validateChanged;
+		}
+
+		return [
+			// await migrate(validate.workspaceFolderValue, codeActionOnSave.workspaceFolderValue || Object.create(null), ConfigurationTarget.WorkspaceFolder),
+			await migrate(validate.workspaceValue, codeActionOnSave.workspaceValue || Object.create(null), ConfigurationTarget.Workspace),
+			await migrate(validate.globalValue, codeActionOnSave.globalValue || Object.create(null), ConfigurationTarget.Global)
+		].some(value => value);
+	}
+
+	let changed: boolean = await migrateAutoFixOnSave(resource);
+	changed = await migrateValidateSetting(resource) || changed;
+
+	if (changed) {
+		Window.showInformationMessage('ESLint settings got converted to new code action format. See the ESLint extension documentation for more information.');
+	}
+}
+
+function realActivate(context: ExtensionContext): void {
 
 	let statusBarItem = Window.createStatusBarItem(StatusBarAlignment.Right, 0);
 	let eslintStatus: Status = Status.ok;
@@ -461,7 +542,13 @@ export function realActivate(context: ExtensionContext): void {
 				}
 			},
 			provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
-				if (context.only === undefined && (!syncedDocuments.has(document.uri.toString()) || !context.diagnostics || context.diagnostics.length === 0)) {
+				if (!syncedDocuments.has(document.uri.toString())) {
+					return [];
+				}
+				if (context.only !== undefined && !context.only.value.startsWith('source.fixAll.eslint')) {
+					return [];
+				}
+				if (context.only === undefined && (!context.diagnostics || context.diagnostics.length === 0)) {
 					return [];
 				}
 				let eslintDiagnostics: Diagnostic[] = [];
@@ -477,7 +564,7 @@ export function realActivate(context: ExtensionContext): void {
 				return next(document, range, newContext, token);
 			},
 			workspace: {
-				configuration: (params, _token, _next): any[] => {
+				configuration: async (params, _token, _next): Promise<any[]> => {
 					if (!params.items) {
 						return null;
 					}
@@ -488,10 +575,16 @@ export function realActivate(context: ExtensionContext): void {
 							continue;
 						}
 						let resource = client.protocol2CodeConverter.asUri(item.scopeUri);
+						try {
+							await migrateSettings(resource);
+						} catch (error) {
+							// Need to think about what to do when mirgation failed.
+						}
 						let config = Workspace.getConfiguration('eslint', resource);
 						let settings: TextDocumentSettings = {
 							validate: false,
 							packageManager: config.get('packageManager', 'npm'),
+							codeActionOnSave: false,
 							autoFix: false,
 							autoFixOnSave: false,
 							format: false,
@@ -532,6 +625,17 @@ export function realActivate(context: ExtensionContext): void {
 						if (settings.validate) {
 							settings.autoFixOnSave = settings.autoFix && config.get('autoFixOnSave', false);
 							settings.format = !!config.get('format.enable', false);
+							const codeActionsOnSave = Workspace.getConfiguration('editor.codeActionsOnSave', resource);
+							if (codeActionsOnSave !== undefined) {
+								const keys = [`source.fixAll.eslint.${document.languageId}`, `source.fixAll.eslint`];
+								for (let key of keys) {
+									const value = codeActionsOnSave[key];
+									if (value !== undefined) {
+										settings.codeActionOnSave = value;
+										break;
+									}
+								}
+							}
 						}
 						let workspaceFolder = Workspace.getWorkspaceFolder(resource);
 						if (workspaceFolder) {
