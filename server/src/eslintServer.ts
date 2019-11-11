@@ -951,7 +951,7 @@ const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
 function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): void {
 	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 
-  const fixFilter = makeFixFilter(newOptions.fix);
+	const fixFilter = makeFixFilter(newOptions.fix);
 	delete newOptions.fix;
 
 	let fixTypes: Set<string> | undefined = undefined;
@@ -1019,7 +1019,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 						}
 						if (fixTypes !== undefined && isFunction(cli.getRules) && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const rule = cli.getRules().get(problem.ruleId);
-              if (RuleData.hasMetaType(rule) && fixTypes.has(rule.meta.type)) {
+							if (RuleData.hasMetaType(rule) && fixTypes.has(rule.meta.type)) {
 								recordCodeAction(document, diagnostic, problem);
 							}
 						} else {
