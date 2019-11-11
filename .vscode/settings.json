@@ -22,5 +22,5 @@
 		{ "directory": "./server", "changeProcessCWD": true }
 	],
 	"eslint.trace.server": "off",
-	"eslint.lintTask.enable": false
+	"eslint.lintTask.enable": false,
 }
