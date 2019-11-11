@@ -353,6 +353,8 @@ class Migration {
 	private autoFixOnSave: MigrationData<boolean | null>
 	private validate: MigrationData<(ValidateItem | string)[]>;
 
+	private didChangeConfiguration: () => void | undefined;
+
 	constructor(resource:  Uri) {
 		this.eslintConfig = Workspace.getConfiguration('eslint', resource);
 		this.editorConfig = Workspace.getConfiguration('editor', resource);
@@ -364,6 +366,10 @@ class Migration {
 	public record(): void {
 		this.recordAutoFixOnSave();
 		this.recordValidate();
+	}
+
+	public captureDidChangeSetting(func: () => void): void {
+		this.didChangeConfiguration = func;
 	}
 
 	private recordAutoFixOnSave(): void {
@@ -440,6 +446,11 @@ class Migration {
 		await _update(this.eslintConfig, 'validate', this.validate.global, ConfigurationTarget.Global);
 		await _update(this.eslintConfig, 'validate', this.validate.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
 		await _update(this.eslintConfig, 'validate', this.validate.workspace, ConfigurationTarget.Workspace);
+
+		if (this.didChangeConfiguration) {
+			this.didChangeConfiguration();
+			this.didChangeConfiguration = undefined;
+		}
 	}
 }
 
@@ -519,6 +530,7 @@ function realActivate(context: ExtensionContext): void {
 	let config = Workspace.getConfiguration('eslint');
 	let incrementalSync = config.get('experimental.incrementalSync', false);
 
+	let migration: Migration | undefined;
 	let clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled'}],
 		diagnosticCollectionName: 'eslint',
@@ -611,6 +623,16 @@ function realActivate(context: ExtensionContext): void {
 				return next(document, range, newContext, token);
 			},
 			workspace: {
+				didChangeConfiguration: (sections, next) => {
+					if (migration !== undefined && (sections === undefined || sections.length === 0)) {
+						migration.captureDidChangeSetting(() => {
+							next(sections);
+						});
+						return;
+					} else {
+						next(sections);
+					}
+				},
 				configuration: async (params, _token, _next): Promise<any[]> => {
 					if (!params.items) {
 						return null;
@@ -622,7 +644,7 @@ function realActivate(context: ExtensionContext): void {
 							continue;
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
-						const migration = new Migration(resource);
+						migration = new Migration(resource);
 						migration.record();
 						if (migration.needsUpdate()) {
 							try {
@@ -630,6 +652,8 @@ function realActivate(context: ExtensionContext): void {
 								Window.showInformationMessage('ESLint settings got converted to new code action format. See the ESLint extension documentation for more information.');
 							} catch (error) {
 								// Need to think about what to do when mirgation failed.
+							} finally {
+								migration = undefined;
 							}
 						}
 						let config = Workspace.getConfiguration('eslint', resource);
