@@ -137,6 +137,7 @@ type ESLintOptions = object & { fixTypes?: string[] };
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: PackageManagers;
+	codeAction: CodeActionSettings;
 	codeActionOnSave: boolean;
 	format: boolean;
 	quiet: boolean;
@@ -147,7 +148,6 @@ interface TextDocumentSettings {
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 	resolvedGlobalPackageManagerPath: string | undefined;
-	codeAction: CodeActionSettings;
 }
 
 namespace TextDocumentSettings {
@@ -1504,7 +1504,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	return document !== undefined ? document.version : undefined;
 });
 
-function computeAllFixes(identifier: VersionedTextDocumentIdentifier): Promise<TextEdit[]> | undefined {
+function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkFormat: boolean = false): Promise<TextEdit[]> | undefined {
 	const uri = identifier.uri;
 	const textDocument = documents.get(uri)!;
 	if (textDocument === undefined || identifier.version !== textDocument.version) {
@@ -1512,7 +1512,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier): Promise<T
 	}
 
 	return resolveSettings(textDocument).then((settings) => {
-		if (!settings.validate || !settings.format || !TextDocumentSettings.hasLibrary(settings)) {
+		if (!settings.validate || !TextDocumentSettings.hasLibrary(settings) || (checkFormat && !settings.format)) {
 			return [];
 		}
 		const filePath = getFilePath(textDocument);
@@ -1587,31 +1587,7 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	if (textDocument === undefined) {
 		return [];
 	}
-	return resolveSettings(textDocument).then((settings) => {
-		if (!settings.validate || !settings.format || !TextDocumentSettings.hasLibrary(settings)) {
-			return [];
-		}
-		const filePath = getFilePath(textDocument);
-		return withCLIEngine((cli) => {
-			const content = textDocument.getText();
-			const report = cli.executeOnText(content, filePath);
-			const result: TextEdit[] = [];
-			if (Array.isArray(report.results) && report.results.length === 1 && report.results[0].output !== undefined) {
-				const formatted = report.results[0].output;
-				const diffs = stringDiff(content, formatted, true);
-				for (let diff of diffs) {
-					result.push({
-						range: {
-							start: textDocument.positionAt(diff.originalStart),
-							end: textDocument.positionAt(diff.originalStart + diff.originalLength)
-						},
-						newText: formatted.substr(diff.modifiedStart, diff.modifiedLength)
-					});
-				}
-			}
-			return result;
-		}, filePath, settings, { fix: true });
-	});
+	return computeAllFixes({ uri: textDocument.uri, version: textDocument.version }, true);
 }, (params) => {
 	const document = documents.get(params.textDocument.uri);
 	return document !== undefined ? document.version : undefined;
