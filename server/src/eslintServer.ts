@@ -13,7 +13,7 @@ import {
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter
+	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit
 } from 'vscode-languageserver';
 
 import {
@@ -1378,10 +1378,21 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return array[length - 1];
 	}
 
-	return resolveSettings(textDocument).then((settings) => {
+	return resolveSettings(textDocument).then(async (settings): Promise<CodeAction[]> => {
 		if (params.context.only !== undefined && params.context.only.length > 0) {
 			const only = params.context.only[0];
-			if (((only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave) || only === CodeActionKind.Source) {
+			if (((only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave)) {
+				const textDocumentIdentifer: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
+				const edits = await computeAllFixes(textDocumentIdentifer);
+				if (edits !== undefined) {
+					result.fixAll.push(CodeAction.create(
+						`Fix all ESLint auto-fixable problems`,
+						{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifer, edits )]},
+						ESLintSourceFixAll
+					));
+				}
+			}
+			if (only === CodeActionKind.Source) {
 				result.fixAll.push(createCodeAction(
 					`Fix all ESLint auto-fixable problems`,
 					ESLintSourceFixAll,
