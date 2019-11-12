@@ -21,7 +21,7 @@ class FolderTaskProvider {
 
 	public isEnabled(): boolean {
 		const config = vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri);
-		return config.get('provideLintTask') || config.get('lintTask.enable');
+		return config.get<boolean>('lintTask.enable', false) ?? config.get<boolean>('provideLintTask', false);
 	}
 
 	public start(): void {
@@ -30,7 +30,7 @@ class FolderTaskProvider {
 	public dispose(): void {
 	}
 
-	public async getTask(): Promise<vscode.Task> {
+	public async getTask(): Promise<vscode.Task | undefined> {
 		const rootPath = this._workspaceFolder.uri.scheme === 'file' ? this._workspaceFolder.uri.fsPath : undefined;
 		if (!rootPath) {
 			return undefined;
@@ -142,12 +142,12 @@ export class TaskProvider {
 		if (this.providers.size === 0) {
 			return Promise.resolve([]);
 		} else {
-			const promises: Promise<vscode.Task>[] = [];
+			const promises: Promise<vscode.Task | undefined>[] = [];
 			for (let provider of this.providers.values()) {
 				promises.push(provider.getTask());
 			}
 			return Promise.all(promises).then((values) => {
-				return values.filter(value => !!value);
+				return values.filter(value => value !== undefined) as vscode.Task[];
 			});
 		}
 	}

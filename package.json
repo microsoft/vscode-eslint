@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "1.9.2",
+	"version": "2.0.0",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.38.0"
+		"vscode": "^1.41.0"
 	},
 	"activationEvents": [
 		"*"
@@ -256,12 +256,6 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enables ESLint as a formatter."
-				},
-				"eslint.experimental.incrementalSync": {
-					"scope": "machine",
-					"type": "boolean",
-					"default": false,
-					"description": "Controls whether the new incremental text document synchronization should be used."
 				}
 			}
 		},

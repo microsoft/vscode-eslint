@@ -803,9 +803,9 @@ function trace(message: string, verbose?: string): void {
 	connection.tracer.log(message, verbose);
 }
 
-connection.onInitialize((params, _cancel, progress) => {
+connection.onInitialize((_params, _cancel, progress) => {
 	progress.begin('Initializing ESLint Server');
-	const syncKind: TextDocumentSyncKind = (params.initializationOptions && !!params.initializationOptions.incrementalSync) ? TextDocumentSyncKind.Incremental : TextDocumentSyncKind.Full;
+	const syncKind: TextDocumentSyncKind = TextDocumentSyncKind.Incremental;
 	documents = new TextDocuments(TextDocument);
 	setupDocumentsListeners();
 	progress.done();

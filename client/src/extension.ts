@@ -150,19 +150,19 @@ interface WorkspaceFolderItem extends QuickPickItem {
 	folder: VWorkspaceFolder;
 }
 
-function pickFolder(folders: VWorkspaceFolder[], placeHolder: string): Thenable<VWorkspaceFolder> {
+async function pickFolder(folders: VWorkspaceFolder[], placeHolder: string): Promise<VWorkspaceFolder | undefined> {
 	if (folders.length === 1) {
 		return Promise.resolve(folders[0]);
 	}
-	return Window.showQuickPick(
+
+	const selected = await Window.showQuickPick(
 		folders.map<WorkspaceFolderItem>((folder) => { return { label: folder.name, description: folder.uri.fsPath, folder: folder }; }),
 		{ placeHolder: placeHolder }
-	).then((selected) => {
-		if (!selected) {
-			return undefined;
-		}
-		return selected.folder;
-	});
+	);
+	if (selected === undefined) {
+		return undefined;
+	}
+	return selected.folder;
 }
 
 function enable() {
@@ -249,7 +249,7 @@ function createDefaultConfiguration(): void {
 	});
 }
 
-let dummyCommands: Disposable[];
+let dummyCommands: Disposable[] | undefined;
 
 let defaultLanguages = ['javascript', 'javascriptreact'];
 function shouldBeValidated(textDocument: TextDocument): boolean {
@@ -334,33 +334,54 @@ interface MigrationData<T> {
 	workspaceFolder: MigrationElement<T>;
 }
 
+interface CodeActionsOnSave {
+	[key: string]: boolean;
+}
+
+interface LanguageSettings {
+	'editor.codeActionsOnSave'?: CodeActionsOnSave;
+}
+
 namespace MigrationData {
-	export function create<T>(inspect: InspectData<T>): MigrationData<T> {
-		return {
-			global: { value: inspect.globalValue, changed: false },
-			workspace: { value: inspect.workspaceValue, changed: false},
-			workspaceFolder: { value: inspect.workspaceFolderValue, changed: false }
-		};
+	export function create<T>(inspect: InspectData<T> | undefined): MigrationData<T> {
+		return inspect === undefined
+			? {
+				global: { value: undefined, changed: false},
+				workspace: { value: undefined, changed: false},
+				workspaceFolder: { value: undefined, changed: false }
+			}
+			: {
+				global: { value: inspect.globalValue, changed: false },
+				workspace: { value: inspect.workspaceValue, changed: false},
+				workspaceFolder: { value: inspect.workspaceFolderValue, changed: false }
+			};
+	}
+	export function needsUpdate(data: MigrationData<any>): boolean {
+		return data.global.changed || data.workspace.changed || data.workspaceFolder.changed;
 	}
 }
 
 class Migration {
-
+	private workspaceConfig: WorkspaceConfiguration;
 	private eslintConfig: WorkspaceConfiguration;
 	private editorConfig: WorkspaceConfiguration;
 
-	private codeActionOnSave: MigrationData<{ [key: string]: boolean }>;
-	private autoFixOnSave: MigrationData<boolean | null>
+	private codeActionOnSave: MigrationData<CodeActionsOnSave>;
+	private languageSpecificSettings: Map<string, MigrationData	<CodeActionsOnSave>>;
+
+	private autoFixOnSave: MigrationData<boolean>
 	private validate: MigrationData<(ValidateItem | string)[]>;
 
-	private didChangeConfiguration: () => void | undefined;
+	private didChangeConfiguration: (() => void) | undefined;
 
 	constructor(resource:  Uri) {
+		this.workspaceConfig = Workspace.getConfiguration(undefined, resource);
 		this.eslintConfig = Workspace.getConfiguration('eslint', resource);
 		this.editorConfig = Workspace.getConfiguration('editor', resource);
-		this.codeActionOnSave = MigrationData.create(this.editorConfig.inspect<{ [key: string]: boolean }>('codeActionsOnSave'));
+		this.codeActionOnSave = MigrationData.create(this.editorConfig.inspect<CodeActionsOnSave>('codeActionsOnSave'));
 		this.autoFixOnSave = MigrationData.create(this.eslintConfig.inspect<boolean>('autoFixOnSave'));
 		this.validate = MigrationData.create(this.eslintConfig.inspect<(ValidateItem | string)[]>('validate'));
+		this.languageSpecificSettings = new Map();
 	}
 
 	public record(): void {
@@ -373,14 +394,15 @@ class Migration {
 	}
 
 	private recordAutoFixOnSave(): void {
-		function record(elem: MigrationElement<boolean>, setting: MigrationElement<{ [key: string]: boolean }>): void {
+		function record(this: void, elem: MigrationElement<boolean>, setting: MigrationElement<CodeActionsOnSave>): void {
 			if (elem.value === undefined) {
 				return;
 			}
+
 			if (setting.value === undefined) {
 				setting.value = Object.create(null);
 			}
-			setting.value['source.fixAll.eslint'] = elem.value;
+			setting.value!['source.fixAll.eslint'] = elem.value;
 			setting.changed = true;
 			elem.value = undefined;
 			elem.changed = true;
@@ -392,7 +414,7 @@ class Migration {
 	}
 
 	private recordValidate(): void {
-		function record(elem: MigrationElement<(ValidateItem | string)[]>, setting: MigrationElement<{ [key: string]: boolean }>): void {
+		function record(this: void, elem: MigrationElement<(ValidateItem | string)[]>, settingAccessor: (language: string) => MigrationElement<CodeActionsOnSave>): void {
 			if (elem.value === undefined) {
 				return;
 			}
@@ -401,11 +423,12 @@ class Migration {
 				if (typeof item === 'string') {
 					continue;
 				}
-				if (item.autoFix === false) {
+				if (item.autoFix === false && typeof item.language === 'string') {
+					const setting = settingAccessor(item.language);
 					if (setting.value === undefined) {
 						setting.value = Object.create(null);
 					}
-					setting.value[`source.fixAll.eslint.${item.language}`] = false;
+					setting.value![`source.fixAll.eslint`] = false;
 					setting.changed = true;
 				}
 				if (item.language !== undefined) {
@@ -415,16 +438,41 @@ class Migration {
 			}
 		}
 
-		record(this.validate.global, this.codeActionOnSave.global);
-		record(this.validate.workspace, this.codeActionOnSave.workspace);
-		record(this.validate.workspaceFolder, this.codeActionOnSave.workspaceFolder);
+		const languageSpecificSettings = this.languageSpecificSettings;
+		const workspaceConfig = this.workspaceConfig;
+		function getCodeActionsOnSave(language: string): MigrationData<CodeActionsOnSave> {
+			let result: MigrationData<CodeActionsOnSave> | undefined = languageSpecificSettings.get(language);
+			if (result !== undefined) {
+				return result;
+			}
+			const value: InspectData<LanguageSettings> | undefined = workspaceConfig.inspect(`[${language}]`);
+			if (value === undefined) {
+				return MigrationData.create(undefined);
+			}
+
+			const globalValue = value.globalValue?.['editor.codeActionsOnSave'];
+			const workspaceFolderValue = value.workspaceFolderValue?.['editor.codeActionsOnSave'];
+			const workspaceValue = value.workspaceValue?.['editor.codeActionsOnSave'];
+			result = MigrationData.create<CodeActionsOnSave>({ globalValue, workspaceFolderValue, workspaceValue });
+			languageSpecificSettings.set(language, result);
+			return result;
+		}
+
+		record(this.validate.global, (language) => getCodeActionsOnSave(language).global);
+		record(this.validate.workspace, (language) => getCodeActionsOnSave(language).workspace);
+		record(this.validate.workspaceFolder, (language) => getCodeActionsOnSave(language).workspaceFolder);
 	}
 
 	public needsUpdate(): boolean {
-		function _needsUpdate(data: MigrationData<any>): boolean {
-			return data.global.changed|| data.workspace.changed || data.workspaceFolder.changed;
+		if (MigrationData.needsUpdate(this.autoFixOnSave) || MigrationData.needsUpdate(this.validate) || MigrationData.needsUpdate(this.codeActionOnSave)) {
+			return true;
 		}
-		return _needsUpdate(this.autoFixOnSave) || _needsUpdate(this.validate) || _needsUpdate(this.codeActionOnSave);
+		for (let value of this.languageSpecificSettings.values()) {
+			if (MigrationData.needsUpdate(value)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public async update(): Promise<void> {
@@ -435,21 +483,49 @@ class Migration {
 			await config.update(section, newValue.value, target);
 		}
 
-		await _update(this.editorConfig, 'codeActionsOnSave', this.codeActionOnSave.global, ConfigurationTarget.Global);
-		await _update(this.editorConfig, 'codeActionsOnSave', this.codeActionOnSave.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
-		await _update(this.editorConfig, 'codeActionsOnSave', this.codeActionOnSave.workspace, ConfigurationTarget.Workspace);
+		async function _updateLanguageSetting(config: WorkspaceConfiguration, section: string, settings: LanguageSettings | undefined, newValue: MigrationElement<CodeActionsOnSave>, target: ConfigurationTarget): Promise<void> {
+			if (!newValue.changed) {
+				return;
+			}
 
-		await _update(this.eslintConfig, 'autoFixOnSave', this.autoFixOnSave.global, ConfigurationTarget.Global);
-		await _update(this.eslintConfig, 'autoFixOnSave', this.autoFixOnSave.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
-		await _update(this.eslintConfig, 'autoFixOnSave', this.autoFixOnSave.workspace, ConfigurationTarget.Workspace);
+			if (settings === undefined) {
+				settings = Object.create(null) as object;
+			}
+			if (settings['editor.codeActionsOnSave'] === undefined) {
+				settings['editor.codeActionsOnSave'] = {};
+			}
+			settings['editor.codeActionsOnSave'] = newValue.value;
+			await config.update(section, settings, target);
+		}
 
-		await _update(this.eslintConfig, 'validate', this.validate.global, ConfigurationTarget.Global);
-		await _update(this.eslintConfig, 'validate', this.validate.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
-		await _update(this.eslintConfig, 'validate', this.validate.workspace, ConfigurationTarget.Workspace);
+		try {
+			await _update(this.editorConfig, 'codeActionsOnSave', this.codeActionOnSave.global, ConfigurationTarget.Global);
+			await _update(this.editorConfig, 'codeActionsOnSave', this.codeActionOnSave.workspace, ConfigurationTarget.Workspace);
+			await _update(this.editorConfig, 'codeActionsOnSave', this.codeActionOnSave.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
 
-		if (this.didChangeConfiguration) {
-			this.didChangeConfiguration();
-			this.didChangeConfiguration = undefined;
+			await _update(this.eslintConfig, 'autoFixOnSave', this.autoFixOnSave.global, ConfigurationTarget.Global);
+			await _update(this.eslintConfig, 'autoFixOnSave', this.autoFixOnSave.workspace, ConfigurationTarget.Workspace);
+			await _update(this.eslintConfig, 'autoFixOnSave', this.autoFixOnSave.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
+
+			await _update(this.eslintConfig, 'validate', this.validate.global, ConfigurationTarget.Global);
+			await _update(this.eslintConfig, 'validate', this.validate.workspace, ConfigurationTarget.Workspace);
+			await _update(this.eslintConfig, 'validate', this.validate.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
+
+			for (let language of this.languageSpecificSettings.keys()) {
+				let value = this.languageSpecificSettings.get(language)!;
+				if (MigrationData.needsUpdate(value)) {
+					const section = `[${language}]`;
+					const current = this.workspaceConfig.inspect<LanguageSettings>(section);
+					await _updateLanguageSetting(this.workspaceConfig, section, current?.globalValue, value.global, ConfigurationTarget.Global);
+					await _updateLanguageSetting(this.workspaceConfig, section, current?.workspaceValue, value.workspace, ConfigurationTarget.Workspace);
+					await _updateLanguageSetting(this.workspaceConfig, section, current?.workspaceFolderValue, value.workspaceFolder, ConfigurationTarget.WorkspaceFolder);
+				}
+			}
+		} finally {
+			if (this.didChangeConfiguration) {
+				this.didChangeConfiguration();
+				this.didChangeConfiguration = undefined;
+			}
 		}
 	}
 }
@@ -499,7 +575,7 @@ function realActivate(context: ExtensionContext): void {
 	// the output folder.
 	// serverModule
 	let serverModule = context.asAbsolutePath(path.join('server', 'out', 'eslintServer.js'));
-	let runtime = Workspace.getConfiguration('eslint').get('runtime', null);
+	let runtime = Workspace.getConfiguration('eslint').get('runtime', undefined);
 	let serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd() } },
 		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ['--nolazy', '--inspect=6011'], cwd: process.cwd() } }
@@ -527,16 +603,12 @@ function realActivate(context: ExtensionContext): void {
 		}
 	});
 
-	let config = Workspace.getConfiguration('eslint');
-	let incrementalSync = config.get('experimental.incrementalSync', false);
-
 	let migration: Migration | undefined;
 	let clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled'}],
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		initializationOptions: {
-			incrementalSync
 		},
 		progressOnInitialization: true,
 		synchronize: {
@@ -634,8 +706,8 @@ function realActivate(context: ExtensionContext): void {
 					}
 				},
 				configuration: async (params, _token, _next): Promise<any[]> => {
-					if (!params.items) {
-						return null;
+					if (params.items === undefined) {
+						return [];
 					}
 					let result: (TextDocumentSettings | null)[] = [];
 					for (let item of params.items) {
@@ -644,17 +716,25 @@ function realActivate(context: ExtensionContext): void {
 							continue;
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
-						migration = new Migration(resource);
-						migration.record();
-						if (migration.needsUpdate()) {
-							try {
-								await migration.update();
-								Window.showInformationMessage('ESLint settings got converted to new code action format. See the ESLint extension documentation for more information.');
-							} catch (error) {
-								// Need to think about what to do when mirgation failed.
-							} finally {
-								migration = undefined;
+						try {
+							migration = new Migration(resource);
+							migration.record();
+							if (migration.needsUpdate()) {
+								try {
+									await migration.update();
+									Window.showInformationMessage('ESLint settings got converted to new code action format. See the ESLint extension documentation for more information.');
+								} catch (error) {
+									client.error(error.message ?? 'Unknown error', error);
+									Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
+										if (selected === undefined) {
+											return;
+										}
+										client.outputChannel.show();
+									});
+								}
 							}
+						} finally {
+							migration = undefined;
 						}
 						let config = Workspace.getConfiguration('eslint', resource);
 						let settings: TextDocumentSettings = {
@@ -676,8 +756,8 @@ function realActivate(context: ExtensionContext): void {
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
 							}
 						};
-						let document: TextDocument = syncedDocuments.get(item.scopeUri);
-						if (!document) {
+						let document: TextDocument | undefined = syncedDocuments.get(item.scopeUri);
+						if (document === undefined) {
 							result.push(settings);
 							continue;
 						}
@@ -693,7 +773,7 @@ function realActivate(context: ExtensionContext): void {
 								}
 								else if (ValidateItem.is(item) && item.language === document.languageId) {
 									settings.validate = true;
-									settings.autoFix = item.autoFix;
+									settings.autoFix = item.autoFix ?? false;
 									break;
 								}
 							}
@@ -720,7 +800,7 @@ function realActivate(context: ExtensionContext): void {
 								uri: client.code2ProtocolConverter.asUri(workspaceFolder.uri)
 							};
 						}
-						let workingDirectories = config.get<(string | DirectoryItem)[]>('workingDirectories', undefined);
+						let workingDirectories = config.get<(string | DirectoryItem)[] | undefined>('workingDirectories', undefined);
 						if (Array.isArray(workingDirectories)) {
 							let workingDirectory = undefined;
 							let workspaceFolderPath = workspaceFolder && workspaceFolder.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : undefined;
@@ -861,8 +941,8 @@ function realActivate(context: ExtensionContext): void {
 					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
 				].filter((str=>(str !== null))).join('\n'));
 
-				if (!state.workspaces) {
-					state.workspaces = Object.create(null);
+				if (state.workspaces === undefined) {
+					state.workspaces = {};
 				}
 				if (!state.workspaces[workspaceFolder.uri.toString()]) {
 					state.workspaces[workspaceFolder.uri.toString()] = true;
