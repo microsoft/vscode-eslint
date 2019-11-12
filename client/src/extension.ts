@@ -22,6 +22,7 @@ import {
 import { findEslint } from './utils';
 import { TaskProvider } from './tasks';
 import { WorkspaceConfiguration } from 'vscode';
+import { env } from 'vscode';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -722,7 +723,12 @@ function realActivate(context: ExtensionContext): void {
 							if (migration.needsUpdate()) {
 								try {
 									await migration.update();
-									Window.showInformationMessage('ESLint settings got converted to new code action format. See the ESLint extension documentation for more information.');
+									Window.showInformationMessage('ESLint settings got converted to new code action format. See the ESLint extension documentation for more information.', 'Open ReadMe').then((selected) => {
+										if (selected === undefined) {
+											return;
+										}
+										env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint/blob/master/README.md'));
+									});
 								} catch (error) {
 									client.error(error.message ?? 'Unknown error', error);
 									Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
