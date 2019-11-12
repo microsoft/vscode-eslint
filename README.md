@@ -30,14 +30,11 @@ This extension contributes the following variables to the [settings](https://cod
   }
   ```
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
-- `eslint.autoFixOnSave` - enables auto fix on save. Please note auto fix on save is only available if VS Code's `files.autoSave` is either `off`, `onFocusChange` or `onWindowChange`. It will not work with `afterDelay`.
+either `off`, `onFocusChange` or `onWindowChange`. It will not work with `afterDelay`.
 - `eslint.quiet` - ignore warnings.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
-- `eslint.validate` - an array of language identifiers specify the files to be validated. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`. If the setting is missing, it defaults to `["javascript", "javascriptreact"]`. You can also control which plugins should provide auto fix support. To do so simply provide an object literal in the validate setting with the properties `language` and `autoFix` instead of a simple `string`. An example is:
-  ```json
-  "eslint.validate": [ "javascript", "javascriptreact", { "language": "html", "autoFix": true } ]
-  ```
+- `eslint.validate` - an array of language identifiers specifying the files to be validated. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`. If the setting is missing, it defaults to `["javascript", "javascriptreact"]`.
 
 - `eslint.workingDirectories` - an array for working directories to be used. ESLint resolves configuration files (e.g. `eslintrc`) relative to a working directory. This new settings allows users to control which working directory is used for which files (see also [CLIEngine options#cwd](https://eslint.org/docs/developer-guide/nodejs-api#cliengine)).
   Example:
@@ -84,7 +81,16 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.codeAction.showDocumentation` - object with properties:
   - `enable` - show open lint rule documentation web page in the quick fix menu. `true` by default.
 
-- `eslint.experimental.incrementalSync`: enables incremental document sync for improved performance.
+- `eslint.format.enable` (@since 2.0.0): uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default.
+- `editor.codeActionsOnSave` (@since 2.0.0): this setting now supports an entry `source.fixAll.eslint`. If set to true all auto-fixable ESLint errors from all plugins will be fixed on save. You can also selectively enable and disabled specific languages using VS Code's language scoped settings. To disable `codeActionsOnSave` for HTML files use the following setting:
+
+```json
+  "[html]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": false
+    }
+  }
+```
 
 ## Commands:
 
