@@ -75,9 +75,8 @@ interface CodeActionSettings {
 interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
+	codeAction: CodeActionSettings;
 	codeActionOnSave: boolean;
-	autoFix: boolean;
-	autoFixOnSave: boolean;
 	format: boolean;
 	quiet: boolean;
 	options: any | undefined;
@@ -86,7 +85,6 @@ interface TextDocumentSettings {
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: DirectoryItem | undefined;
 	library: undefined;
-	codeAction: CodeActionSettings;
 }
 
 interface NoESLintState {
@@ -172,7 +170,7 @@ function enable() {
 		Window.showWarningMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	let disabledFolders = folders.filter(folder => !Workspace.getConfiguration('eslint',folder.uri).get('enable', true));
+	let disabledFolders = folders.filter(folder => !Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
 	if (disabledFolders.length === 0) {
 		if (folders.length === 1) {
 			Window.showInformationMessage('ESLint is already enabled in the workspace.');
@@ -195,7 +193,7 @@ function disable() {
 		Window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
 		return;
 	}
-	let enabledFolders = folders.filter(folder => Workspace.getConfiguration('eslint',folder.uri).get('enable', true));
+	let enabledFolders = folders.filter(folder => Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
 	if (enabledFolders.length === 0) {
 		if (folders.length === 1) {
 			Window.showInformationMessage('ESLint is already disabled in the workspace.');
@@ -336,7 +334,9 @@ interface MigrationData<T> {
 }
 
 interface CodeActionsOnSave {
-	[key: string]: boolean;
+	'source.fixAll'?: boolean;
+	'source.fixAll.eslint'?: boolean;
+	[key: string]: boolean | undefined;
 }
 
 interface LanguageSettings {
@@ -347,13 +347,13 @@ namespace MigrationData {
 	export function create<T>(inspect: InspectData<T> | undefined): MigrationData<T> {
 		return inspect === undefined
 			? {
-				global: { value: undefined, changed: false},
-				workspace: { value: undefined, changed: false},
+				global: { value: undefined, changed: false },
+				workspace: { value: undefined, changed: false },
 				workspaceFolder: { value: undefined, changed: false }
 			}
 			: {
 				global: { value: inspect.globalValue, changed: false },
-				workspace: { value: inspect.workspaceValue, changed: false},
+				workspace: { value: inspect.workspaceValue, changed: false },
 				workspaceFolder: { value: inspect.workspaceFolderValue, changed: false }
 			};
 	}
@@ -368,14 +368,14 @@ class Migration {
 	private editorConfig: WorkspaceConfiguration;
 
 	private codeActionOnSave: MigrationData<CodeActionsOnSave>;
-	private languageSpecificSettings: Map<string, MigrationData	<CodeActionsOnSave>>;
+	private languageSpecificSettings: Map<string, MigrationData<CodeActionsOnSave>>;
 
 	private autoFixOnSave: MigrationData<boolean>
 	private validate: MigrationData<(ValidateItem | string)[]>;
 
 	private didChangeConfiguration: (() => void) | undefined;
 
-	constructor(resource:  Uri) {
+	constructor(resource: Uri) {
 		this.workspaceConfig = Workspace.getConfiguration(undefined, resource);
 		this.eslintConfig = Workspace.getConfiguration('eslint', resource);
 		this.editorConfig = Workspace.getConfiguration('editor', resource);
@@ -401,10 +401,12 @@ class Migration {
 			}
 
 			if (setting.value === undefined) {
-				setting.value = Object.create(null);
+				setting.value = {};
 			}
-			setting.value!['source.fixAll.eslint'] = elem.value;
-			setting.changed = true;
+			if (elem.value === false || (elem.value === true && !setting.value['source.fixAll'])) {
+				setting.value['source.fixAll.eslint'] = elem.value;
+				setting.changed = true;
+			}
 			elem.value = undefined;
 			elem.changed = true;
 		}
@@ -572,6 +574,24 @@ function realActivate(context: ExtensionContext): void {
 		);
 	}
 
+	function readCodeActionsOnSaveSetting(document: TextDocument): boolean {
+		let result: boolean | undefined = undefined;
+		const languageConfig = Workspace.getConfiguration(undefined, document.uri).get<LanguageSettings>(`[${document.languageId}]`);
+		if (languageConfig !== undefined) {
+			const codeActionsOnSave = languageConfig?.['editor.codeActionsOnSave'];
+			if (codeActionsOnSave !== undefined) {
+				result = codeActionsOnSave['source.fixAll.eslint'] ?? codeActionsOnSave['source.fixAll'];
+			}
+		}
+		if (result === undefined) {
+			let codeActionsOnSave = Workspace.getConfiguration('editor', document.uri).get<CodeActionsOnSave>('codeActionsOnSave');
+			if (codeActionsOnSave !== undefined) {
+				result = codeActionsOnSave[`source.fixAll.eslint`] ?? codeActionsOnSave['source.fixAll'];
+			}
+		}
+		return result ?? false;
+	}
+
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	// serverModule
@@ -585,8 +605,8 @@ function realActivate(context: ExtensionContext): void {
 	let defaultErrorHandler: ErrorHandler;
 	let serverCalledProcessExit: boolean = false;
 
-	let packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json'};
-	let configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'};
+	let packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json' };
+	let configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}' };
 	let syncedDocuments: Map<string, TextDocument> = new Map<string, TextDocument>();
 
 	Workspace.onDidChangeConfiguration(() => {
@@ -606,7 +626,7 @@ function realActivate(context: ExtensionContext): void {
 
 	let migration: Migration | undefined;
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled'}],
+		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		initializationOptions: {
@@ -677,7 +697,7 @@ function realActivate(context: ExtensionContext): void {
 				if (!syncedDocuments.has(document.uri.toString())) {
 					return [];
 				}
-				if (context.only !== undefined && !context.only.value.startsWith('source.fixAll.eslint')) {
+				if (context.only !== undefined && context.only.value !== 'source' && context.only.value !== 'source.fixAll' && context.only.value !== 'source.fixAll.eslint') {
 					return [];
 				}
 				if (context.only === undefined && (!context.diagnostics || context.diagnostics.length === 0)) {
@@ -747,8 +767,6 @@ function realActivate(context: ExtensionContext): void {
 							validate: false,
 							packageManager: config.get('packageManager', 'npm'),
 							codeActionOnSave: false,
-							autoFix: false,
-							autoFixOnSave: false,
 							format: false,
 							quiet: config.get('quiet', false),
 							options: config.get('options', {}),
@@ -772,32 +790,17 @@ function realActivate(context: ExtensionContext): void {
 							for (let item of validateItems) {
 								if (Is.string(item) && item === document.languageId) {
 									settings.validate = true;
-									if (item === 'javascript' || item === 'javascriptreact') {
-										settings.autoFix = true;
-									}
 									break;
 								}
 								else if (ValidateItem.is(item) && item.language === document.languageId) {
 									settings.validate = true;
-									settings.autoFix = item.autoFix ?? false;
 									break;
 								}
 							}
 						}
 						if (settings.validate) {
-							settings.autoFixOnSave = settings.autoFix && config.get('autoFixOnSave', false);
 							settings.format = !!config.get('format.enable', false);
-							const codeActionsOnSave = Workspace.getConfiguration('editor.codeActionsOnSave', resource);
-							if (codeActionsOnSave !== undefined) {
-								const keys = [`source.fixAll.eslint.${document.languageId}`, `source.fixAll.eslint`];
-								for (let key of keys) {
-									const value = codeActionsOnSave[key];
-									if (value !== undefined) {
-										settings.codeActionOnSave = value;
-										break;
-									}
-								}
-							}
+							settings.codeActionOnSave = readCodeActionsOnSaveSetting(document);
 						}
 						let workspaceFolder = Workspace.getWorkspaceFolder(resource);
 						if (workspaceFolder) {
@@ -945,7 +948,7 @@ function realActivate(context: ExtensionContext): void {
 					'',
 					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
-				].filter((str=>(str !== null))).join('\n'));
+				].filter((str => (str !== null))).join('\n'));
 
 				if (state.workspaces === undefined) {
 					state.workspaces = {};
@@ -965,7 +968,7 @@ function realActivate(context: ExtensionContext): void {
 					`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
 					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					'You need to reopen VS Code after installing eslint.',
-				].filter((str=>(str !== null))).join('\n'));
+				].filter((str => (str !== null))).join('\n'));
 
 				if (!state.global) {
 					state.global = true;

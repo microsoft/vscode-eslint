@@ -9,7 +9,7 @@ import {
 	ResponseError, RequestType, NotificationType, ErrorCodes,
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
-	TextDocuments, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier, TextDocumentSaveReason,
+	TextDocuments, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier,
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
@@ -25,8 +25,6 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { EOL } from 'os';
 import { stringDiff } from './diff';
-
-// import { stringDiff } from './diff';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -140,8 +138,6 @@ interface TextDocumentSettings {
 	validate: boolean;
 	packageManager: PackageManagers;
 	codeActionOnSave: boolean;
-	autoFix: boolean;
-	autoFixOnSave: boolean;
 	format: boolean;
 	quiet: boolean;
 	options: ESLintOptions | undefined;
@@ -684,22 +680,6 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 	return document.version;
 });
 
-function getFixes(textDocument: TextDocument): TextEdit[] {
-	const uri = textDocument.uri;
-	const edits = codeActions.get(uri);
-	function createTextEdit(editInfo: FixableProblem): TextEdit {
-		return TextEdit.replace(Range.create(textDocument.positionAt(editInfo.edit.range[0]), textDocument.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
-	}
-	if (edits) {
-		const fixes = new Fixes(edits);
-		if (fixes.isEmpty() || textDocument.version !== fixes.getDocumentVersion()) {
-			return [];
-		}
-		return fixes.getOverlapFree().map(createTextEdit);
-	}
-	return [];
-}
-
 function setupDocumentsListeners() {
 	// The documents manager listen for text document create, change
 	// and close on the connection
@@ -741,27 +721,6 @@ function setupDocumentsListeners() {
 				return;
 			}
 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-		});
-	});
-
-	documents.onWillSaveWaitUntil((event) => {
-		if (event.reason === TextDocumentSaveReason.AfterDelay) {
-			return [];
-		}
-
-		const document = event.document;
-		return resolveSettings(document).then((settings) => {
-			if (!settings.autoFixOnSave) {
-				return [];
-			}
-			// If we validate on save and want to apply fixes on will save
-			// we need to validate the file.
-			if (settings.run === 'onSave') {
-				// Do not queue this since we want to get the fixes as fast as possible.
-				return validateSingle(document, false).then(() => getFixes(document));
-			} else {
-				return getFixes(document);
-			}
 		});
 	});
 
@@ -819,7 +778,7 @@ connection.onInitialize((_params, _cancel, progress) => {
 					includeText: false
 				}
 			},
-			codeActionProvider: true,
+			codeActionProvider: { codeActionKinds: [ CodeActionKind.QuickFix, CodeActionKind.SourceFixAll, `${CodeActionKind.SourceFixAll}.eslint` ] },
 			executeCommandProvider: {
 				commands: [
 					CommandIds.applySingleFix,
@@ -972,15 +931,13 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 						}
 						const diagnostic = makeDiagnostic(problem);
 						diagnostics.push(diagnostic);
-						if (settings.autoFix) {
-							if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
-								const rule = cli.getRules().get(problem.ruleId);
-								if (RuleData.hasMetaType(rule) && fixTypes.has(rule.meta.type)) {
-									recordCodeAction(document, diagnostic, problem);
-								}
-							} else {
+						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
+							const rule = cli.getRules().get(problem.ruleId);
+							if (RuleData.hasMetaType(rule) && fixTypes.has(rule.meta.type)) {
 								recordCodeAction(document, diagnostic, problem);
 							}
+						} else {
+							recordCodeAction(document, diagnostic, problem);
 						}
 					}
 				});
@@ -1371,6 +1328,8 @@ namespace CommandParams {
 }
 
 const changes = new Changes();
+const ESLintSourceFixAll: string = `${CodeActionKind.SourceFixAll}.eslint`;
+
 messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	const result: CodeActionResult = new CodeActionResult();
 	const uri = params.textDocument.uri;
@@ -1420,16 +1379,18 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	return resolveSettings(textDocument).then((settings) => {
-		if (params.context.only !== undefined && settings.codeActionOnSave) {
-			result.fixAll.push(createCodeAction(
-				`Fix all ESLint auto-fixable problems`,
-				params.context.only[0],
-				CommandIds.applyAllFixes,
-				CommandParams.create(textDocument)
-			));
+		if (params.context.only !== undefined && params.context.only.length > 0) {
+			const only = params.context.only[0];
+			if (((only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave) || only === CodeActionKind.Source) {
+				result.fixAll.push(createCodeAction(
+					`Fix all ESLint auto-fixable problems`,
+					ESLintSourceFixAll,
+					CommandIds.applyAllFixes,
+					CommandParams.create(textDocument)
+				));
+			}
 			return result.all();
 		}
-
 
 		const fixes = new Fixes(problems);
 		if (fixes.isEmpty()) {
