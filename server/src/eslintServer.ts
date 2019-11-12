@@ -222,7 +222,7 @@ namespace CLIEngine {
 }
 
 interface CLIEngineConstructor {
-	new (options: CLIOptions): CLIEngine;
+	new(options: CLIOptions): CLIEngine;
 }
 
 interface ESLintModule {
@@ -232,7 +232,7 @@ interface ESLintModule {
 declare const __webpack_require__: typeof require;
 declare const __non_webpack_require__: typeof require;
 function loadNodeModule<T>(moduleName: string): T | undefined {
-	const r =  typeof __webpack_require__ === 'function' ? __non_webpack_require__ : require;
+	const r = typeof __webpack_require__ === 'function' ? __non_webpack_require__ : require;
 	try {
 		return r(moduleName);
 	} catch (err) {
@@ -561,8 +561,8 @@ namespace Thenable {
 class BufferedMessageQueue {
 
 	private queue: Message<any, any>[];
-	private requestHandlers: Map<string, {handler: RequestHandler<any, any, any>, versionProvider?: VersionProvider<any>}>;
-	private notificationHandlers: Map<string, {handler: NotificationHandler<any>, versionProvider?: VersionProvider<any>}>;
+	private requestHandlers: Map<string, { handler: RequestHandler<any, any, any>, versionProvider?: VersionProvider<any> }>;
+	private notificationHandlers: Map<string, { handler: NotificationHandler<any>, versionProvider?: VersionProvider<any> }>;
 	private timer: NodeJS.Immediate | undefined;
 
 	constructor(private connection: IConnection) {
@@ -696,7 +696,7 @@ function setupDocumentsListeners() {
 					? { scheme: uri.scheme, pattern: uri.fsPath.replace(/\\/g, '/') }
 					: { scheme: uri.scheme, pattern: uri.path };
 
-				const options: DocumentFormattingRegistrationOptions = { documentSelector: [ filter ] };
+				const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
 				if (!isFile) {
 					formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
 				} else {
@@ -778,7 +778,7 @@ connection.onInitialize((_params, _cancel, progress) => {
 					includeText: false
 				}
 			},
-			codeActionProvider: { codeActionKinds: [ CodeActionKind.QuickFix, CodeActionKind.SourceFixAll, `${CodeActionKind.SourceFixAll}.eslint` ] },
+			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.SourceFixAll, `${CodeActionKind.SourceFixAll}.eslint`] },
 			executeCommandProvider: {
 				commands: [
 					CommandIds.applySingleFix,
@@ -1142,7 +1142,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 });
 
 class Fixes {
-	constructor (private edits: Map<string, Problem>) {
+	constructor(private edits: Map<string, Problem>) {
 	}
 
 	public static overlaps(lastEdit: FixableProblem | undefined, newEdit: FixableProblem): boolean {
@@ -1162,7 +1162,7 @@ class Fixes {
 
 	public getScoped(diagnostics: Diagnostic[]): Problem[] {
 		const result: Problem[] = [];
-		for(let diagnostic of diagnostics) {
+		for (let diagnostic of diagnostics) {
 			const key = computeKey(diagnostic);
 			const editInfo = this.edits.get(key);
 			if (editInfo) {
@@ -1407,7 +1407,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 			if (Problem.isFixable(editInfo)) {
 				const workspaceChange = new WorkspaceChange();
-				workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createTextEdit(editInfo));
+				workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createTextEdit(editInfo));
 				changes.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
 				const action = createCodeAction(
 					editInfo.label,
@@ -1422,12 +1422,12 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			if (settings.codeAction.disableRuleComment.enable) {
 				let workspaceChange = new WorkspaceChange();
 				if (settings.codeAction.disableRuleComment.location === 'sameLine') {
-					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableSameLineTextEdit(editInfo));
+					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableSameLineTextEdit(editInfo));
 				} else {
 					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
 					const matches = /^([ \t]*)/.exec(lineText);
 					const indentationText = matches !== null && matches.length > 0 ? matches[1] : '';
-					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableLineTextEdit(editInfo, indentationText));
+					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableLineTextEdit(editInfo, indentationText));
 				}
 				changes.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
 				result.get(ruleId).disable = createCodeAction(
@@ -1439,7 +1439,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 				if (result.get(ruleId).disableFile === undefined) {
 					workspaceChange = new WorkspaceChange();
-					workspaceChange.getTextEditChange({uri, version: documentVersion}).add(createDisableFileTextEdit(editInfo));
+					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableFileTextEdit(editInfo));
 					changes.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
 					result.get(ruleId).disableFile = createCodeAction(
 						`Disable ${ruleId} for the entire file`,
@@ -1479,7 +1479,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			sameProblems.forEach((same, ruleId) => {
 				if (same.length > 1) {
 					const sameFixes: WorkspaceChange = new WorkspaceChange();
-					const sameTextChange = sameFixes.getTextEditChange({uri, version: documentVersion});
+					const sameTextChange = sameFixes.getTextEditChange({ uri, version: documentVersion });
 					same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
 					changes.set(CommandIds.applySameFixes, sameFixes);
 					result.get(ruleId).fixAll = createCodeAction(
@@ -1541,7 +1541,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkForma
 messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 	let workspaceChange: WorkspaceChange | undefined;
 	const commandParams: CommandParams = params.arguments![0];
-	if (params.command === CommandIds.applyAllFixes ) {
+	if (params.command === CommandIds.applyAllFixes) {
 		const edits = await computeAllFixes(commandParams);
 		if (edits !== undefined) {
 			workspaceChange = new WorkspaceChange();
