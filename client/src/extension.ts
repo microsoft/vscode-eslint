@@ -8,7 +8,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
-	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget
+	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget,
+	env as Env
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -16,13 +17,12 @@ import {
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
 	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder
+	WorkspaceFolder,
 } from 'vscode-languageclient';
 
 import { findEslint } from './utils';
 import { TaskProvider } from './tasks';
 import { WorkspaceConfiguration } from 'vscode';
-import { env } from 'vscode';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -595,11 +595,20 @@ function realActivate(context: ExtensionContext): void {
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	// serverModule
-	let serverModule = context.asAbsolutePath(path.join('server', 'out', 'eslintServer.js'));
-	let runtime = Workspace.getConfiguration('eslint').get('runtime', undefined);
+	const serverModule = context.asAbsolutePath(path.join('server', 'out', 'eslintServer.js'));
+	const eslintConfig = Workspace.getConfiguration('eslint');
+	const runtime = eslintConfig.get('runtime', undefined);
+	const debug = eslintConfig.get('debug');
+
+	let env: { [key: string]: string | number | boolean } | undefined;
+	if (debug) {
+		env = {
+			DEBUG: 'eslint:*,-eslint:code-path'
+		};
+	}
 	let serverOptions: ServerOptions = {
-		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd() } },
-		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ['--nolazy', '--inspect=6011'], cwd: process.cwd() } }
+		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd(), env } },
+		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ['--nolazy', '--inspect=6011'], cwd: process.cwd(), env } }
 	};
 
 	let defaultErrorHandler: ErrorHandler;
@@ -747,7 +756,7 @@ function realActivate(context: ExtensionContext): void {
 										if (selected === undefined) {
 											return;
 										}
-										env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint/blob/master/README.md'));
+										Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint/blob/master/README.md'));
 									});
 								} catch (error) {
 									client.error(error.message ?? 'Unknown error', error);

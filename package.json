@@ -213,6 +213,12 @@
 					"default": null,
 					"description": "The location of the node binary to run ESLint under."
 				},
+				"eslint.debug": {
+					"scope": "window",
+					"type": "boolean",
+					"default": false,
+					"description": "Enables ESLint debug mode (same as --debug on the command line)"
+				},
 				"eslint.codeAction.disableRuleComment": {
 					"scope": "resource",
 					"type": "object",
