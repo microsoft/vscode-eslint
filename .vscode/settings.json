@@ -17,7 +17,6 @@
 	"eslint.validate": [
 		"typescript"
 	],
-	"files.autoSave": "off",
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
 	},
