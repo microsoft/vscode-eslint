@@ -51,6 +51,7 @@ namespace ValidateItem {
 interface DirectoryItem {
 	directory: string;
 	changeProcessCWD?: boolean;
+	'!cwd'?: boolean;
 }
 
 namespace DirectoryItem {
@@ -373,6 +374,8 @@ class Migration {
 	private autoFixOnSave: MigrationData<boolean>
 	private validate: MigrationData<(ValidateItem | string)[]>;
 
+	private workingDirectories: MigrationData<(string | DirectoryItem)[]>;
+
 	private didChangeConfiguration: (() => void) | undefined;
 
 	constructor(resource: Uri) {
@@ -382,12 +385,14 @@ class Migration {
 		this.codeActionOnSave = MigrationData.create(this.editorConfig.inspect<CodeActionsOnSave>('codeActionsOnSave'));
 		this.autoFixOnSave = MigrationData.create(this.eslintConfig.inspect<boolean>('autoFixOnSave'));
 		this.validate = MigrationData.create(this.eslintConfig.inspect<(ValidateItem | string)[]>('validate'));
+		this.workingDirectories = MigrationData.create(this.eslintConfig.inspect<(string | DirectoryItem)[]>('workingDirectories'));
 		this.languageSpecificSettings = new Map();
 	}
 
 	public record(): void {
 		this.recordAutoFixOnSave();
 		this.recordValidate();
+		this.recordWorkingDirectories();
 	}
 
 	public captureDidChangeSetting(func: () => void): void {
@@ -466,8 +471,37 @@ class Migration {
 		record(this.validate.workspaceFolder, (language) => getCodeActionsOnSave(language).workspaceFolder);
 	}
 
+	private recordWorkingDirectories(): void {
+		function record(this: void, elem: MigrationElement<(string | DirectoryItem)[]>): void {
+			if (elem.value === undefined || !Array.isArray(elem.value)) {
+				return;
+			}
+			for (let i = 0; i < elem.value.length; i++) {
+				let item = elem.value[i];
+				if (typeof item === 'string') {
+					continue;
+				}
+				if (item['!cwd'] !== undefined) {
+					continue;
+				}
+				if (item.changeProcessCWD !== undefined) {
+					item['!cwd'] = !item.changeProcessCWD;
+					item.changeProcessCWD = undefined;
+				}
+			}
+		}
+
+		record(this.workingDirectories.global);
+		record(this.workingDirectories.workspace);
+		record(this.workingDirectories.workspaceFolder);
+	}
+
 	public needsUpdate(): boolean {
-		if (MigrationData.needsUpdate(this.autoFixOnSave) || MigrationData.needsUpdate(this.validate) || MigrationData.needsUpdate(this.codeActionOnSave)) {
+		if (MigrationData.needsUpdate(this.autoFixOnSave) ||
+			MigrationData.needsUpdate(this.validate) ||
+			MigrationData.needsUpdate(this.codeActionOnSave) ||
+			MigrationData.needsUpdate(this.workingDirectories)
+		) {
 			return true;
 		}
 		for (let value of this.languageSpecificSettings.values()) {
