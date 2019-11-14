@@ -778,7 +778,7 @@ connection.onInitialize((_params, _cancel, progress) => {
 					includeText: false
 				}
 			},
-			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.SourceFixAll, `${CodeActionKind.SourceFixAll}.eslint`] },
+			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
 			executeCommandProvider: {
 				commands: [
 					CommandIds.applySingleFix,
