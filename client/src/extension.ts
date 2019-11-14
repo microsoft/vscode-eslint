@@ -20,7 +20,7 @@ import {
 	WorkspaceFolder,
 } from 'vscode-languageclient';
 
-import { findEslint } from './utils';
+import { findEslint, glob2RegExp, toOSPath } from './utils';
 import { TaskProvider } from './tasks';
 import { WorkspaceConfiguration } from 'vscode';
 
@@ -833,6 +833,7 @@ function realActivate(context: ExtensionContext): void {
 									changeProcessCWD = !!entry.changeProcessCWD;
 								}
 								if (directory) {
+									directory = toOSPath(directory);
 									if (path.isAbsolute(directory)) {
 										directory = directory;
 									}
@@ -843,15 +844,23 @@ function realActivate(context: ExtensionContext): void {
 										directory = undefined;
 									}
 									let filePath = document.uri.scheme === 'file' ? document.uri.fsPath : undefined;
-									if (filePath && directory && filePath.startsWith(directory)) {
-										if (workingDirectory) {
-											if (workingDirectory.directory.length < directory.length) {
-												workingDirectory.directory = directory;
-												workingDirectory.changeProcessCWD = changeProcessCWD;
+									if (filePath !== undefined) {
+										const regExp: RegExp | undefined = directory !== undefined
+											? new RegExp(glob2RegExp(directory))
+											: undefined;
+										if (regExp !== undefined) {
+											const match = regExp.exec(filePath);
+											if (match !== null && match.length > 0) {
+												directory = match[0];
+												if (workingDirectory) {
+													if (workingDirectory.directory.length < directory.length) {
+														workingDirectory.directory = directory;
+														workingDirectory.changeProcessCWD = changeProcessCWD;
+													}
+												} else {
+													workingDirectory = { directory, changeProcessCWD };
+												}
 											}
-										}
-										else {
-											workingDirectory = { directory, changeProcessCWD };
 										}
 									}
 								}

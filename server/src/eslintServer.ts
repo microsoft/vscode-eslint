@@ -894,9 +894,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 		if (file) {
 			if (settings.workingDirectory) {
 				newOptions.cwd = settings.workingDirectory.directory;
-				if (settings.workingDirectory.changeProcessCWD) {
-					process.chdir(settings.workingDirectory.directory);
-				}
+				process.chdir(settings.workingDirectory.directory);
 			} else if (settings.workspaceFolder) {
 				const workspaceFolderUri = URI.parse(settings.workspaceFolder.uri);
 				if (workspaceFolderUri.scheme === 'file') {
