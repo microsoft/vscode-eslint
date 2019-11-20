@@ -111,13 +111,13 @@ type RunValues = 'onType' | 'onSave';
 
 interface DirectoryItem {
 	directory: string;
-	changeProcessCWD?: boolean;
+	'!cwd'?: boolean;
 }
 
 namespace DirectoryItem {
 	export function is(item: any): item is DirectoryItem {
 		const candidate = item as DirectoryItem;
-		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate.changeProcessCWD) || candidate.changeProcessCWD === undefined);
+		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate['!cwd']) || candidate['!cwd'] === undefined);
 	}
 }
 
@@ -888,32 +888,8 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	const content = document.getText();
 	const uri = document.uri;
 	const file = getFilePath(document);
-	const cwd = process.cwd();
-
-	try {
-		if (file) {
-			if (settings.workingDirectory) {
-				newOptions.cwd = settings.workingDirectory.directory;
-				process.chdir(settings.workingDirectory.directory);
-			} else if (settings.workspaceFolder) {
-				const workspaceFolderUri = URI.parse(settings.workspaceFolder.uri);
-				if (workspaceFolderUri.scheme === 'file') {
-					const fsPath = getFileSystemPath(workspaceFolderUri);
-					newOptions.cwd = fsPath;
-					process.chdir(fsPath);
-				}
-			} else if (!settings.workspaceFolder && !isUNC(file)) {
-				const directory = path.dirname(file);
-				if (directory) {
-					if (path.isAbsolute(directory)) {
-						newOptions.cwd = directory;
-					}
-				}
-			}
-		}
-
-		const cli = new settings.library.CLIEngine(newOptions);
-		// Clean previously computed code actions.
+	
+	withCLIEngine((cli) => {
 		codeActions.delete(uri);
 		const report: ESLintReport = cli.executeOnText(content, file, true);
 		const diagnostics: Diagnostic[] = [];
@@ -954,11 +930,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 				}
 			});
 		}
-	} finally {
-		if (cwd !== process.cwd()) {
-			process.chdir(cwd);
-		}
-	}
+	}, file, settings);
 }
 
 function withCLIEngine<T>(func: (cli: CLIEngine) => T, file: string | undefined, settings: TextDocumentSettings & { library: ESLintModule }, options?: CLIOptions): T {
@@ -971,7 +943,7 @@ function withCLIEngine<T>(func: (cli: CLIEngine) => T, file: string | undefined,
 		if (file) {
 			if (settings.workingDirectory) {
 				newOptions.cwd = settings.workingDirectory.directory;
-				if (settings.workingDirectory.changeProcessCWD) {
+				if (settings.workingDirectory['!cwd'] !== true) {
 					process.chdir(settings.workingDirectory.directory);
 				}
 			} else if (settings.workspaceFolder) {

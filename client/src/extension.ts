@@ -50,14 +50,17 @@ namespace ValidateItem {
 
 interface DirectoryItem {
 	directory: string;
-	changeProcessCWD?: boolean;
 	'!cwd'?: boolean;
+}
+
+interface LegacyDirectoryItem extends DirectoryItem {
+	changeProcessCWD?: boolean;
 }
 
 namespace DirectoryItem {
 	export function is(item: any): item is DirectoryItem {
 		let candidate = item as DirectoryItem;
-		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate.changeProcessCWD) || candidate.changeProcessCWD === void 0);
+		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate['!cwd']) || candidate['!cwd'] === undefined);
 	}
 }
 
@@ -484,9 +487,12 @@ class Migration {
 				if (item['!cwd'] !== undefined) {
 					continue;
 				}
-				if (item.changeProcessCWD !== undefined) {
-					item['!cwd'] = !item.changeProcessCWD;
-					item.changeProcessCWD = undefined;
+				const legacy: LegacyDirectoryItem = item;
+				if (legacy.changeProcessCWD !== undefined) {
+					if (legacy.changeProcessCWD === false) {
+						item['!cwd'] = true;
+					}
+					legacy.changeProcessCWD = undefined;
 				}
 			}
 		}
@@ -854,17 +860,17 @@ function realActivate(context: ExtensionContext): void {
 						}
 						let workingDirectories = config.get<(string | DirectoryItem)[] | undefined>('workingDirectories', undefined);
 						if (Array.isArray(workingDirectories)) {
-							let workingDirectory = undefined;
+							let workingDirectory: DirectoryItem | undefined = undefined;
 							let workspaceFolderPath = workspaceFolder && workspaceFolder.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : undefined;
 							for (let entry of workingDirectories) {
 								let directory;
-								let changeProcessCWD = false;
+								let noCWD = false;
 								if (Is.string(entry)) {
 									directory = entry;
 								}
 								else if (DirectoryItem.is(entry)) {
 									directory = entry.directory;
-									changeProcessCWD = !!entry.changeProcessCWD;
+									noCWD = entry['!cwd'] ?? false;
 								}
 								if (directory) {
 									directory = toOSPath(directory);
@@ -889,10 +895,10 @@ function realActivate(context: ExtensionContext): void {
 												if (workingDirectory) {
 													if (workingDirectory.directory.length < directory.length) {
 														workingDirectory.directory = directory;
-														workingDirectory.changeProcessCWD = changeProcessCWD;
+														workingDirectory['!cwd'] = noCWD;
 													}
 												} else {
-													workingDirectory = { directory, changeProcessCWD };
+													workingDirectory = { directory, '!cwd': noCWD };
 												}
 											}
 										}
