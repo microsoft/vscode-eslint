@@ -8,7 +8,7 @@
 	},
 	"eslint.run": "onType",
 	"eslint.workingDirectories": [
-		{ "directory": "./build", "changeProcessCWD": false }
+		"./build"
 	],
 	"eslint.packageManager": "yarn",
 	"eslint.trace.server": {
