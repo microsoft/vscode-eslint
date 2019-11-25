@@ -1185,6 +1185,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 	ruleDocData.urls.clear();
 	noConfigReported.clear();
 	missingModuleReported.clear();
+	document2Settings.clear(); // config files can change plugins and parser.
 	params.changes.forEach((change) => {
 		const fsPath = getFilePath(change.uri);
 		if (fsPath === undefined || fsPath.length === 0 || isUNC(fsPath)) {
