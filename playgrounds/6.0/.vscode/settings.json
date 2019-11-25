@@ -18,15 +18,13 @@
 	"files.autoSave": "off",
 	"editor.formatOnSave": false,
 	"eslint.validate": [
-		"javascript",
-		"html",
-		"vue"
+		"javascript"
 	]
 	// , "languageServerExample.trace.server": "messages"
 	,
 	"languageServerExample.maxNumberOfProblems": 1,
 	"testbed.trace.server": "off",
-	"eslint.alwaysShowStatus": false,
+	"eslint.alwaysShowStatus": true,
 	"[javascript]": {
 		"editor.formatOnSave": false
 	},

@@ -134,8 +134,14 @@ interface CodeActionSettings {
 type PackageManagers = 'npm' | 'yarn' | 'pnpm';
 
 type ESLintOptions = object & { fixTypes?: string[] };
+enum Validate {
+	on = 'on',
+	off = 'off',
+	probe = 'probe'
+}
+
 interface TextDocumentSettings {
-	validate: boolean;
+	validate: Validate;
 	packageManager: PackageManagers;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: boolean;
@@ -208,11 +214,29 @@ namespace RuleData {
 	}
 }
 
+interface ESLintConfig {
+ 	env: Record<string, boolean>;
+	extends:  string | string[];
+ 	// globals: Record<string, GlobalConf>;
+ 	ignorePatterns: string | string[];
+ 	noInlineConfig: boolean;
+ 	// overrides: OverrideConfigData[];
+ 	parser: string | null;
+ 	// parserOptions: ParserOptions;
+ 	plugins: string[];
+ 	processor: string;
+ 	reportUnusedDisableDirectives: boolean | undefined;
+ 	root: boolean;
+ 	// rules: Record<string, RuleConf>;
+ 	settings: object;
+}
+
 interface CLIEngine {
 	executeOnText(content: string, file?: string, warn?: boolean): ESLintReport;
 	isPathIgnored(path: string): boolean;
 	// This is only available from v4.15.0 forward
 	getRules?(): Map<string, RuleData>;
+	getConfigForFile?(path: string): ESLintConfig;
 }
 
 namespace CLIEngine {
@@ -461,6 +485,26 @@ function globalPathGet(packageManager: PackageManagers): string | undefined {
 	return undefined;
 }
 
+const languageId2DefaultExt: Map<string, string> = new Map([
+	['typescript', 'ts'],
+	['typescriptreact', 'tsx'],
+	['html', 'html'],
+	['vue', 'vue']
+]);
+
+const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
+	const result = new Map<string, RegExp[]>();
+	const typescript = /\/@typescript-eslint\/parser\//;
+	result.set('typescript', [typescript]);
+	result.set('typescriptreact', [typescript]);
+	return result;
+}();
+
+const languageId2PluginName: Map<string, string> = new Map([
+	['html', 'html'],
+	['vue', 'vue']
+]);
+
 const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 const document2Settings: Map<string, Promise<TextDocumentSettings>> = new Map<string, Promise<TextDocumentSettings>>();
 
@@ -494,28 +538,79 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 		} else {
 			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
 		}
-		return promise.then((path) => {
-			let library = path2Library.get(path);
+
+		const validateOn = settings.validate === Validate.on;
+		return promise.then((libraryPath) => {
+			let library = path2Library.get(libraryPath);
 			if (library === undefined) {
-				library = loadNodeModule(path);
+				library = loadNodeModule(libraryPath);
 				if (library === undefined) {
-					settings.validate = false;
-					connection.console.error(`Failed to load eslint library from ${path}. See output panel for more information.`);
+					settings.validate = Validate.off;
+					if (validateOn) {
+						connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+					}
 				} else if (library.CLIEngine === undefined) {
-					settings.validate = false;
-					connection.console.error(`The eslint library loaded from ${path} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
+					settings.validate = Validate.off;
+					connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
 				} else {
-					connection.console.info(`ESLint library loaded from: ${path}`);
+					connection.console.info(`ESLint library loaded from: ${libraryPath}`);
 					settings.library = library;
-					path2Library.set(path, library);
+					path2Library.set(libraryPath, library);
 				}
 			} else {
 				settings.library = library;
 			}
+			if (settings.validate === Validate.probe && TextDocumentSettings.hasLibrary(settings)) {
+				settings.validate = Validate.off;
+				const uri: URI = URI.parse(document.uri);
+				let filePath = getFilePath(document);
+				if (filePath === undefined && uri.scheme === 'untitled' && settings.workspaceFolder !== undefined) {
+					const ext = languageId2DefaultExt.get(document.languageId);
+					const workspacePath = getFilePath(settings.workspaceFolder.uri);
+					if (workspacePath !== undefined && ext !== undefined) {
+						filePath = path.join(workspacePath, `test${ext}`);
+					}
+				}
+				if (filePath !== undefined) {
+					const parserRegExps = languageId2ParserRegExp.get(document.languageId);
+					const pluginName = languageId2PluginName.get(document.languageId);
+					if (parserRegExps !== undefined || pluginName !== undefined) {
+						const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
+							if (typeof cli.getConfigForFile === 'function') {
+								return cli.getConfigForFile(filePath!);
+							} else {
+								return undefined;
+							}
+						}, filePath, settings);
+						if (eslintConfig !== undefined) {
+							if (eslintConfig.parser !== null && parserRegExps !== undefined) {
+								for (const regExp of parserRegExps) {
+									if (regExp.test(eslintConfig.parser)) {
+										settings.validate = Validate.on;
+										break;
+									}
+								}
+							} else if (Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
+								for (const name of eslintConfig.plugins) {
+									if (name === pluginName) {
+										settings.validate = Validate.on;
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+				if (settings.validate === Validate.off) {
+					// Send event to client that probing failed.
+				}
+			}
 			return settings;
 		}, () => {
-			settings.validate = false;
-			connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
+			settings.validate = Validate.off;
+			if (validateOn) {
+				connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
+			}
 			return settings;
 		});
 	});
@@ -686,7 +781,7 @@ function setupDocumentsListeners() {
 	documents.listen(connection);
 	documents.onDidOpen((event) => {
 		resolveSettings(event.document).then((settings) => {
-			if (!settings.validate || !TextDocumentSettings.hasLibrary(settings)) {
+			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 				return;
 			}
 			if (settings.format) {
@@ -717,7 +812,7 @@ function setupDocumentsListeners() {
 	// A text document has changed. Validate the document according the run setting.
 	documents.onDidChangeContent((event) => {
 		resolveSettings(event.document).then((settings) => {
-			if (!settings.validate || settings.run !== 'onType') {
+			if (settings.validate !== Validate.on|| settings.run !== 'onType') {
 				return;
 			}
 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
@@ -727,7 +822,7 @@ function setupDocumentsListeners() {
 	// A text document has been saved. Validate the document according the run setting.
 	documents.onDidSave((event) => {
 		resolveSettings(event.document).then((settings) => {
-			if (!settings.validate || settings.run !== 'onSave') {
+			if (settings.validate !== Validate.on || settings.run !== 'onSave') {
 				return;
 			}
 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
@@ -744,7 +839,7 @@ function setupDocumentsListeners() {
 				unregister.then(disposable => disposable.dispose());
 				formatterRegistrations.delete(event.document.uri);
 			}
-			if (settings.validate) {
+			if (settings.validate === Validate.on) {
 				connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 			}
 		});
@@ -820,7 +915,7 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 		return Promise.resolve(undefined);
 	}
 	return resolveSettings(document).then((settings) => {
-		if (!settings.validate || !TextDocumentSettings.hasLibrary(settings)) {
+		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 			return;
 		}
 		try {
@@ -888,7 +983,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	const content = document.getText();
 	const uri = document.uri;
 	const file = getFilePath(document);
-	
+
 	withCLIEngine((cli) => {
 		codeActions.delete(uri);
 		const report: ESLintReport = cli.executeOnText(content, file, true);
@@ -1493,7 +1588,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkForma
 	}
 
 	return resolveSettings(textDocument).then((settings) => {
-		if (!settings.validate || !TextDocumentSettings.hasLibrary(settings) || (checkFormat && !settings.format)) {
+		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings) || (checkFormat && !settings.format)) {
 			return [];
 		}
 		const filePath = getFilePath(textDocument);

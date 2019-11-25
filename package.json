@@ -169,11 +169,11 @@
 								"properties": {
 									"language": {
 										"type": "string",
-										"description": "The language id to be validated by ESLint"
+										"description": "The language id to be validated by ESLint."
 									},
 									"autoFix": {
 										"type": "boolean",
-										"description": "Whether auto fixes are provided for the language"
+										"description": "Whether auto fixes are provided for the language."
 									}
 								}
 							}
@@ -183,7 +183,21 @@
 						"javascript",
 						"javascriptreact"
 					],
-					"description": "An array of language ids which should be validated by ESLint"
+					"description": "An array of language ids which should be validated by ESLint."
+				},
+				"eslint.probe": {
+					"scope": "resource",
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [
+						"typescript",
+						"typescriptreact",
+						"html",
+						"vue"
+					],
+					"description": "An array of language ids for which the extension should probe if a parser is installed."
 				},
 				"eslint.provideLintTask": {
 					"scope": "resource",

@@ -76,8 +76,14 @@ interface CodeActionSettings {
 	};
 }
 
+enum Validate {
+	on = 'on',
+	off = 'off',
+	probe = 'probe'
+}
+
 interface TextDocumentSettings {
-	validate: boolean;
+	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
 	codeAction: CodeActionSettings;
 	codeActionOnSave: boolean;
@@ -255,20 +261,30 @@ function createDefaultConfiguration(): void {
 let dummyCommands: Disposable[] | undefined;
 
 const defaultLanguages = ['javascript', 'javascriptreact'];
-function shouldBeValidated(textDocument: TextDocument): boolean {
+
+function computeValidate(textDocument: TextDocument): Validate {
 	const config = Workspace.getConfiguration('eslint', textDocument.uri);
 	if (!config.get('enable', true)) {
-		return false;
+		return Validate.off;
 	}
+	const languageId = textDocument.languageId;
 	const validate = config.get<(ValidateItem | string)[]>('validate', defaultLanguages);
 	for (const item of validate) {
-		if (Is.string(item) && item === textDocument.languageId) {
-			return true;
-		} else if (ValidateItem.is(item) && item.language === textDocument.languageId) {
-			return true;
+		if (Is.string(item) && item === languageId) {
+			return Validate.on;
+		} else if (ValidateItem.is(item) && item.language === languageId) {
+			return Validate.on;
 		}
 	}
-	return false;
+	const probe: string[] | undefined = config.get<string[]>('probe');
+	if (Array.isArray(probe)) {
+		for (const item of probe) {
+			if (item === languageId) {
+				return Validate.probe;
+			}
+		}
+	}
+	return Validate.off;
 }
 
 let taskProvider: TaskProvider;
@@ -277,7 +293,7 @@ export function activate(context: ExtensionContext) {
 		if (activated) {
 			return;
 		}
-		if (shouldBeValidated(textDocument)) {
+		if (computeValidate(textDocument) !== Validate.off) {
 			openListener.dispose();
 			configurationListener.dispose();
 			activated = true;
@@ -289,7 +305,7 @@ export function activate(context: ExtensionContext) {
 			return;
 		}
 		for (const textDocument of Workspace.textDocuments) {
-			if (shouldBeValidated(textDocument)) {
+			if (computeValidate(textDocument) !== Validate.off) {
 				openListener.dispose();
 				configurationListener.dispose();
 				activated = true;
@@ -667,13 +683,13 @@ function realActivate(context: ExtensionContext): void {
 
 	Workspace.onDidChangeConfiguration(() => {
 		for (const textDocument of syncedDocuments.values()) {
-			if (!shouldBeValidated(textDocument)) {
+			if (computeValidate(textDocument) === Validate.off) {
 				syncedDocuments.delete(textDocument.uri.toString());
 				client.sendNotification(DidCloseTextDocumentNotification.type, client.code2ProtocolConverter.asCloseTextDocumentParams(textDocument));
 			}
 		}
 		for (const textDocument of Workspace.textDocuments) {
-			if (!syncedDocuments.has(textDocument.uri.toString()) && shouldBeValidated(textDocument)) {
+			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
 				client.sendNotification(DidOpenTextDocumentNotification.type, client.code2ProtocolConverter.asOpenTextDocumentParams(textDocument));
 				syncedDocuments.set(textDocument.uri.toString(), textDocument);
 			}
@@ -714,7 +730,7 @@ function realActivate(context: ExtensionContext): void {
 		},
 		middleware: {
 			didOpen: (document, next) => {
-				if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || shouldBeValidated(document)) {
+				if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
 					next(document);
 					syncedDocuments.set(document.uri.toString(), document);
 					return;
@@ -820,7 +836,7 @@ function realActivate(context: ExtensionContext): void {
 						}
 						const config = Workspace.getConfiguration('eslint', resource);
 						const settings: TextDocumentSettings = {
-							validate: false,
+							validate: Validate.off,
 							packageManager: config.get('packageManager', 'npm'),
 							codeActionOnSave: false,
 							format: false,
@@ -842,19 +858,9 @@ function realActivate(context: ExtensionContext): void {
 							continue;
 						}
 						if (config.get('enabled', true)) {
-							const validateItems = config.get<(ValidateItem | string)[]>('validate', ['javascript', 'javascriptreact']);
-							for (const item of validateItems) {
-								if (Is.string(item) && item === document.languageId) {
-									settings.validate = true;
-									break;
-								}
-								else if (ValidateItem.is(item) && item.language === document.languageId) {
-									settings.validate = true;
-									break;
-								}
-							}
+							settings.validate = computeValidate(document);
 						}
-						if (settings.validate) {
+						if (settings.validate !== Validate.off) {
 							settings.format = !!config.get('format.enable', false);
 							settings.codeActionOnSave = readCodeActionsOnSaveSetting(document);
 						}
