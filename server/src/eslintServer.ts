@@ -13,7 +13,8 @@ import {
 	Command, WorkspaceChange,
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit
+	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
+	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit
 } from 'vscode-languageserver';
 
 import {
@@ -100,11 +101,18 @@ interface OpenESLintDocParams {
 }
 
 interface OpenESLintDocResult {
-
 }
 
 namespace OpenESLintDocRequest {
 	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void, void>('eslint/openDoc');
+}
+
+interface ProbeFailedParams {
+	textDocument: TextDocumentIdentifier;
+}
+
+namespace ProbleFailedRequest {
+	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probleFailed');
 }
 
 type RunValues = 'onType' | 'onSave';
@@ -602,7 +610,8 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					}
 				}
 				if (settings.validate === Validate.off) {
-					// Send event to client that probing failed.
+					const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
+					connection.sendRequest(ProbleFailedRequest.type, params);
 				}
 			}
 			return settings;

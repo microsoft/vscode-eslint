@@ -152,6 +152,14 @@ namespace OpenESLintDocRequest {
 	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void, void>('eslint/openDoc');
 }
 
+interface ProbeFailedParams {
+	textDocument: TextDocumentIdentifier;
+}
+
+namespace ProbleFailedRequest {
+	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probleFailed');
+}
+
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
 
 
@@ -261,6 +269,7 @@ function createDefaultConfiguration(): void {
 let dummyCommands: Disposable[] | undefined;
 
 const defaultLanguages = ['javascript', 'javascriptreact'];
+const probeFailed: Set<string> = new Set();
 
 function computeValidate(textDocument: TextDocument): Validate {
 	const config = Workspace.getConfiguration('eslint', textDocument.uri);
@@ -275,6 +284,10 @@ function computeValidate(textDocument: TextDocument): Validate {
 		} else if (ValidateItem.is(item) && item.language === languageId) {
 			return Validate.on;
 		}
+	}
+	const uri: string = textDocument.uri.toString();
+	if (probeFailed.has(uri)) {
+		return Validate.off;
 	}
 	const probe: string[] | undefined = config.get<string[]>('probe');
 	if (Array.isArray(probe)) {
@@ -682,6 +695,7 @@ function realActivate(context: ExtensionContext): void {
 	const syncedDocuments: Map<string, TextDocument> = new Map<string, TextDocument>();
 
 	Workspace.onDidChangeConfiguration(() => {
+		probeFailed.clear();
 		for (const textDocument of syncedDocuments.values()) {
 			if (computeValidate(textDocument) === Validate.off) {
 				syncedDocuments.delete(textDocument.uri.toString());
@@ -788,6 +802,10 @@ function realActivate(context: ExtensionContext): void {
 				return next(document, range, newContext, token);
 			},
 			workspace: {
+				didChangeWatchedFile: (event, next) => {
+					probeFailed.clear();
+					next(event);
+				},
 				didChangeConfiguration: (sections, next) => {
 					if (migration !== undefined && (sections === undefined || sections.length === 0)) {
 						migration.captureDidChangeSetting(() => {
@@ -1057,6 +1075,11 @@ function realActivate(context: ExtensionContext): void {
 		client.onRequest(OpenESLintDocRequest.type, (params) => {
 			Commands.executeCommand('vscode.open', Uri.parse(params.url));
 			return {};
+		});
+
+		client.onRequest(ProbleFailedRequest.type, (params) => {
+			probeFailed.add(params.textDocument.uri);
+			client.sendNotification(DidCloseTextDocumentNotification.type, params);
 		});
 	});
 
