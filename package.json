@@ -179,11 +179,7 @@
 							}
 						]
 					},
-					"default": [
-						"javascript",
-						"javascriptreact"
-					],
-					"description": "An array of language ids which should be validated by ESLint."
+					"description": "An array of language ids which should be validated by ESLint. If not installed ESLint will show an error."
 				},
 				"eslint.probe": {
 					"scope": "resource",
@@ -192,12 +188,14 @@
 						"type": "string"
 					},
 					"default": [
+						"javascript",
+						"javascriptreact",
 						"typescript",
 						"typescriptreact",
 						"html",
 						"vue"
 					],
-					"description": "An array of language ids for which the extension should probe if a parser is installed."
+					"description": "An array of language ids for which the extension should probe if support is installed."
 				},
 				"eslint.provideLintTask": {
 					"scope": "resource",

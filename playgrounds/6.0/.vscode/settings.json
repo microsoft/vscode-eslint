@@ -12,14 +12,11 @@
 	],
 	"eslint.packageManager": "yarn",
 	"eslint.trace.server": {
-		"verbosity": "verbose",
+		"verbosity": "off",
 		"format": "text"
 	},
 	"files.autoSave": "off",
 	"editor.formatOnSave": false,
-	"eslint.validate": [
-		"javascript"
-	]
 	// , "languageServerExample.trace.server": "messages"
 	,
 	"languageServerExample.maxNumberOfProblems": 1,

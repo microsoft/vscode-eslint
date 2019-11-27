@@ -268,21 +268,21 @@ function createDefaultConfiguration(): void {
 
 let dummyCommands: Disposable[] | undefined;
 
-const defaultLanguages = ['javascript', 'javascriptreact'];
 const probeFailed: Set<string> = new Set();
-
 function computeValidate(textDocument: TextDocument): Validate {
 	const config = Workspace.getConfiguration('eslint', textDocument.uri);
 	if (!config.get('enable', true)) {
 		return Validate.off;
 	}
 	const languageId = textDocument.languageId;
-	const validate = config.get<(ValidateItem | string)[]>('validate', defaultLanguages);
-	for (const item of validate) {
-		if (Is.string(item) && item === languageId) {
-			return Validate.on;
-		} else if (ValidateItem.is(item) && item.language === languageId) {
-			return Validate.on;
+	const validate = config.get<(ValidateItem | string)[]>('validate');
+	if (Array.isArray(validate)) {
+		for (const item of validate) {
+			if (Is.string(item) && item === languageId) {
+				return Validate.on;
+			} else if (ValidateItem.is(item) && item.language === languageId) {
+				return Validate.on;
+			}
 		}
 	}
 	const uri: string = textDocument.uri.toString();
@@ -1079,7 +1079,12 @@ function realActivate(context: ExtensionContext): void {
 
 		client.onRequest(ProbleFailedRequest.type, (params) => {
 			probeFailed.add(params.textDocument.uri);
-			client.sendNotification(DidCloseTextDocumentNotification.type, params);
+			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
+			for (const document of Workspace.textDocuments) {
+				if (document.uri.toString() === params.textDocument.uri) {
+					closeFeature.getProvider(document).send(document);
+				}
+			}
 		});
 	});
 

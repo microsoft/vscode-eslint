@@ -23,6 +23,7 @@ import {
 
 import { URI } from 'vscode-uri';
 import * as path from 'path';
+import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { EOL } from 'os';
 import { stringDiff } from './diff';
@@ -150,6 +151,7 @@ enum Validate {
 
 interface TextDocumentSettings {
 	validate: Validate;
+	silent?: boolean;
 	packageManager: PackageManagers;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: boolean;
@@ -494,6 +496,8 @@ function globalPathGet(packageManager: PackageManagers): string | undefined {
 }
 
 const languageId2DefaultExt: Map<string, string> = new Map([
+	['javascript', 'js'],
+	['javascriptreact', 'jsx'],
 	['typescript', 'ts'],
 	['typescriptreact', 'tsx'],
 	['html', 'html'],
@@ -511,6 +515,10 @@ const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId
 const languageId2PluginName: Map<string, string> = new Map([
 	['html', 'html'],
 	['vue', 'vue']
+]);
+
+const defaultLanguageIds: Set<string> = new Set([
+	'javascript', 'javascriptreact'
 ]);
 
 const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
@@ -547,14 +555,14 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
 		}
 
-		const validateOn = settings.validate === Validate.on;
+		settings.silent = settings.validate === Validate.probe;
 		return promise.then((libraryPath) => {
 			let library = path2Library.get(libraryPath);
 			if (library === undefined) {
 				library = loadNodeModule(libraryPath);
 				if (library === undefined) {
 					settings.validate = Validate.off;
-					if (validateOn) {
+					if (!settings.silent) {
 						connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
 					}
 				} else if (library.CLIEngine === undefined) {
@@ -582,7 +590,9 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				if (filePath !== undefined) {
 					const parserRegExps = languageId2ParserRegExp.get(document.languageId);
 					const pluginName = languageId2PluginName.get(document.languageId);
-					if (parserRegExps !== undefined || pluginName !== undefined) {
+					if (defaultLanguageIds.has(document.languageId)) {
+						settings.validate = Validate.on;
+					} else if (parserRegExps !== undefined || pluginName !== undefined) {
 						const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
 							if (typeof cli.getConfigForFile === 'function') {
 								return cli.getConfigForFile(filePath!);
@@ -617,7 +627,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 			return settings;
 		}, () => {
 			settings.validate = Validate.off;
-			if (validateOn) {
+			if (!settings.silent) {
 				connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
 			}
 			return settings;
@@ -931,15 +941,20 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 			validate(document, settings, publishDiagnostics);
 			connection.sendNotification(StatusNotification.type, { state: Status.ok });
 		} catch (err) {
-			let status = undefined;
-			for (let handler of singleErrorHandlers) {
-				status = handler(err, document, settings.library);
-				if (status) {
-					break;
+			if (!settings.silent) {
+				let status: Status | undefined = undefined;
+				for (let handler of singleErrorHandlers) {
+					status = handler(err, document, settings.library);
+					if (status) {
+						break;
+					}
 				}
+				status = status || Status.error;
+				connection.sendNotification(StatusNotification.type, { state: status });
+			} else {
+				connection.console.info(getMessage(err, document));
+				connection.sendNotification(StatusNotification.type, { state: Status.ok });
 			}
-			status = status || Status.error;
-			connection.sendNotification(StatusNotification.type, { state: status });
 		}
 	});
 }
@@ -1044,25 +1059,26 @@ function withCLIEngine<T>(func: (cli: CLIEngine) => T, file: string | undefined,
 
 	const cwd = process.cwd();
 	try {
-		if (file) {
-			if (settings.workingDirectory) {
-				newOptions.cwd = settings.workingDirectory.directory;
-				if (settings.workingDirectory['!cwd'] !== true) {
-					process.chdir(settings.workingDirectory.directory);
+		if (settings.workingDirectory) {
+			newOptions.cwd = settings.workingDirectory.directory;
+			if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(settings.workingDirectory.directory)) {
+				process.chdir(settings.workingDirectory.directory);
+			}
+		} else if (file && !isUNC(file)) {
+			const directory = path.dirname(file);
+			if (directory) {
+				if (path.isAbsolute(directory) && fs.existsSync(directory)) {
+					newOptions.cwd = directory;
+					process.chdir(directory);
 				}
-			} else if (settings.workspaceFolder) {
-				const workspaceFolderUri = URI.parse(settings.workspaceFolder.uri);
-				if (workspaceFolderUri.scheme === 'file') {
-					const fsPath = getFileSystemPath(workspaceFolderUri);
+			}
+		} else if (settings.workspaceFolder) {
+			const workspaceFolderUri = URI.parse(settings.workspaceFolder.uri);
+			if (workspaceFolderUri.scheme === 'file') {
+				const fsPath = getFileSystemPath(workspaceFolderUri);
+				if (fs.existsSync(fsPath)) {
 					newOptions.cwd = fsPath;
 					process.chdir(fsPath);
-				}
-			} else if (!settings.workspaceFolder && !isUNC(file)) {
-				const directory = path.dirname(file);
-				if (directory) {
-					if (path.isAbsolute(directory)) {
-						newOptions.cwd = directory;
-					}
 				}
 			}
 		}
