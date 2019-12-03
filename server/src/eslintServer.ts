@@ -531,6 +531,9 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 		return resultPromise;
 	}
 	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((settings: TextDocumentSettings) => {
+		if (settings.validate === Validate.off) {
+			return settings;
+		}
 		settings.resolvedGlobalPackageManagerPath = globalPathGet(settings.packageManager);
 		const uri = URI.parse(document.uri);
 		let promise: Promise<string>;
