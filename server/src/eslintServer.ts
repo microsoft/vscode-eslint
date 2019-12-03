@@ -605,8 +605,9 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 						}, filePath, settings);
 						if (eslintConfig !== undefined) {
 							if (eslintConfig.parser !== null && parserRegExps !== undefined) {
+								const parser = process.platform === 'win32' ? eslintConfig.parser.replace(/\\/g, '/') : eslintConfig.parser;
 								for (const regExp of parserRegExps) {
-									if (regExp.test(eslintConfig.parser)) {
+									if (regExp.test(parser)) {
 										settings.validate = Validate.on;
 										break;
 									}
