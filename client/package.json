@@ -20,6 +20,6 @@
 		"@types/vscode": "^1.40.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "6.0.0-next.8"
+		"vscode-languageclient": "6.0.0-next.9"
 	}
 }

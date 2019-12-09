@@ -18,5 +18,5 @@ if (!utils.isNullOrEmpty(typeID) || typeID === "") {
 }
 
 if (typeID !== "") {
-	searchParams.typeID= typeID;
+searchParams.typeID= typeID;
 }

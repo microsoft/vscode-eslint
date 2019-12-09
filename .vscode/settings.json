@@ -14,12 +14,10 @@
 	"typescript.tsc.autoDetect": "off",
 	"tslint.enable": false,
 	"eslint.enable": true,
-	"eslint.validate": [
-		"typescript"
-	],
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
 	},
+	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.workingDirectories": [
 		"./client",
 		"./server"

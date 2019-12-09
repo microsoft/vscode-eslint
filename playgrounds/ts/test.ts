@@ -1,3 +1,4 @@
 export function main(): number {
-	return -1;;;;
+	let s = '';
+	return -1;
 }
