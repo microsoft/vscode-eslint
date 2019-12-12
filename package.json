@@ -143,6 +143,18 @@
 							{
 								"type": "object",
 								"properties": {
+									"mode": {
+										"type": "string",
+										"enum": [
+											"auto"
+										]
+									},
+									"default": "auto"
+								}
+							},
+							{
+								"type": "object",
+								"properties": {
 									"directory": {
 										"type": "string",
 										"description": "The working directory to use if a file's path start with this directory."
@@ -150,6 +162,33 @@
 									"changeProcessCWD": {
 										"type": "boolean",
 										"description": "Whether the process's cwd should be changed as well."
+									}
+								},
+								"deprecationMessage": "Use the new !cwd form."
+							},
+							{
+								"type": "object",
+								"properties": {
+									"directory": {
+										"type": "string",
+										"description": "The working directory to use if a file's path start with this directory."
+									},
+									"!cwd": {
+										"type": "boolean",
+										"description": "Set to true if ESLint shouldn't change the working directory."
+									}
+								}
+							},
+							{
+								"type": "object",
+								"properties": {
+									"pattern": {
+										"type": "string",
+										"description": "A globa pattern to match a working directory."
+									},
+									"!cwd": {
+										"type": "boolean",
+										"description": "Set to true if ESLint shouldn't change the working directory."
 									}
 								}
 							}

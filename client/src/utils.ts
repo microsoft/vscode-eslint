@@ -20,209 +20,205 @@ export async function findEslint(rootPath: string): Promise<string> {
 	}
 }
 
-const GLOBSTAR = '**';
-const GLOB_SPLIT = '/';
-const PATH_REGEX = '[/\\\\]';		// any slash or backslash
-const NO_PATH_REGEX = '[^/\\\\]';	// any non-slash and non-backslash
-
-export function glob2RegExp(pattern: string): string {
-	if (!pattern) {
-		return '';
-	}
-
-	let regEx = '';
-
-	// Split up into segments for each slash found
-	const segments = splitGlobAware(pattern, GLOB_SPLIT);
-
-	// Special case where we only have globstars
-	if (segments.every(s => s === GLOBSTAR)) {
-		regEx = '.*';
-	}
-
-	// Build regex over segments
-	else {
-		let previousSegmentWasGlobStar = false;
-		segments.forEach((segment, index) => {
-
-			// Globstar is special
-			if (segment === GLOBSTAR) {
-
-				// if we have more than one globstar after another, just ignore it
-				if (!previousSegmentWasGlobStar) {
-					regEx += starsToRegExp(2);
-					previousSegmentWasGlobStar = true;
-				}
-
-				return;
-			}
-
-			// States
-			let inBraces = false;
-			let braceVal = '';
-
-			let inBrackets = false;
-			let bracketVal = '';
-
-			for (const char of segment) {
-				// Support brace expansion
-				if (char !== '}' && inBraces) {
-					braceVal += char;
-					continue;
-				}
-
-				// Support brackets
-				if (inBrackets && (char !== ']' || !bracketVal) /* ] is literally only allowed as first character in brackets to match it */) {
-					let res: string;
-
-					// range operator
-					if (char === '-') {
-						res = char;
-					}
-
-					// negation operator (only valid on first index in bracket)
-					else if ((char === '^' || char === '!') && !bracketVal) {
-						res = '^';
-					}
-
-					// glob split matching is not allowed within character ranges
-					// see http://man7.org/linux/man-pages/man7/glob.7.html
-					else if (char === GLOB_SPLIT) {
-						res = '';
-					}
-
-					// anything else gets escaped
-					else {
-						res = escapeRegExpCharacters(char);
-					}
-
-					bracketVal += res;
-					continue;
-				}
-
-				switch (char) {
-					case '{':
-						inBraces = true;
-						continue;
-
-					case '[':
-						inBrackets = true;
-						continue;
-
-					case '}':
-						const choices = splitGlobAware(braceVal, ',');
-
-						// Converts {foo,bar} => [foo|bar]
-						const braceRegExp = `(?:${choices.map(c => glob2RegExp(c)).join('|')})`;
-
-						regEx += braceRegExp;
-
-						inBraces = false;
-						braceVal = '';
-
-						break;
-
-					case ']':
-						regEx += ('[' + bracketVal + ']');
-
-						inBrackets = false;
-						bracketVal = '';
-
-						break;
-
-
-					case '?':
-						regEx += NO_PATH_REGEX; // 1 ? matches any single character except path separator (/ and \)
-						continue;
-
-					case '*':
-						regEx += starsToRegExp(1);
-						continue;
-
-					default:
-						regEx += escapeRegExpCharacters(char);
-				}
-			}
-
-			// Tail: Add the slash we had split on if there is more to come and the remaining pattern is not a globstar
-			// For example if pattern: some/**/*.js we want the "/" after some to be included in the RegEx to prevent
-			// a folder called "something" to match as well.
-			// However, if pattern: some/**, we tolerate that we also match on "something" because our globstar behaviour
-			// is to match 0-N segments.
-			if (index < segments.length - 1 && (segments[index + 1] !== GLOBSTAR || index + 2 < segments.length)) {
-				regEx += PATH_REGEX;
-			}
-
-			// reset state
-			previousSegmentWasGlobStar = false;
-		});
-	}
-
-	return regEx;
+enum NodeType {
+	text = 'text',
+	separator = 'separator',
+	brace = 'brace',
+	bracket = 'bracket',
+	questionMark = 'questionMark',
+	star = 'star',
+	globStar = 'globStar'
 }
 
-function splitGlobAware(pattern: string, splitChar: string): string[] {
-	if (!pattern) {
-		return [];
-	}
-
-	const segments: string[] = [];
-
-	let inBraces = false;
-	let inBrackets = false;
-
-	let curVal = '';
-	for (const char of pattern) {
-		switch (char) {
-			case splitChar:
-				if (!inBraces && !inBrackets) {
-					segments.push(curVal);
-					curVal = '';
-
-					continue;
-				}
-				break;
-			case '{':
-				inBraces = true;
-				break;
-			case '}':
-				inBraces = false;
-				break;
-			case '[':
-				inBrackets = true;
-				break;
-			case ']':
-				inBrackets = false;
-				break;
-		}
-
-		curVal += char;
-	}
-
-	// Tail
-	if (curVal) {
-		segments.push(curVal);
-	}
-
-	return segments;
+interface TextNode {
+	type: NodeType.text;
+	value: string;
 }
 
-function starsToRegExp(starCount: number): string {
-	switch (starCount) {
-		case 0:
-			return '';
-		case 1:
-			return `${NO_PATH_REGEX}*?`; // 1 star matches any number of characters except path separator (/ and \) - non greedy (?)
-		default:
-			// Matches:  (Path Sep OR Path Val followed by Path Sep OR Path Sep followed by Path Val) 0-many times
-			// Group is non capturing because we don't need to capture at all (?:...)
-			// Overall we use non-greedy matching because it could be that we match too much
-			return `(?:${PATH_REGEX}|${NO_PATH_REGEX}+${PATH_REGEX}|${PATH_REGEX}${NO_PATH_REGEX}+)*?`;
-	}
+interface SeparatorNode {
+	type: NodeType.separator;
 }
+
+interface QuestionMarkNode {
+	type: NodeType.questionMark;
+}
+
+interface StarNode {
+	type: NodeType.star;
+}
+
+interface GlobStarNode {
+	type: NodeType.globStar;
+}
+
+interface BracketNode {
+	type: NodeType.bracket;
+	value: string;
+}
+
+type BraceAlternative = (TextNode | QuestionMarkNode | StarNode | BracketNode | BraceNode);
+interface BraceNode {
+	type: NodeType.brace;
+	alternatives: BraceAlternative[];
+}
+
+type Node = TextNode | SeparatorNode | QuestionMarkNode | StarNode | GlobStarNode | BracketNode | BraceNode;
 
 function escapeRegExpCharacters(value: string): string {
 	return value.replace(/[\\\{\}\*\+\?\|\^\$\.\[\]\(\)]/g, '\\$&');
+}
+
+class PatternParser {
+
+	private value: string;
+	private index: number;
+
+	private mode: 'pattern' | 'brace';
+	private stopChar: string | undefined;
+
+	constructor(value: string, mode: 'pattern' | 'brace' = 'pattern') {
+		this.value = value;
+		this.index = 0;
+		this.mode = mode;
+		this.stopChar = mode === 'pattern' ? undefined :  '}';
+	}
+
+	private makeTextNode(start: number): Node {
+		return { type: NodeType.text, value: escapeRegExpCharacters(this.value.substring(start, this.index)) };
+	}
+
+	next(): Node | undefined {
+		let start = this.index;
+		let ch: string | undefined;
+		while((ch = this.value[this.index]) !== this.stopChar) {
+			switch (ch) {
+				case '/':
+					if (start < this.index) {
+						return this.makeTextNode(start);
+					} else {
+						this.index++;
+						return { type: NodeType.separator };
+					}
+				case '?':
+					this.index++;
+					return { type: NodeType.questionMark };
+				case '*':
+					if (this.value[this.index + 1] === '*') {
+						this.index += 2;
+						return { type: NodeType.globStar };
+					} else {
+						this.index++;
+						return {type: NodeType.star };
+					}
+				case '{':
+					if (start < this.index) {
+						return this.makeTextNode(start);
+					} else {
+						const bracketParser = new PatternParser(this.value.substring(this.index + 1), 'brace');
+						const alternatives: BraceAlternative[] = [];
+						let node: Node | undefined;
+						while ((node = bracketParser.next()) !== undefined) {
+							if (node.type === NodeType.globStar || node.type === NodeType.separator) {
+								throw new Error(`Invalid glob pattern ${this.index}. Stoped at ${this.index}`);
+							}
+							alternatives.push(node);
+						}
+						this.index= this.index + bracketParser.index + 2;
+						return { type: NodeType.brace, alternatives: alternatives };
+					}
+					break;
+				case ',':
+					if (this.mode === 'brace') {
+						if (start < this.index) {
+							let result = this.makeTextNode(start);
+							this.index++;
+							return result;
+						}
+					}
+					this.index++;
+					break;
+				case '[':
+					const buffer: string[] = [];
+					this.index++;
+					const firstIndex = this.index;
+					while (this.index < this.value.length) {
+						const ch = this.value[this.index];
+						if (this.index === firstIndex) {
+							switch (ch) {
+								case ']':
+									buffer.push(ch);
+									break;
+								case '!':
+								case '^':
+									buffer.push('^');
+									break;
+								default:
+									buffer.push(escapeRegExpCharacters(ch));
+									break;
+							}
+						} else if (ch === '-') {
+							buffer.push(ch);
+						} else if (ch === ']') {
+							this.index++;
+							return { type: NodeType.bracket, value: buffer.join('') };
+						} else {
+							buffer.push(escapeRegExpCharacters(ch));
+						}
+						this.index++;
+					}
+					throw new Error(`Invalid globa pattern ${this.index}. Stoped at ${this.index}`);
+				default:
+					this.index++;
+			}
+		}
+		return start === this.index ? undefined : this.makeTextNode(start);
+	}
+}
+
+export function convert2RegExp(pattern: string): RegExp | undefined {
+	const separator = process.platform === 'win32' ? '\\\\' : '\\/';
+	const fileChar = `[^${separator}]`;
+	function convertNode(node: Node): string {
+		switch (node.type) {
+			case NodeType.separator:
+				return separator;
+				break;
+			case NodeType.text:
+				return node.value;
+				break;
+			case NodeType.questionMark:
+				return fileChar;
+				break;
+			case NodeType.star:
+				return `${fileChar}*?`;
+				break;
+			case NodeType.globStar:
+				return `(?:${fileChar}|(?:(?:${fileChar}${separator})+${fileChar}))*?`;
+			case NodeType.bracket:
+				return `[${node.value}]`;
+			case NodeType.brace: {
+				let buffer: string[] = [];
+				for (const child of node.alternatives) {
+					buffer.push(convertNode(child));
+				}
+				return `(?:${buffer.join('|')})`;
+			}
+		}
+	}
+
+	try {
+		const buffer: string[] = ['^'];
+
+		let parser = new PatternParser(pattern);
+		let node: Node | undefined;
+		while ((node = parser.next()) !== undefined) {
+			buffer.push(convertNode(node));
+		}
+		return buffer.length > 0 ? new RegExp(buffer.join('')) : undefined;
+	} catch (err) {
+		console.error(err);
+		return undefined;
+	}
 }
 
 export function toOSPath(path: string): string {

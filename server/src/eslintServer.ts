@@ -118,6 +118,28 @@ namespace ProbleFailedRequest {
 
 type RunValues = 'onType' | 'onSave';
 
+enum ModeEnum {
+	auto = 'auto',
+	location = 'location'
+}
+
+namespace ModeEnum {
+	export function is(value: string): value is ModeEnum {
+		return value === ModeEnum.auto || value === ModeEnum.location;
+	}
+}
+
+interface ModeItem {
+	mode: ModeEnum
+}
+
+namespace ModeItem {
+	export function is(item: any): item is ModeItem {
+		const candidate = item as ModeItem;
+		return candidate && ModeEnum.is(candidate.mode);
+	}
+}
+
 interface DirectoryItem {
 	directory: string;
 	'!cwd'?: boolean;
@@ -149,18 +171,25 @@ enum Validate {
 	probe = 'probe'
 }
 
-interface TextDocumentSettings {
+interface CommonSettings {
 	validate: Validate;
-	silent?: boolean;
-	packageManager: PackageManagers;
+	packageManager: 'npm' | 'yarn' | 'pnpm';
 	codeAction: CodeActionSettings;
 	codeActionOnSave: boolean;
 	format: boolean;
 	quiet: boolean;
 	options: ESLintOptions | undefined;
 	run: RunValues;
-	nodePath: string | undefined;
+	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
+}
+
+interface ConfigurationSettings extends CommonSettings {
+	workingDirectory: ModeItem | DirectoryItem | undefined;
+}
+
+interface TextDocumentSettings extends CommonSettings {
+	silent: boolean;
 	workingDirectory: DirectoryItem | undefined;
 	library: ESLintModule | undefined;
 	resolvedGlobalPackageManagerPath: string | undefined;
@@ -524,38 +553,106 @@ const defaultLanguageIds: Set<string> = new Set([
 const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 const document2Settings: Map<string, Promise<TextDocumentSettings>> = new Map<string, Promise<TextDocumentSettings>>();
 
+const projectFolderIndicators: [string, boolean][] = [
+	[ 'package.json',  true ],
+	[ '.eslintignore', true],
+	[ '.eslintrc', false ],
+	[ '.eslintrc.json', false ],
+	[ '.eslintrc.js', false ],
+	[ '.eslintrc.yaml', false ],
+	[ '.eslintrc.yml', false ]
+];
+
+function findWorkingDirectory(workspaceFolder: string, file: string | undefined): string | undefined {
+	if (file === undefined || isUNC(file)) {
+		return workspaceFolder;
+	}
+	// Don't probe for something in node modules folder.
+	if (file.indexOf(`${path.sep}node_modules${path.sep}`) !== -1) {
+		return workspaceFolder;
+	}
+
+	let result: string = workspaceFolder;
+	let directory: string | undefined = path.dirname(file);
+	outer: while (directory !== undefined && directory.startsWith(workspaceFolder)) {
+		for (const item of projectFolderIndicators) {
+			if (fs.existsSync(path.join(directory, item[0]))) {
+				result = directory;
+				if (item[1]) {
+					break outer;
+				} else {
+					break;
+				}
+			}
+		}
+		const parent = path.dirname(directory);
+		directory = parent !== directory ? parent : undefined;
+	}
+	return result;
+}
+
 function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> {
 	const uri = document.uri;
 	let resultPromise = document2Settings.get(uri);
 	if (resultPromise) {
 		return resultPromise;
 	}
-	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((settings: TextDocumentSettings) => {
+	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((configuration: ConfigurationSettings) => {
+		const settings: TextDocumentSettings = Object.assign(
+			{},
+			configuration,
+			{ silent: false, library: undefined, resolvedGlobalPackageManagerPath: undefined },
+			{ workingDirectory: undefined}
+		);
 		if (settings.validate === Validate.off) {
 			return settings;
 		}
 		settings.resolvedGlobalPackageManagerPath = globalPathGet(settings.packageManager);
-		const uri = URI.parse(document.uri);
-		let promise: Promise<string>;
-		if (uri.scheme === 'file') {
-			const file = uri.fsPath;
-			const directory = path.dirname(file);
-			if (settings.nodePath) {
-				let nodePath = settings.nodePath;
-				if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== undefined) {
-					const uri = URI.parse(settings.workspaceFolder.uri);
-					if (uri.scheme === 'file') {
-						nodePath = path.join(uri.fsPath, nodePath);
-					}
+		const filePath = getFilePath(document);
+		const workspaceFolderPath = settings.workspaceFolder !== undefined ? getFilePath(settings.workspaceFolder.uri) : undefined;
+		const workingDirectoryConfig = configuration.workingDirectory ?? { mode: ModeEnum.location };
+		if (ModeItem.is(workingDirectoryConfig)) {
+			let candidate: string | undefined;
+			if (workingDirectoryConfig.mode === ModeEnum.location) {
+				if (workspaceFolderPath !== undefined) {
+					candidate = workspaceFolderPath;
+				} else if (filePath !== undefined && !isUNC(filePath)) {
+					candidate = path.dirname(filePath);
 				}
-				promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-					return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
-				});
-			} else {
-				promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, directory, trace);
+			} else if (workingDirectoryConfig.mode === ModeEnum.auto) {
+				if (workspaceFolderPath !== undefined) {
+					candidate = findWorkingDirectory(workspaceFolderPath, filePath);
+				} else if (filePath !== undefined && !isUNC(filePath)) {
+					candidate = path.dirname(filePath);
+				}
+			}
+			if (candidate !== undefined && fs.existsSync(candidate)) {
+				settings.workingDirectory = { directory: candidate };
 			}
 		} else {
-			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, settings.workspaceFolder ? settings.workspaceFolder.uri : undefined, trace);
+			settings.workingDirectory = workingDirectoryConfig;
+		}
+		let promise: Promise<string>;
+		let nodePath: string | undefined;
+		if (settings.nodePath !== null) {
+			nodePath = settings.nodePath;
+			if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== undefined) {
+				const workspaceFolderPath = getFilePath(settings.workspaceFolder.uri);
+				if (workspaceFolderPath !== undefined) {
+					nodePath = path.join(workspaceFolderPath, nodePath);
+				}
+			}
+		}
+		let workingDirectory: string | undefined;
+		if (settings.workingDirectory !== undefined && !settings.workingDirectory['!cwd']) {
+			workingDirectory = settings.workingDirectory.directory;
+		}
+		if (nodePath !== undefined) {
+			promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
+				return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, workingDirectory, trace);
+			});
+		} else {
+			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, workingDirectory, trace);
 		}
 
 		settings.silent = settings.validate === Validate.probe;
@@ -602,7 +699,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 							} else {
 								return undefined;
 							}
-						}, filePath, settings);
+						}, settings);
 						if (eslintConfig !== undefined) {
 							if (eslintConfig.parser !== null && parserRegExps !== undefined) {
 								const parser = process.platform === 'win32' ? eslintConfig.parser.replace(/\\/g, '/') : eslintConfig.parser;
@@ -823,7 +920,7 @@ function setupDocumentsListeners() {
 						if (!cli.isPathIgnored(filePath)) {
 							formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
 						}
-					}, filePath, settings);
+					}, settings);
 				}
 			}
 			if (settings.run === 'onSave') {
@@ -1053,10 +1150,10 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 				}
 			});
 		}
-	}, file, settings);
+	}, settings);
 }
 
-function withCLIEngine<T>(func: (cli: CLIEngine) => T, file: string | undefined, settings: TextDocumentSettings & { library: ESLintModule }, options?: CLIOptions): T {
+function withCLIEngine<T>(func: (cli: CLIEngine) => T, settings: TextDocumentSettings & { library: ESLintModule }, options?: CLIOptions): T {
 	const newOptions: CLIOptions = options === undefined
 		? Object.assign(Object.create(null), settings.options)
 		: Object.assign(Object.create(null), settings.options, options);
@@ -1067,23 +1164,6 @@ function withCLIEngine<T>(func: (cli: CLIEngine) => T, file: string | undefined,
 			newOptions.cwd = settings.workingDirectory.directory;
 			if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(settings.workingDirectory.directory)) {
 				process.chdir(settings.workingDirectory.directory);
-			}
-		} else if (file && !isUNC(file)) {
-			const directory = path.dirname(file);
-			if (directory) {
-				if (path.isAbsolute(directory) && fs.existsSync(directory)) {
-					newOptions.cwd = directory;
-					process.chdir(directory);
-				}
-			}
-		} else if (settings.workspaceFolder) {
-			const workspaceFolderUri = URI.parse(settings.workspaceFolder.uri);
-			if (workspaceFolderUri.scheme === 'file') {
-				const fsPath = getFileSystemPath(workspaceFolderUri);
-				if (fs.existsSync(fsPath)) {
-					newOptions.cwd = fsPath;
-					process.chdir(fsPath);
-				}
 			}
 		}
 		const cli = new settings.library.CLIEngine(newOptions);
@@ -1640,7 +1720,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkForma
 				}
 			}
 			return result;
-		}, filePath, settings, { fix: true });
+		}, settings, { fix: true });
 	});
 }
 

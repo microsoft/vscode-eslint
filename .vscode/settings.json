@@ -25,4 +25,5 @@
 	"eslint.trace.server": "off",
 	"eslint.lintTask.enable": false,
 	"eslint.format.enable": false
+
 }

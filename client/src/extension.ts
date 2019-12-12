@@ -20,7 +20,7 @@ import {
 	WorkspaceFolder,
 } from 'vscode-languageclient';
 
-import { findEslint, glob2RegExp, toOSPath } from './utils';
+import { findEslint, convert2RegExp, toOSPath } from './utils';
 import { TaskProvider } from './tasks';
 import { WorkspaceConfiguration } from 'vscode';
 
@@ -48,19 +48,61 @@ namespace ValidateItem {
 	}
 }
 
+interface LegacyDirectoryItem {
+	directory: string;
+	changeProcessCWD: boolean;
+}
+
+namespace LegacyDirectoryItem {
+	export function is(item: any): item is LegacyDirectoryItem {
+		const candidate = item as LegacyDirectoryItem;
+		return candidate && Is.string(candidate.directory) && Is.boolean(candidate.changeProcessCWD);
+	}
+}
+
+enum ModeEnum {
+	auto = 'auto',
+	location = 'location'
+}
+
+namespace ModeEnum {
+	export function is(value: string): value is ModeEnum {
+		return value === ModeEnum.auto || value === ModeEnum.location;
+	}
+}
+
+interface ModeItem {
+	mode: ModeEnum
+}
+
+namespace ModeItem {
+	export function is(item: any): item is ModeItem {
+		const candidate = item as ModeItem;
+		return candidate && ModeEnum.is(candidate.mode);
+	}
+}
+
 interface DirectoryItem {
 	directory: string;
 	'!cwd'?: boolean;
-}
-
-interface LegacyDirectoryItem extends DirectoryItem {
-	changeProcessCWD?: boolean;
 }
 
 namespace DirectoryItem {
 	export function is(item: any): item is DirectoryItem {
 		const candidate = item as DirectoryItem;
 		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate['!cwd']) || candidate['!cwd'] === undefined);
+	}
+}
+
+interface PatternItem {
+	pattern: string;
+	'!cwd'?: boolean;
+}
+
+namespace PatternItem {
+	export function is(item: any): item is PatternItem {
+		const candidate = item as PatternItem;
+		return candidate && Is.string(candidate.pattern) && (Is.boolean(candidate['!cwd']) || candidate['!cwd'] === undefined);
 	}
 }
 
@@ -82,7 +124,7 @@ enum Validate {
 	probe = 'probe'
 }
 
-interface TextDocumentSettings {
+interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
 	codeAction: CodeActionSettings;
@@ -91,10 +133,9 @@ interface TextDocumentSettings {
 	quiet: boolean;
 	options: any | undefined;
 	run: RunValues;
-	nodePath: string | undefined;
+	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
-	workingDirectory: DirectoryItem | undefined;
-	library: undefined;
+	workingDirectory: ModeItem | DirectoryItem | undefined;
 }
 
 interface NoESLintState {
@@ -470,10 +511,12 @@ class Migration {
 					setting.value![`source.fixAll.eslint`] = false;
 					setting.changed = true;
 				}
+				/* For now we don't rewrite the settings to allow users to go back to an older version
 				if (item.language !== undefined) {
 					elem.value[i] = item.language;
 					elem.changed = true;
 				}
+				*/
 			}
 		}
 
@@ -503,29 +546,31 @@ class Migration {
 	}
 
 	private recordWorkingDirectories(): void {
-		function record(this: void, elem: MigrationElement<(string | DirectoryItem)[]>): void {
+		function record(this: void, elem: MigrationElement<(string | DirectoryItem | LegacyDirectoryItem | PatternItem | ModeItem)[]>): void {
 			if (elem.value === undefined || !Array.isArray(elem.value)) {
 				return;
 			}
 			for (let i = 0; i < elem.value.length; i++) {
 				const item = elem.value[i];
-				if (typeof item === 'string') {
+				if (typeof item === 'string' || ModeItem.is(item) || PatternItem.is(item)) {
 					continue;
 				}
-				if (item['!cwd'] !== undefined) {
+				if (DirectoryItem.is(item) && item['!cwd'] !== undefined) {
 					continue;
 				}
-				const legacy: LegacyDirectoryItem = item;
-				if (legacy.changeProcessCWD !== undefined) {
+				/* For now we don't rewrite the settings to allow users to go back to an older version
+				if (LegacyDirectoryItem.is(item)) {
+					const legacy: LegacyDirectoryItem = item;
 					if (legacy.changeProcessCWD === false) {
-						item['!cwd'] = true;
+						(item as DirectoryItem)['!cwd'] = true;
 						elem.changed = true;
 					}
 				}
-				if (item['!cwd'] === undefined) {
+				if (DirectoryItem.is(item) && item['!cwd'] === undefined) {
 					elem.value[i] = item.directory;
 					elem.changed = true;
 				}
+				*/
 			}
 		}
 
@@ -820,7 +865,7 @@ function realActivate(context: ExtensionContext): void {
 					if (params.items === undefined) {
 						return [];
 					}
-					const result: (TextDocumentSettings | null)[] = [];
+					const result: (ConfigurationSettings | null)[] = [];
 					for (const item of params.items) {
 						if (item.section || !item.scopeUri) {
 							result.push(null);
@@ -853,7 +898,7 @@ function realActivate(context: ExtensionContext): void {
 							migration = undefined;
 						}
 						const config = Workspace.getConfiguration('eslint', resource);
-						const settings: TextDocumentSettings = {
+						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: config.get('packageManager', 'npm'),
 							codeActionOnSave: false,
@@ -861,10 +906,9 @@ function realActivate(context: ExtensionContext): void {
 							quiet: config.get('quiet', false),
 							options: config.get('options', {}),
 							run: config.get('run', 'onType'),
-							nodePath: config.get('nodePath', undefined),
+							nodePath: config.get('nodePath', null),
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
-							library: undefined,
 							codeAction: {
 								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
@@ -889,49 +933,72 @@ function realActivate(context: ExtensionContext): void {
 								uri: client.code2ProtocolConverter.asUri(workspaceFolder.uri)
 							};
 						}
-						const workingDirectories = config.get<(string | DirectoryItem)[] | undefined>('workingDirectories', undefined);
+						const workingDirectories = config.get<(string | LegacyDirectoryItem | DirectoryItem | PatternItem | ModeItem)[] | undefined>('workingDirectories', undefined);
 						if (Array.isArray(workingDirectories)) {
-							let workingDirectory: DirectoryItem | undefined = undefined;
+							let workingDirectory: ModeItem | DirectoryItem | undefined = undefined;
 							const workspaceFolderPath = workspaceFolder && workspaceFolder.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : undefined;
 							for (const entry of workingDirectories) {
-								let directory;
+								let directory: string | undefined;
+								let pattern: string | undefined;
 								let noCWD = false;
 								if (Is.string(entry)) {
 									directory = entry;
-								}
-								else if (DirectoryItem.is(entry)) {
+								} else if (LegacyDirectoryItem.is(entry)) {
 									directory = entry.directory;
-									noCWD = entry['!cwd'] ?? false;
+									noCWD = !entry.changeProcessCWD;
+								} else if (DirectoryItem.is(entry)) {
+									directory = entry.directory;
+									if (entry['!cwd'] !== undefined) {
+										noCWD = entry['!cwd'];
+									}
+								} else if (PatternItem.is(entry)) {
+									pattern = entry.pattern;
+									if (entry['!cwd'] !== undefined) {
+										noCWD = entry['!cwd'];
+									}
+								} else if (ModeItem.is(entry)) {
+									workingDirectory = entry;
+									continue;
 								}
-								if (directory) {
-									directory = toOSPath(directory);
-									if (path.isAbsolute(directory)) {
-										directory = directory;
-									}
-									else if (workspaceFolderPath && directory) {
-										directory = path.join(workspaceFolderPath, directory);
-									}
-									else {
-										directory = undefined;
-									}
+
+								let itemValue: string | undefined;
+								if (directory !== undefined || pattern !== undefined) {
 									const filePath = document.uri.scheme === 'file' ? document.uri.fsPath : undefined;
 									if (filePath !== undefined) {
-										const regExp: RegExp | undefined = directory !== undefined
-											? new RegExp(glob2RegExp(directory))
-											: undefined;
-										if (regExp !== undefined) {
-											const match = regExp.exec(filePath);
-											if (match !== null && match.length > 0) {
-												directory = match[0];
-												if (workingDirectory) {
-													if (workingDirectory.directory.length < directory.length) {
-														workingDirectory.directory = directory;
-														workingDirectory['!cwd'] = noCWD;
-													}
-												} else {
-													workingDirectory = { directory, '!cwd': noCWD };
+										if (directory !== undefined) {
+											directory = toOSPath(directory);
+											if (!path.isAbsolute(directory) && workspaceFolderPath !== undefined) {
+												pattern = path.join(workspaceFolderPath, directory);
+											}
+											if (filePath.startsWith(directory)) {
+												itemValue = directory;
+											}
+
+										} else if (pattern !== undefined && pattern.length > 0) {
+											pattern = toOSPath(pattern);
+											if (!path.isAbsolute(pattern) && workspaceFolderPath !== undefined) {
+												pattern = path.join(workspaceFolderPath, pattern);
+											}
+											if (pattern.charAt(pattern.length - 1) !== path.sep) {
+												pattern = pattern + path.sep;
+											}
+											const regExp: RegExp | undefined = convert2RegExp(pattern);
+											if (regExp !== undefined) {
+												const match = regExp.exec(filePath);
+												if (match !== null && match.length > 0) {
+													itemValue = match[0];
 												}
 											}
+										}
+									}
+								}
+								if (itemValue !== undefined) {
+									if (workingDirectory === undefined || ModeItem.is(workingDirectory)) {
+										workingDirectory = { directory: itemValue, '!cwd': noCWD };
+									} else {
+										if (workingDirectory.directory.length < itemValue.length) {
+											workingDirectory.directory = itemValue;
+											workingDirectory['!cwd'] = noCWD;
 										}
 									}
 								}
