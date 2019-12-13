@@ -235,3 +235,10 @@ export function toOSPath(path: string): string {
 		return path;
 	}
 }
+
+export function toPosixPath(path: string): string {
+	if (process.platform !== 'win32') {
+		return path;
+	}
+	return path.replace(/\\/g, '/');
+}

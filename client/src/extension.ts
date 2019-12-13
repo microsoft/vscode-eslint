@@ -20,7 +20,7 @@ import {
 	WorkspaceFolder,
 } from 'vscode-languageclient';
 
-import { findEslint, convert2RegExp, toOSPath } from './utils';
+import { findEslint, convert2RegExp, toOSPath, toPosixPath } from './utils';
 import { TaskProvider } from './tasks';
 import { WorkspaceConfiguration } from 'vscode';
 
@@ -978,23 +978,24 @@ function realActivate(context: ExtensionContext): void {
 								if (directory !== undefined || pattern !== undefined) {
 									const filePath = document.uri.scheme === 'file' ? document.uri.fsPath : undefined;
 									if (filePath !== undefined) {
-										const normalize = (value: string): string => {
-											value = toOSPath(value);
-											if (!path.isAbsolute(value) && workspaceFolderPath !== undefined) {
-												value = path.join(workspaceFolderPath, value);
-											}
-											if (value.charAt(value.length - 1) !== path.sep) {
-												value = value + path.sep;
-											}
-											return value;
-										};
 										if (directory !== undefined) {
-											directory = normalize(directory);
+											directory = toOSPath(directory);
+											if (!path.isAbsolute(directory) && workspaceFolderPath !== undefined) {
+												directory = path.join(workspaceFolderPath, directory);
+											}
+											if (directory.charAt(directory.length - 1) !== path.sep) {
+												directory = directory + path.sep;
+											}
 											if (filePath.startsWith(directory)) {
 												itemValue = directory;
 											}
 										} else if (pattern !== undefined && pattern.length > 0) {
-											pattern = normalize(pattern);
+											if (!path.posix.isAbsolute(pattern) && workspaceFolderPath !== undefined) {
+												pattern = path.posix.join(toPosixPath(workspaceFolderPath), pattern);
+											}
+											if (pattern.charAt(pattern.length - 1) !== path.posix.sep) {
+												pattern = pattern + path.posix.sep;
+											}
 											const regExp: RegExp | undefined = convert2RegExp(pattern);
 											if (regExp !== undefined) {
 												const match = regExp.exec(filePath);
