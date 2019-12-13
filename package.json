@@ -398,6 +398,8 @@
 		"webpack-cli": "^3.3.10",
 		"ts-loader": "^6.2.1",
 		"merge-options": "^2.0.0",
-		"rimraf": "^3.0.0"
+		"rimraf": "^3.0.0",
+		"@types/mocha": "^5.2.7",
+		"mocha": "^6.2.2"
 	}
 }
