@@ -462,8 +462,8 @@ class Migration {
 	}
 
 	public record(): void {
-		this.recordAutoFixOnSave();
-		this.recordValidate();
+		const fixAll = this.recordAutoFixOnSave();
+		this.recordValidate(fixAll);
 		this.recordWorkingDirectories();
 	}
 
@@ -471,30 +471,41 @@ class Migration {
 		this.didChangeConfiguration = func;
 	}
 
-	private recordAutoFixOnSave(): void {
-		function record(this: void, elem: MigrationElement<boolean>, setting: MigrationElement<CodeActionsOnSave>): void {
+	private recordAutoFixOnSave(): [boolean, boolean, boolean] {
+		function record(this: void, elem: MigrationElement<boolean>, setting: MigrationElement<CodeActionsOnSave>): boolean {
 			if (elem.value === undefined) {
-				return;
+				return false;
 			}
 
 			if (setting.value === undefined) {
 				setting.value = {};
 			}
+			let result: boolean;
 			if (elem.value === false || (elem.value === true && !setting.value['source.fixAll'])) {
-				setting.value['source.fixAll.eslint'] = elem.value;
-				setting.changed = true;
+				if (setting.value['source.fixAll.eslint'] !== elem.value) {
+					setting.value['source.fixAll.eslint'] = elem.value;
+					setting.changed = true;
+				}
+				result = !!setting.value['source.fixAll.eslint'];
+			} else {
+				result = !!setting.value['source.fixAll'];
 			}
+			/* For now we don't rewrite the settings to allow users to go back to an older version
 			elem.value = undefined;
 			elem.changed = true;
+			*/
+			return result;
 		}
 
-		record(this.autoFixOnSave.global, this.codeActionOnSave.global);
-		record(this.autoFixOnSave.workspace, this.codeActionOnSave.workspace);
-		record(this.autoFixOnSave.workspaceFolder, this.codeActionOnSave.workspaceFolder);
+		return [
+			record(this.autoFixOnSave.global, this.codeActionOnSave.global),
+			record(this.autoFixOnSave.workspace, this.codeActionOnSave.workspace),
+			record(this.autoFixOnSave.workspaceFolder, this.codeActionOnSave.workspaceFolder)
+		];
 	}
 
-	private recordValidate(): void {
-		function record(this: void, elem: MigrationElement<(ValidateItem | string)[]>, settingAccessor: (language: string) => MigrationElement<CodeActionsOnSave>): void {
+	private recordValidate(fixAll: [boolean, boolean, boolean]): void {
+		function record(this: void, elem: MigrationElement<(ValidateItem | string)[]>, settingAccessor: (language: string) => MigrationElement<CodeActionsOnSave>, fixAll: boolean): void {
 			if (elem.value === undefined) {
 				return;
 			}
@@ -503,13 +514,15 @@ class Migration {
 				if (typeof item === 'string') {
 					continue;
 				}
-				if (item.autoFix === false && typeof item.language === 'string') {
+				if (fixAll && item.autoFix === false && typeof item.language === 'string') {
 					const setting = settingAccessor(item.language);
 					if (setting.value === undefined) {
 						setting.value = Object.create(null);
 					}
-					setting.value![`source.fixAll.eslint`] = false;
-					setting.changed = true;
+					if (setting.value!['source.fixAll.eslint'] !== false) {
+						setting.value![`source.fixAll.eslint`] = false;
+						setting.changed = true;
+					}
 				}
 				/* For now we don't rewrite the settings to allow users to go back to an older version
 				if (item.language !== undefined) {
@@ -540,9 +553,9 @@ class Migration {
 			return result;
 		}
 
-		record(this.validate.global, (language) => getCodeActionsOnSave(language).global);
-		record(this.validate.workspace, (language) => getCodeActionsOnSave(language).workspace);
-		record(this.validate.workspaceFolder, (language) => getCodeActionsOnSave(language).workspaceFolder);
+		record(this.validate.global, (language) => getCodeActionsOnSave(language).global, fixAll[0]);
+		record(this.validate.workspace, (language) => getCodeActionsOnSave(language).workspace, fixAll[1] ? fixAll[1] : fixAll[0]);
+		record(this.validate.workspaceFolder, (language) => getCodeActionsOnSave(language).workspaceFolder, fixAll[2] ? fixAll[2] : (fixAll[1] ? fixAll[1] : fixAll[0]));
 	}
 
 	private recordWorkingDirectories(): void {
@@ -878,7 +891,7 @@ function realActivate(context: ExtensionContext): void {
 							if (migration.needsUpdate()) {
 								try {
 									await migration.update();
-									Window.showInformationMessage('ESLint settings got converted to new code action format. See the ESLint extension documentation for more information.', 'Open ReadMe').then((selected) => {
+									Window.showInformationMessage('The ESLint autoFixOnSave settings got converted to the new code action format. See the ESLint extension documentation for more information.', 'Open ReadMe').then((selected) => {
 										if (selected === undefined) {
 											return;
 										}
@@ -965,23 +978,23 @@ function realActivate(context: ExtensionContext): void {
 								if (directory !== undefined || pattern !== undefined) {
 									const filePath = document.uri.scheme === 'file' ? document.uri.fsPath : undefined;
 									if (filePath !== undefined) {
-										if (directory !== undefined) {
-											directory = toOSPath(directory);
-											if (!path.isAbsolute(directory) && workspaceFolderPath !== undefined) {
-												pattern = path.join(workspaceFolderPath, directory);
+										const normalize = (value: string): string => {
+											value = toOSPath(value);
+											if (!path.isAbsolute(value) && workspaceFolderPath !== undefined) {
+												value = path.join(workspaceFolderPath, value);
 											}
+											if (value.charAt(value.length - 1) !== path.sep) {
+												value = value + path.sep;
+											}
+											return value;
+										};
+										if (directory !== undefined) {
+											directory = normalize(directory);
 											if (filePath.startsWith(directory)) {
 												itemValue = directory;
 											}
-
 										} else if (pattern !== undefined && pattern.length > 0) {
-											pattern = toOSPath(pattern);
-											if (!path.isAbsolute(pattern) && workspaceFolderPath !== undefined) {
-												pattern = path.join(workspaceFolderPath, pattern);
-											}
-											if (pattern.charAt(pattern.length - 1) !== path.sep) {
-												pattern = pattern + path.sep;
-											}
+											pattern = normalize(pattern);
 											const regExp: RegExp | undefined = convert2RegExp(pattern);
 											if (regExp !== undefined) {
 												const match = regExp.exec(filePath);

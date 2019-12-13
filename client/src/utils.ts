@@ -119,7 +119,7 @@ class PatternParser {
 						let node: Node | undefined;
 						while ((node = bracketParser.next()) !== undefined) {
 							if (node.type === NodeType.globStar || node.type === NodeType.separator) {
-								throw new Error(`Invalid glob pattern ${this.index}. Stoped at ${this.index}`);
+								throw new Error(`Invalid glob pattern ${this.index}. Stopped at ${this.index}`);
 							}
 							alternatives.push(node);
 						}
@@ -166,7 +166,7 @@ class PatternParser {
 						}
 						this.index++;
 					}
-					throw new Error(`Invalid globa pattern ${this.index}. Stoped at ${this.index}`);
+					throw new Error(`Invalid glob pattern ${this.index}. Stopped at ${this.index}`);
 				default:
 					this.index++;
 			}

@@ -123,8 +123,8 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
-					"deprecationMessage": "The setting is deprecated. Use editor.codeActionsOnSave instead with a source.fixAll.eslint member",
-					"description": "Turns auto fix on save on or off."
+					"description": "Turns auto fix on save on or off.",
+					"deprecationMessage": "The setting is deprecated. Use editor.codeActionsOnSave instead with a source.fixAll.eslint member."
 				},
 				"eslint.quiet": {
 					"scope": "resource",
@@ -146,10 +146,11 @@
 									"mode": {
 										"type": "string",
 										"enum": [
-											"auto"
+											"auto",
+											"location"
 										]
 									},
-									"default": "auto"
+									"default": "location"
 								}
 							},
 							{
@@ -157,7 +158,7 @@
 								"properties": {
 									"directory": {
 										"type": "string",
-										"description": "The working directory to use if a file's path start with this directory."
+										"description": "The working directory to use if a file's path starts with this directory."
 									},
 									"changeProcessCWD": {
 										"type": "boolean",
@@ -171,7 +172,7 @@
 								"properties": {
 									"directory": {
 										"type": "string",
-										"description": "The working directory to use if a file's path start with this directory."
+										"description": "The working directory to use if a file's path starts with this directory."
 									},
 									"!cwd": {
 										"type": "boolean",
@@ -184,7 +185,7 @@
 								"properties": {
 									"pattern": {
 										"type": "string",
-										"description": "A globa pattern to match a working directory."
+										"description": "A glob pattern to match a working directory."
 									},
 									"!cwd": {
 										"type": "boolean",
@@ -214,7 +215,8 @@
 										"type": "boolean",
 										"description": "Whether auto fixes are provided for the language."
 									}
-								}
+								},
+								"deprecationMessage": "Auto Fix is enabled by default. Use the single sting form."
 							}
 						]
 					},
