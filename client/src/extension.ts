@@ -1188,7 +1188,7 @@ function realActivate(context: ExtensionContext): void {
 				version: textEditor.document.version
 			};
 			const params: ExecuteCommandParams = {
-				command: 'eslint.applyAutoFix',
+				command: 'eslint.applyAllFixes',
 				arguments: [textDocument]
 			};
 			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
