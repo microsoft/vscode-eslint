@@ -79,7 +79,7 @@ This extension contributes the following variables to the [settings](https://cod
   - `{ "mode": "location" }` (@since 2.0.0): instructs ESLint to uses the workspace folder location or the file location (if no workspace folder is open) as the working directory. This is the default and is the same strategy as used in older versions of the ESLint extension (1.9.x versions).
   - `{ "mode": "auto" }` (@since 2.0.0): instructs ESLint to infer a working directory based on the location of `package.json`, `.eslintignore` and `.eslintrc*` files. This might work in many cases but can lead to unexpected results as well.
   - `string[]`: an array of working directories to use.
-  Example:
+  Consider the following directory layout:
   ```
   root/
     client/
@@ -95,7 +95,7 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.workingDirectories": [ "./client", "./server" ]
   ```
   will validate files inside the server directory with the server directory as the current eslint working directory. Same for files in the client directory. The ESLint extension will also change the process's working directory to the provided directories. If this is not wanted a literal with the `!cwd` property can be used (e.g. `{ "directory: "./client", "!cwd": true }`). This will use the client directory as the ESLint working directory but will not change the process`s working directory.
-  - `{ "pattern": glob pattern }` (@since 2.0.0): Allows to specify a pattern to detect the working directory. This is basically a short cut for listing every directory. If you have a mono repository with all your projects being below a packages folder you can use `{ "pattern": "/packages/*/" }` to make all these folders working directories.
+  - `{ "pattern": glob pattern }` (@since 2.0.0): Allows to specify a pattern to detect the working directory. This is basically a short cut for listing every directory. If you have a mono repository with all your projects being below a packages folder you can use `{ "pattern": "./packages/*/" }` to make all these folders working directories.
 - `eslint.codeAction.disableRuleComment` - object with properties:
   - `enable` - show disable lint rule in the quick fix menu. `true` by default.
   - `location` - choose to either add the `eslint-disable` comment on the `separateLine` or `sameLine`. `separateLine` is the default.
