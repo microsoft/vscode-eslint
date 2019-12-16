@@ -18,7 +18,6 @@
 	"files.autoSave": "off",
 	"editor.formatOnSave": false,
 	// , "languageServerExample.trace.server": "messages"
-	,
 	"languageServerExample.maxNumberOfProblems": 1,
 	"testbed.trace.server": "off",
 	"eslint.alwaysShowStatus": true,
@@ -39,8 +38,8 @@
 		"location": "separateLine"
 	},
 	"eslint.quiet": false,
+	"eslint.autoFixOnSave": true,
 	"editor.codeActionsOnSave": {
-		"source.fixAll": true,
 		"source.fixAll.eslint": true
 	}
 }
