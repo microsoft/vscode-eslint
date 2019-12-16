@@ -13,10 +13,10 @@ function foo(x) {
 let utils;
 let searchParams;
 let typeID;
-if (!utils.isNullOrEmpty(typeID) || typeID === "") {
+if (!utils.isNullOrEmpty(typeID) || typeID === '') {
 	searchParams.typeID= typeID;
 }
 
-if (typeID !== "") {
-searchParams.typeID= typeID;
+if (typeID !== '') {
+	searchParams.typeID= typeID;
 }

@@ -1,11 +1,11 @@
 // Place your settings in this file to overwrite default and user settings.
 {
 	"eslint.enable": true,
-	"eslint.options": {
-		"fixTypes": [
-			"suggestion"
-		]
-	},
+	// "eslint.options": {
+	// 	"fixTypes": [
+	// 		"suggestion"
+	// 	]
+	// },
 	"eslint.run": "onType",
 	"eslint.workingDirectories": [
 		"./build"
@@ -22,7 +22,8 @@
 	"testbed.trace.server": "off",
 	"eslint.alwaysShowStatus": true,
 	"[javascript]": {
-		"editor.formatOnSave": false
+		"editor.formatOnSave": false,
+		"editor.defaultFormatter": "dbaeumer.vscode-eslint"
 	},
 	"eslint.lintTask.enable": true,
 	"tslint.enable": false,
@@ -41,5 +42,7 @@
 	"eslint.autoFixOnSave": true,
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
-	}
+	},
+	"editor.codeActionsOnSaveTimeout": 2000,
+	"eslint.format.enable": true,
 }
