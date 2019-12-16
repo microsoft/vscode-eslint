@@ -8,9 +8,43 @@ The extension uses the ESLint library installed in the opened workspace folder. 
 
 On new folders you might also need to create a `.eslintrc` configuration file. You can do this by either using the VS Code command `Create ESLint configuration` or by running the `eslint` command in a terminal. If you have installed ESLint globally (see above) then run [`eslint --init`](http://eslint.org/docs/user-guide/command-line-interface) in a terminal. If you have installed ESLint locally then run [`.\node_modules\.bin\eslint --init`](http://eslint.org/docs/user-guide/command-line-interface) under Windows and [`./node_modules/.bin/eslint --init`](http://eslint.org/docs/user-guide/command-line-interface) under Linux and Mac.
 
+## Release Notes
+
+The 2.0.4 version of the extension contains the following major improvements:
+
+* Improved TypeScript detection - As soon as TypeScript is correctly configured inside ESLint, you no longer need additional configuration through VS Code's `eslint.validate` setting. The same is true for HTML and Vue.js files.
+* Glob working directory support - Projects that have a complex folder structure and need to customize the working directories via `eslint.workingDirectories` can now use glob patterns instead of listing every project folder. For example, `{ "pattern": "code-*" }` will match all project folders starting with `code-`. In addition, the extension now changes the working directory by default. You can disable this feature with the new `!cwd` property.
+* Improved Auto Fix on Save - Auto Fix on Save is now part of VS Code's Code Action on Save infrastructure and computes all possible fixes in one round. It is customized via the `editor.codeActionsOnSave` setting. The setting supports the ESLint specific property `source.fixAll.eslint`. The extension also respects the generic property `source.fixAll`.
+* Formatter support: ESLint can now be used as a formatter. To enable this feature use the `eslint.format.enable` setting.
+
+The setting below turns on Auto Fix for all providers including ESLint:
+
+```json
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true
+    }
+```
+
+In contrast, this configuration only turns it on for ESLint:
+
+```json
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true
+    }
+```
+
+You can also selectively disable ESLint via:
+
+```json
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true,
+        "source.fixAll.eslint": false
+    }
+```
+
 ## Settings Options
 
-If you are using an ESLint extension version < 2.x then please refer to the settings options [here](@@@)
+If you are using an ESLint extension version < 2.x then please refer to the settings options [here](https://github.com/microsoft/vscode-eslint/blob/master/history/settings_1_9_x.md).
 
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
@@ -38,6 +72,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
 - `eslint.probe` = an array for language identifiers for which the ESLint extension should be activated and should try to validate the file. If validation fails for probed languages the extension says silent. Defaults to `["javascript", "javascriptreact", "typescript", "typescriptreact", "html", "vue"]`.
 - `eslint.validate` - an array of language identifiers specifying the files for which validation is to be enforced. This is an old legacy setting and should in normal cases not be necessary anymore. Defaults to `["javascript", "javascriptreact"]`.
+- `eslint.format.enable`: enables ESLint as a formatter for validated files.
 - `eslint.workingDirectories` - specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly. If executing ESLint in the terminal requires you to change the working directory in the terminal into a sub folder then it is usually necessary to tweak this setting. (see also [CLIEngine options#cwd](https://eslint.org/docs/developer-guide/nodejs-api#cliengine)). Please also keep in mind that the `.eslintrc*` file is resolved considering the parent directories whereas the `.eslintignore` file is only honored in the current working directory. The following values can be used:
   - `{ "mode": "location" }` (@since 2.0.0): instructs ESLint to uses the workspace folder location or the file location (if no workspace folder is open) as the working directory. This is the default and is the same strategy as used in older versions of the ESLint extension (1.9.x versions).
   - `{ "mode": "auto" }` (@since 2.0.0): instructs ESLint to infer a working directory based on the location of `package.json`, `.eslintignore` and `.eslintrc*` files. This might work in many cases but can lead to unexpected results as well.

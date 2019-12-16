@@ -1,3 +1,7 @@
+### 2.0.4
+
+A new major version of the extension. Major improvements are around code actions on save, formatting, working directory setup and validating of TypeScript files.
+
 ### 1.9.2
 
 - Moved to latest LSP libraries
