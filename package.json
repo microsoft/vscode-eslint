@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.0.2",
+	"version": "2.0.3",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -151,7 +151,8 @@
 										]
 									},
 									"default": "location"
-								}
+								},
+								"required": ["mode"]
 							},
 							{
 								"type": "object",
@@ -165,7 +166,8 @@
 										"description": "Whether the process's cwd should be changed as well."
 									}
 								},
-								"deprecationMessage": "Use the new !cwd form."
+								"deprecationMessage": "Use the new !cwd form.",
+								"required": ["directory"]
 							},
 							{
 								"type": "object",
@@ -178,7 +180,8 @@
 										"type": "boolean",
 										"description": "Set to true if ESLint shouldn't change the working directory."
 									}
-								}
+								},
+								"required": ["directory"]
 							},
 							{
 								"type": "object",
@@ -191,7 +194,8 @@
 										"type": "boolean",
 										"description": "Set to true if ESLint shouldn't change the working directory."
 									}
-								}
+								},
+								"required": ["pattern"]
 							}
 						]
 					}
@@ -216,7 +220,7 @@
 										"description": "Whether auto fixes are provided for the language."
 									}
 								},
-								"deprecationMessage": "Auto Fix is enabled by default. Use the single sting form."
+								"deprecationMessage": "Auto Fix is enabled by default. Use the single string form."
 							}
 						]
 					},
