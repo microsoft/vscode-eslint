@@ -14,8 +14,8 @@ The 2.0.4 version of the extension contains the following major improvements:
 
 * Improved TypeScript detection - As soon as TypeScript is correctly configured inside ESLint, you no longer need additional configuration through VS Code's `eslint.validate` setting. The same is true for HTML and Vue.js files.
 * Glob working directory support - Projects that have a complex folder structure and need to customize the working directories via `eslint.workingDirectories` can now use glob patterns instead of listing every project folder. For example, `{ "pattern": "code-*" }` will match all project folders starting with `code-`. In addition, the extension now changes the working directory by default. You can disable this feature with the new `!cwd` property.
-* Improved Auto Fix on Save - Auto Fix on Save is now part of VS Code's Code Action on Save infrastructure and computes all possible fixes in one round. It is customized via the `editor.codeActionsOnSave` setting. The setting supports the ESLint specific property `source.fixAll.eslint`. The extension also respects the generic property `source.fixAll`.
 * Formatter support: ESLint can now be used as a formatter. To enable this feature use the `eslint.format.enable` setting.
+* Improved Auto Fix on Save - Auto Fix on Save is now part of VS Code's Code Action on Save infrastructure and computes all possible fixes in one round. It is customized via the `editor.codeActionsOnSave` setting. The setting supports the ESLint specific property `source.fixAll.eslint`. The extension also respects the generic property `source.fixAll`.
 
 The setting below turns on Auto Fix for all providers including ESLint:
 
@@ -41,6 +41,8 @@ You can also selectively disable ESLint via:
         "source.fixAll.eslint": false
     }
 ```
+
+Also note that there is a time budget of 750ms to run code actions on save which might not be enough for large JavaScript / TypeScript file. You can increase the time budget using the `editor.codeActionsOnSaveTimeout` setting.
 
 ## Settings Options
 
