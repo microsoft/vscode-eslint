@@ -15,6 +15,7 @@
         },
         "sourceType": "module"
     },
+    "parser": "vue-eslint-parser",
     "rules": {
         "no-const-assign": "warn",
         "no-this-before-super": "warn",
@@ -60,6 +61,12 @@
             "files": ["test.js"],
             "rules": {
                 "no-console": "error"
+            }
+        },
+        {
+            "files": ["test.vue"],
+            "rules": {
+                "no-console": "off"
             }
         }
     ]
