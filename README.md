@@ -125,6 +125,14 @@ The old `eslint.autoFixOnSave` setting is now deprecated and can safely be remov
 
 The old `eslint.autoFixOnSave` will automatically be converted into the new `editor.codeActionsOnSave` setting if `eslint.autoFixOnSave` is set to true. If you want to avoid the conversion either remove `eslint.autoFixOnSave` or set it to false.
 
+Alternatively you can change the `editor.codeActionsOnSave` setting to
+
+```json
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": false
+  }
+```
+
 ## Commands:
 
 This extension contributes the following commands to the Command palette.
