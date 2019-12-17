@@ -121,6 +121,10 @@ This extension contributes the following variables to the [settings](https://cod
 
 The old `eslint.autoFixOnSave` setting is now deprecated and can safely be removed.
 
+## Settings Conversion
+
+The old `eslint.autoFixOnSave` will automatically be converted into the new `editor.codeActionsOnSave` setting if `eslint.autoFixOnSave` is set to true. If you want to avoid the conversion either remove `eslint.autoFixOnSave` or set it to false.
+
 ## Commands:
 
 This extension contributes the following commands to the Command palette.
