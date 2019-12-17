@@ -44,6 +44,8 @@ You can also selectively disable ESLint via:
 
 Also note that there is a time budget of 750ms to run code actions on save which might not be enough for large JavaScript / TypeScript file. You can increase the time budget using the `editor.codeActionsOnSaveTimeout` setting.
 
+The old `eslint.autoFixOnSave` setting is now deprecated and can safely be removed.
+
 ## Settings Options
 
 If you are using an ESLint extension version < 2.x then please refer to the settings options [here](https://github.com/microsoft/vscode-eslint/blob/master/history/settings_1_9_x.md).
@@ -116,6 +118,8 @@ This extension contributes the following variables to the [settings](https://cod
     }
   }
 ```
+
+The old `eslint.autoFixOnSave` setting is now deprecated and can safely be removed.
 
 ## Commands:
 
