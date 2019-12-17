@@ -21,7 +21,7 @@ import {
 	WorkspaceFolder,
 } from 'vscode-languageclient';
 
-import { findEslint, convert2RegExp, toOSPath, toPosixPath } from './utils';
+import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
 import { TaskProvider } from './tasks';
 import { WorkspaceConfiguration } from 'vscode';
 
@@ -496,19 +496,19 @@ class Migration {
 
 	private recordAutoFixOnSave(): [boolean, boolean, boolean] {
 		function record(this: void, elem: MigrationElement<boolean>, setting: MigrationElement<CodeActionsOnSave>): boolean {
-			if (elem.value === undefined) {
+			// if it is explicitly set to false don't convert anything anymore
+			if (setting.value?.['source.fixAll.eslint'] === false) {
 				return false;
 			}
-
 			if (setting.value === undefined) {
 				setting.value = {};
 			}
+			const autoFix: boolean = !!elem.value;
+			const sourceFixAll: boolean = !!setting.value['source.fixAll'];
 			let result: boolean;
-			if (elem.value === false || (elem.value === true && !setting.value['source.fixAll'])) {
-				if (setting.value['source.fixAll.eslint'] !== elem.value) {
-					setting.value['source.fixAll.eslint'] = elem.value;
-					setting.changed = true;
-				}
+			if (autoFix !== sourceFixAll && autoFix && setting.value['source.fixAll.eslint'] === undefined){
+				setting.value['source.fixAll.eslint'] = elem.value;
+				setting.changed = true;
 				result = !!setting.value['source.fixAll.eslint'];
 			} else {
 				result = !!setting.value['source.fixAll'];
@@ -792,6 +792,7 @@ function realActivate(context: ExtensionContext): void {
 	});
 
 	let migration: Migration | undefined;
+	const migrationSemaphore: Semaphore<void> = new Semaphore<void>(1);
 	const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
@@ -909,32 +910,42 @@ function realActivate(context: ExtensionContext): void {
 							continue;
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
-						try {
-							migration = new Migration(resource);
-							migration.record();
-							if (migration.needsUpdate()) {
-								try {
-									await migration.update();
-									Window.showInformationMessage('The ESLint autoFixOnSave settings got converted to the new code action format. See the ESLint extension documentation for more information.', 'Open ReadMe').then((selected) => {
-										if (selected === undefined) {
-											return;
-										}
-										Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint/blob/master/README.md'));
-									});
-								} catch (error) {
-									client.error(error.message ?? 'Unknown error', error);
-									Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
-										if (selected === undefined) {
-											return;
-										}
-										client.outputChannel.show();
-									});
-								}
-							}
-						} finally {
-							migration = undefined;
-						}
 						const config = Workspace.getConfiguration('eslint', resource);
+						if (config.get('migration.2_x', 'on') === 'on') {
+							await migrationSemaphore.lock(async () => {
+								try {
+									migration = new Migration(resource);
+									migration.record();
+									if (migration.needsUpdate()) {
+										try {
+											await migration.update();
+											Window.showInformationMessage(
+												[
+													`The ESLint autoFixOnSave settings got converted to the new 'editor.codeActionsOnSave'.`,
+													`See the ESLint extension documentation for more information.`
+												].join(' '),
+												'Open ReadMe'
+											).then((selected) => {
+												if (selected === undefined) {
+													return;
+												}
+												Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-conversion'));
+											});
+										} catch (error) {
+											client.error(error.message ?? 'Unknown error', error);
+											Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
+												if (selected === undefined) {
+													return;
+												}
+												client.outputChannel.show();
+											});
+										}
+									}
+								} finally {
+									migration = undefined;
+								}
+							});
+						}
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: config.get('packageManager', 'npm'),

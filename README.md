@@ -123,15 +123,7 @@ The old `eslint.autoFixOnSave` setting is now deprecated and can safely be remov
 
 ## Settings Conversion
 
-The old `eslint.autoFixOnSave` will automatically be converted into the new `editor.codeActionsOnSave` setting if `eslint.autoFixOnSave` is set to true. If you want to avoid the conversion either remove `eslint.autoFixOnSave` or set it to false.
-
-Alternatively you can change the `editor.codeActionsOnSave` setting to
-
-```json
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": false
-  }
-```
+The old `eslint.autoFixOnSave` will automatically be converted into the new `editor.codeActionsOnSave` setting if `eslint.autoFixOnSave` is set to true. If you want to avoid the conversion either remove `eslint.autoFixOnSave` or set it to false. If you want to disable the migration in general change the user settings `eslint.migration.2_x` to `off`.
 
 ## Commands:
 

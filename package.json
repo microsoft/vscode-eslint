@@ -142,6 +142,16 @@
 					"default": "off",
 					"description": "Whether ESLint should issue a warning on ignored files."
 				},
+				"eslint.migration.2_x": {
+					"scope": "application",
+					"type": "string",
+					"enum": [
+						"off",
+						"on"
+					],
+					"default": "on",
+					"description": "Whether ESlint should migrate auto fix on save settings."
+				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
 					"type": "array",

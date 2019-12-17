@@ -40,10 +40,10 @@
 	},
 	"eslint.quiet": false,
 	"eslint.autoFixOnSave": true,
-	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": true
-	},
 	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.format.enable": true,
-	"eslint.onIgnoredFiles": "off"
+	"eslint.onIgnoredFiles": "off",
+	"editor.codeActionsOnSave": {
+		"source.fixAll.eslint": true
+	}
 }
