@@ -45,4 +45,5 @@
 	},
 	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.format.enable": true,
+	"eslint.onIgnoredFiles": "off"
 }

@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.0.6",
+	"version": "2.0.7",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -131,6 +131,16 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Turns on quiet mode, which ignores warnings."
+				},
+				"eslint.onIgnoredFiles": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"warn",
+						"off"
+					],
+					"default": "off",
+					"description": "Whether ESLint should issue a warning on ignored files."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",

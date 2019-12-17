@@ -125,6 +125,27 @@ enum Validate {
 	probe = 'probe'
 }
 
+enum ESLintSeverity {
+	off = 'off',
+	warn = 'warn',
+	error = 'error'
+}
+
+namespace ESLintSeverity {
+	export function from(value: string): ESLintSeverity {
+		switch (value.toLowerCase()) {
+			case ESLintSeverity.off:
+				return ESLintSeverity.off;
+			case ESLintSeverity.warn:
+				return ESLintSeverity.warn;
+			case ESLintSeverity.error:
+				return ESLintSeverity.error;
+			default:
+				return ESLintSeverity.off;
+		}
+	}
+}
+
 interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -132,6 +153,7 @@ interface ConfigurationSettings {
 	codeActionOnSave: boolean;
 	format: boolean;
 	quiet: boolean;
+	onIgnoredFiles: ESLintSeverity;
 	options: any | undefined;
 	run: RunValues;
 	nodePath: string | null;
@@ -919,6 +941,7 @@ function realActivate(context: ExtensionContext): void {
 							codeActionOnSave: false,
 							format: false,
 							quiet: config.get('quiet', false),
+							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
 							run: config.get('run', 'onType'),
 							nodePath: config.get('nodePath', null),

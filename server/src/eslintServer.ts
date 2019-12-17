@@ -171,6 +171,12 @@ enum Validate {
 	probe = 'probe'
 }
 
+enum ESLintSeverity {
+	off = 'off',
+	warn = 'warn',
+	error = 'error'
+}
+
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -178,6 +184,7 @@ interface CommonSettings {
 	codeActionOnSave: boolean;
 	format: boolean;
 	quiet: boolean;
+	onIgnoredFiles: ESLintSeverity;
 	options: ESLintOptions | undefined;
 	run: RunValues;
 	nodePath: string | null;
@@ -1111,7 +1118,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 
 	withCLIEngine((cli) => {
 		codeActions.delete(uri);
-		const report: ESLintReport = cli.executeOnText(content, file, true);
+		const report: ESLintReport = cli.executeOnText(content, file, settings.onIgnoredFiles !== ESLintSeverity.off);
 		const diagnostics: Diagnostic[] = [];
 		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
 			const docReport = report.results[0];
