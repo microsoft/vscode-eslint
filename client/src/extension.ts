@@ -9,7 +9,8 @@ import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri, StatusBarAlignment, TextDocument,
 	CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem, WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget,
-	env as Env
+	env as Env,
+	CodeActionKind
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind,
@@ -769,6 +770,7 @@ function realActivate(context: ExtensionContext): void {
 	});
 
 	let migration: Migration | undefined;
+	const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 		diagnosticCollectionName: 'eslint',
@@ -841,7 +843,7 @@ function realActivate(context: ExtensionContext): void {
 				if (!syncedDocuments.has(document.uri.toString())) {
 					return [];
 				}
-				if (context.only !== undefined && context.only.value !== 'source' && context.only.value !== 'source.fixAll' && context.only.value !== 'source.fixAll.eslint') {
+				if (context.only !== undefined && !supportedQuickFixKinds.has(context.only.value)) {
 					return [];
 				}
 				if (context.only === undefined && (!context.diagnostics || context.diagnostics.length === 0)) {

@@ -1554,9 +1554,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	return resolveSettings(textDocument).then(async (settings): Promise<CodeAction[]> => {
-		if (params.context.only !== undefined && params.context.only.length > 0) {
-			const only = params.context.only[0];
-			if (((only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave)) {
+		const only: string | undefined = params.context.only !== undefined && params.context.only.length > 0 ? params.context.only[0] : undefined;
+		const isSource = only === CodeActionKind.Source;
+		const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave;
+		if (isSourceFixAll || isSource) {
+			if (isSourceFixAll) {
 				const textDocumentIdentifer: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
 				const edits = await computeAllFixes(textDocumentIdentifer);
 				if (edits !== undefined) {
@@ -1566,11 +1568,10 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 						ESLintSourceFixAll
 					));
 				}
-			}
-			if (only === CodeActionKind.Source) {
+			} else if (isSource) {
 				result.fixAll.push(createCodeAction(
 					`Fix all ESLint auto-fixable problems`,
-					ESLintSourceFixAll,
+					CodeActionKind.Source,
 					CommandIds.applyAllFixes,
 					CommandParams.create(textDocument)
 				));
@@ -1585,6 +1586,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 		let documentVersion: number = -1;
 		const allFixableRuleIds: string[] = [];
+		const kind: CodeActionKind = only ?? CodeActionKind.QuickFix;
 
 		for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
 			documentVersion = editInfo.documentVersion;
@@ -1597,7 +1599,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				changes.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
 				const action = createCodeAction(
 					editInfo.label,
-					CodeActionKind.QuickFix,
+					kind,
 					CommandIds.applySingleFix,
 					CommandParams.create(textDocument, ruleId)
 				);
@@ -1618,7 +1620,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				changes.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
 				result.get(ruleId).disable = createCodeAction(
 					`Disable ${ruleId} for this line`,
-					CodeActionKind.QuickFix,
+					kind,
 					CommandIds.applyDisableLine,
 					CommandParams.create(textDocument, ruleId)
 				);
@@ -1629,7 +1631,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					changes.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
 					result.get(ruleId).disableFile = createCodeAction(
 						`Disable ${ruleId} for the entire file`,
-						CodeActionKind.QuickFix,
+						kind,
 						CommandIds.applyDisableFile,
 						CommandParams.create(textDocument, ruleId)
 					);
@@ -1640,7 +1642,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				if (ruleDocData.urls.has(ruleId)) {
 					result.get(ruleId).showDocumentation = createCodeAction(
 						`Show documentation for ${ruleId}`,
-						CodeActionKind.QuickFix,
+						kind,
 						CommandIds.openRuleDoc,
 						CommandParams.create(textDocument, ruleId)
 					);
@@ -1670,7 +1672,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					changes.set(CommandIds.applySameFixes, sameFixes);
 					result.get(ruleId).fixAll = createCodeAction(
 						`Fix all ${ruleId} problems`,
-						CodeActionKind.QuickFix,
+						kind,
 						CommandIds.applySameFixes,
 						CommandParams.create(textDocument)
 					);
@@ -1678,7 +1680,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			});
 			result.fixAll.push(createCodeAction(
 				`Fix all auto-fixable problems`,
-				CodeActionKind.QuickFix,
+				kind,
 				CommandIds.applyAllFixes,
 				CommandParams.create(textDocument)
 			));
