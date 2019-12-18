@@ -172,7 +172,9 @@
 									},
 									"default": "location"
 								},
-								"required": ["mode"]
+								"required": [
+									"mode"
+								]
 							},
 							{
 								"type": "object",
@@ -187,7 +189,9 @@
 									}
 								},
 								"deprecationMessage": "Use the new !cwd form.",
-								"required": ["directory"]
+								"required": [
+									"directory"
+								]
 							},
 							{
 								"type": "object",
@@ -201,7 +205,9 @@
 										"description": "Set to true if ESLint shouldn't change the working directory."
 									}
 								},
-								"required": ["directory"]
+								"required": [
+									"directory"
+								]
 							},
 							{
 								"type": "object",
@@ -215,7 +221,9 @@
 										"description": "Set to true if ESLint shouldn't change the working directory."
 									}
 								},
-								"required": ["pattern"]
+								"required": [
+									"pattern"
+								]
 							}
 						]
 					}
