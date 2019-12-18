@@ -166,6 +166,15 @@ interface NoESLintState {
 	workspaces?: { [key: string]: boolean };
 }
 
+interface NoSettingsMigration {
+	files: { [key: string]: boolean };
+	workspaces: { [key: string]: boolean };
+}
+
+namespace NoSettingsMigration {
+	export const key = 'noSettingsMigration';
+}
+
 enum Status {
 	ok = 1,
 	warn = 2,
@@ -793,6 +802,16 @@ function realActivate(context: ExtensionContext): void {
 
 	let migration: Migration | undefined;
 	const migrationSemaphore: Semaphore<void> = new Semaphore<void>(1);
+	let notNow: boolean = false;
+	let noMigrationLocal: NoSettingsMigration | undefined = context.globalState.get<NoSettingsMigration>(NoSettingsMigration.key);
+	if (noMigrationLocal === undefined) {
+		noMigrationLocal = {
+			workspaces: Object.create(null),
+			files: Object.create(null)
+		};
+		context.globalState.update(NoSettingsMigration.key, noMigrationLocal);
+	}
+
 	const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
@@ -911,41 +930,68 @@ function realActivate(context: ExtensionContext): void {
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
 						const config = Workspace.getConfiguration('eslint', resource);
-						if (config.get('migration.2_x', 'on') === 'on') {
-							await migrationSemaphore.lock(async () => {
+						const workspaceFolder = Workspace.getWorkspaceFolder(resource);
+						await migrationSemaphore.lock(async () => {
+							const globalMigration = Workspace.getConfiguration('eslint').get('migration.2_x', 'on');
+							if (notNow === false && globalMigration === 'on' && !(workspaceFolder !== undefined ? noMigrationLocal!.workspaces[workspaceFolder.uri.toString()] : noMigrationLocal!.files[resource.toString()])) {
 								try {
 									migration = new Migration(resource);
 									migration.record();
+									interface Item extends MessageItem {
+										id: 'yes' | 'no' | 'readme' | 'global' | 'local';
+									}
 									if (migration.needsUpdate()) {
-										try {
-											await migration.update();
-											Window.showInformationMessage(
-												[
-													`The ESLint autoFixOnSave settings got converted to the new 'editor.codeActionsOnSave'.`,
-													`See the ESLint extension documentation for more information.`
-												].join(' '),
-												'Open ReadMe'
-											).then((selected) => {
-												if (selected === undefined) {
-													return;
+										const folder = workspaceFolder?.name;
+										const file = path.basename(resource.fsPath);
+										const selected = await Window.showInformationMessage<Item>(
+											[
+												`The ESLint 'autoFixOnSave' setting needs to be converted to the new 'editor.codeActionsOnSave' setting `,
+												folder !== undefined ? `for the workspace folder: ${folder}.` : `for the file: ${file}.`,
+												`For compatibility reasons the 'autoFixOnSave' remains and needs to be removed manually.`,
+												`Do you want to update the setting?`
+											].join(' '),
+											{ modal: true},
+											{ id: 'yes', title: 'Yes'},
+											{ id: 'local', title: folder !== undefined ? 'Never for this Folder' : 'Never for this File' },
+											{ id: 'global', title: 'Never update Settings' },
+											{ id: 'readme', title: 'Open Readme' },
+											{ id: 'no', title: 'Not now', isCloseAffordance: true }
+										);
+										if (selected !== undefined) {
+											if (selected.id === 'yes') {
+												try {
+													await migration.update();
+												} catch (error) {
+													client.error(error.message ?? 'Unknown error', error);
+													Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
+														if (selected === undefined) {
+															return;
+														}
+														client.outputChannel.show();
+													});
 												}
+											} else if (selected.id === 'no') {
+												notNow = true;
+											} else if (selected.id === 'global') {
+												await config.update('migration.2_x', 'off', ConfigurationTarget.Global);
+											} else if (selected.id === 'local') {
+												if (workspaceFolder !== undefined) {
+													noMigrationLocal!.workspaces[workspaceFolder.uri.toString()] = true;
+												} else {
+													noMigrationLocal!.files[resource.toString()] = true;
+												}
+												await context.globalState.update(NoSettingsMigration.key, noMigrationLocal);
+											} else if (selected.id === 'readme') {
+												notNow = true;
 												Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-conversion'));
-											});
-										} catch (error) {
-											client.error(error.message ?? 'Unknown error', error);
-											Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
-												if (selected === undefined) {
-													return;
-												}
-												client.outputChannel.show();
-											});
+											}
 										}
 									}
 								} finally {
 									migration = undefined;
 								}
-							});
-						}
+							}
+						});
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: config.get('packageManager', 'npm'),
@@ -975,8 +1021,7 @@ function realActivate(context: ExtensionContext): void {
 							settings.format = !!config.get('format.enable', false);
 							settings.codeActionOnSave = readCodeActionsOnSaveSetting(document);
 						}
-						const workspaceFolder = Workspace.getWorkspaceFolder(resource);
-						if (workspaceFolder) {
+						if (workspaceFolder !== undefined) {
 							settings.workspaceFolder = {
 								name: workspaceFolder.name,
 								uri: client.code2ProtocolConverter.asUri(workspaceFolder.uri)
