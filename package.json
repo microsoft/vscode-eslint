@@ -357,6 +357,11 @@
 				"title": "Show Output Channel",
 				"category": "ESLint",
 				"command": "eslint.showOutputChannel"
+			},
+			{
+			  "title": "Reload ESLint",
+			  "category": "ESLint",
+			  "command": "eslint.reload"
 			}
 		],
 		"taskDefinitions": [

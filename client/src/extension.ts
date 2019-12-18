@@ -1221,6 +1221,11 @@ function realActivate(context: ExtensionContext): void {
 			});
 		}),
 		Commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
+		Commands.registerCommand('eslint.reload', () => {
+			client.stop().then(() => {
+				client.start();
+			});
+		}),
 		statusBarItem
 	);
 }
