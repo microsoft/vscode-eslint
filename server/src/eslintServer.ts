@@ -1521,11 +1521,6 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return result.all();
 	}
 
-	const problems = codeActions.get(uri);
-	if (!problems) {
-		return result.all();
-	}
-
 	function createCodeAction(title: string, kind: string, commandId: string, arg: CommandParams): CodeAction {
 		const command = Command.create(title, commandId, arg);
 		const action = CodeAction.create(
@@ -1561,6 +1556,12 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	return resolveSettings(textDocument).then(async (settings): Promise<CodeAction[]> => {
+		const problems = codeActions.get(uri);
+		// We validate on type and have no problems ==> nothing to fix.
+		if (problems === undefined && settings.run === 'onType') {
+			return result.all();
+		}
+
 		const only: string | undefined = params.context.only !== undefined && params.context.only.length > 0 ? params.context.only[0] : undefined;
 		const isSource = only === CodeActionKind.Source;
 		const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave;
@@ -1583,6 +1584,10 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					CommandParams.create(textDocument)
 				));
 			}
+			return result.all();
+		}
+
+		if (problems === undefined) {
 			return result.all();
 		}
 
@@ -1713,8 +1718,8 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkForma
 		const filePath = getFilePath(textDocument);
 		return withCLIEngine((cli) => {
 			const content = textDocument.getText();
-			const report = cli.executeOnText(content, filePath);
 			const result: TextEdit[] = [];
+			const report = cli.executeOnText(content, filePath);
 			if (Array.isArray(report.results) && report.results.length === 1 && report.results[0].output !== undefined) {
 				const formatted = report.results[0].output;
 				const diffs = stringDiff(content, formatted, true);

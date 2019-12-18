@@ -415,7 +415,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^12.12.6",
-		"typescript": "^3.7.2",
+		"typescript": "^3.7.3",
 		"eslint": "^6.6.0",
 		"@typescript-eslint/parser": "^2.6.1",
 		"webpack": "^4.41.2",
