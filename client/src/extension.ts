@@ -984,7 +984,7 @@ function realActivate(context: ExtensionContext): void {
 												await config.update('migration.2_x', 'off', ConfigurationTarget.Global);
 											} else if (selected.id === 'readme') {
 												notNow = true;
-												Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-conversion'));
+												Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-migration'));
 											}
 										}
 									}
