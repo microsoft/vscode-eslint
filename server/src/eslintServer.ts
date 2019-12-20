@@ -617,6 +617,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 		settings.resolvedGlobalPackageManagerPath = globalPathGet(settings.packageManager);
 		const filePath = getFilePath(document);
 		const workspaceFolderPath = settings.workspaceFolder !== undefined ? getFilePath(settings.workspaceFolder.uri) : undefined;
+		const hasUserDefinedWorkingDirectories: boolean = configuration.workingDirectory !== undefined;
 		const workingDirectoryConfig = configuration.workingDirectory ?? { mode: ModeEnum.location };
 		if (ModeItem.is(workingDirectoryConfig)) {
 			let candidate: string | undefined;
@@ -650,16 +651,19 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				}
 			}
 		}
-		let workingDirectory: string | undefined;
-		if (settings.workingDirectory !== undefined && !settings.workingDirectory['!cwd']) {
-			workingDirectory = settings.workingDirectory.directory;
+		let moduleResolveWorkingDirectory: string | undefined;
+		if (!hasUserDefinedWorkingDirectories && filePath !== undefined) {
+			moduleResolveWorkingDirectory = path.dirname(filePath);
+		}
+		if (moduleResolveWorkingDirectory === undefined && settings.workingDirectory !== undefined && !settings.workingDirectory['!cwd']) {
+			moduleResolveWorkingDirectory = settings.workingDirectory.directory;
 		}
 		if (nodePath !== undefined) {
 			promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-				return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, workingDirectory, trace);
+				return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
 			});
 		} else {
-			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, workingDirectory, trace);
+			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
 		}
 
 		settings.silent = settings.validate === Validate.probe;

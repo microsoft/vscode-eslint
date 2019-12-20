@@ -1,3 +1,11 @@
+### 2.0.11
+
+- Fixes [Eslint not working when open above level directory](https://github.com/microsoft/vscode-eslint/issues/854)
+
+### 2.0.10
+
+Various bug fixes especially around settings migration.
+
 ### 2.0.4
 
 A new major version of the extension. Major improvements are around code actions on save, formatting, working directory setup and validating of TypeScript files.
