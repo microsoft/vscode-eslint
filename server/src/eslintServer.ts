@@ -1719,10 +1719,14 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkForma
 		return withCLIEngine((cli) => {
 			const content = textDocument.getText();
 			const result: TextEdit[] = [];
+			let start = Date.now();
 			const report = cli.executeOnText(content, filePath);
+			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
 			if (Array.isArray(report.results) && report.results.length === 1 && report.results[0].output !== undefined) {
 				const formatted = report.results[0].output;
-				const diffs = stringDiff(content, formatted, true);
+				start = Date.now();
+				const diffs = stringDiff(content, formatted, false);
+				connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);
 				for (let diff of diffs) {
 					result.push({
 						range: {
