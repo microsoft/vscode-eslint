@@ -22,7 +22,7 @@
 		"./client",
 		"./server"
 	],
-	"eslint.trace.server": "off",
+	"eslint.trace.server": "messages",
 	"eslint.lintTask.enable": false,
 	"eslint.format.enable": false
 }

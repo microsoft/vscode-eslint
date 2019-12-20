@@ -121,9 +121,14 @@ This extension contributes the following variables to the [settings](https://cod
 
 The old `eslint.autoFixOnSave` setting is now deprecated and can safely be removed.
 
-## Settings Conversion
+## Settings Migration
 
-The old `eslint.autoFixOnSave` will automatically be converted into the new `editor.codeActionsOnSave` setting if `eslint.autoFixOnSave` is set to true. If you want to avoid the conversion either remove `eslint.autoFixOnSave` or set it to false. If you want to disable the migration in general change the user settings `eslint.migration.2_x` to `off`.
+If the old `eslint.autoFixOnSave` option is set to true ESLint will prompt to convert it to the new `editor.codeActionsOnSave` format. If you want to avoid the migration you can respond in the dialog in the following ways:
+
+- Not now: the setting will not be migrated by ESLint prompts again the next time you open the worksapce
+- Never migrate Settings: the settings migration will be disabled by changing the user setting `eslint.migration.2_x` to `off`
+
+The migration can always be triggered manually using the command `ESLint: Migrate Settings`
 
 ## Commands:
 

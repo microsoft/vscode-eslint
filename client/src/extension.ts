@@ -166,15 +166,6 @@ interface NoESLintState {
 	workspaces?: { [key: string]: boolean };
 }
 
-interface NoSettingsMigration {
-	files: { [key: string]: boolean };
-	workspaces: { [key: string]: boolean };
-}
-
-namespace NoSettingsMigration {
-	export const key = 'noSettingsMigration';
-}
-
 enum Status {
 	ok = 1,
 	warn = 2,
@@ -758,6 +749,39 @@ function realActivate(context: ExtensionContext): void {
 		return result ?? false;
 	}
 
+	function migrationFailed(error: any): void {
+		client.error(error.message ?? 'Unknown error', error);
+		Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
+			if (selected === undefined) {
+				return;
+			}
+			client.outputChannel.show();
+		});
+
+	}
+
+	async function migrateSettings(): Promise<void> {
+		const folders = Workspace.workspaceFolders;
+		if (folders === undefined) {
+			Window.showErrorMessage('ESLint settings can only be converted if VS Code is opened on a workspace folder.');
+			return;
+		}
+
+		const folder = await pickFolder(folders, 'Pick a folder to convert its settings');
+		if (folder === undefined) {
+			return;
+		}
+		const migration = new Migration(folder.uri);
+		migration.record();
+		if (migration.needsUpdate()) {
+			try {
+				await migration.update();
+			} catch (error) {
+				migrationFailed(error);
+			}
+		}
+	}
+
 	// We need to go one level up since an extension compile the js code into
 	// the output folder.
 	// serverModule
@@ -803,15 +827,6 @@ function realActivate(context: ExtensionContext): void {
 	let migration: Migration | undefined;
 	const migrationSemaphore: Semaphore<void> = new Semaphore<void>(1);
 	let notNow: boolean = false;
-	let noMigrationLocal: NoSettingsMigration | undefined = context.globalState.get<NoSettingsMigration>(NoSettingsMigration.key);
-	if (noMigrationLocal === undefined) {
-		noMigrationLocal = {
-			workspaces: Object.create(null),
-			files: Object.create(null)
-		};
-		context.globalState.update(NoSettingsMigration.key, noMigrationLocal);
-	}
-
 	const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
@@ -933,7 +948,7 @@ function realActivate(context: ExtensionContext): void {
 						const workspaceFolder = Workspace.getWorkspaceFolder(resource);
 						await migrationSemaphore.lock(async () => {
 							const globalMigration = Workspace.getConfiguration('eslint').get('migration.2_x', 'on');
-							if (notNow === false && globalMigration === 'on' && !(workspaceFolder !== undefined ? noMigrationLocal!.workspaces[workspaceFolder.uri.toString()] : noMigrationLocal!.files[resource.toString()])) {
+							if (notNow === false && globalMigration === 'on'  /*&& !(workspaceFolder !== undefined ? noMigrationLocal!.workspaces[workspaceFolder.uri.toString()] : noMigrationLocal!.files[resource.toString()]) */) {
 								try {
 									migration = new Migration(resource);
 									migration.record();
@@ -945,15 +960,14 @@ function realActivate(context: ExtensionContext): void {
 										const file = path.basename(resource.fsPath);
 										const selected = await Window.showInformationMessage<Item>(
 											[
-												`The ESLint 'autoFixOnSave' setting needs to be converted to the new 'editor.codeActionsOnSave' setting `,
+												`The ESLint 'autoFixOnSave' setting needs to be migrated to the new 'editor.codeActionsOnSave' setting`,
 												folder !== undefined ? `for the workspace folder: ${folder}.` : `for the file: ${file}.`,
 												`For compatibility reasons the 'autoFixOnSave' remains and needs to be removed manually.`,
-												`Do you want to update the setting?`
+												`Do you want to migrate the setting?`
 											].join(' '),
 											{ modal: true},
 											{ id: 'yes', title: 'Yes'},
-											{ id: 'local', title: folder !== undefined ? 'Never for this Folder' : 'Never for this File' },
-											{ id: 'global', title: 'Never update Settings' },
+											{ id: 'global', title: 'Never migrate Settings' },
 											{ id: 'readme', title: 'Open Readme' },
 											{ id: 'no', title: 'Not now', isCloseAffordance: true }
 										);
@@ -962,25 +976,12 @@ function realActivate(context: ExtensionContext): void {
 												try {
 													await migration.update();
 												} catch (error) {
-													client.error(error.message ?? 'Unknown error', error);
-													Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
-														if (selected === undefined) {
-															return;
-														}
-														client.outputChannel.show();
-													});
+													migrationFailed(error);
 												}
 											} else if (selected.id === 'no') {
 												notNow = true;
 											} else if (selected.id === 'global') {
 												await config.update('migration.2_x', 'off', ConfigurationTarget.Global);
-											} else if (selected.id === 'local') {
-												if (workspaceFolder !== undefined) {
-													noMigrationLocal!.workspaces[workspaceFolder.uri.toString()] = true;
-												} else {
-													noMigrationLocal!.files[resource.toString()] = true;
-												}
-												await context.globalState.update(NoSettingsMigration.key, noMigrationLocal);
 											} else if (selected.id === 'readme') {
 												notNow = true;
 												Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-conversion'));
@@ -1277,6 +1278,9 @@ function realActivate(context: ExtensionContext): void {
 			});
 		}),
 		Commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
+		Commands.registerCommand('eslint.migrateSettings', () => {
+			migrateSettings();
+		}),
 		statusBarItem
 	);
 }
