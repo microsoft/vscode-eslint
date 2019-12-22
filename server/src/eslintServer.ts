@@ -1539,16 +1539,19 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return TextEdit.replace(Range.create(textDocument!.positionAt(editInfo.edit.range[0]), textDocument!.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
 
+	const languageSpecificLineCommentOpener = textDocument.languageId === 'coffeescript' ? '#' : '//';
+	const languageSpecificBlockCommentOpener = textDocument.languageId === 'coffeescript' ? '###' : '/*';
+	const languageSpecificBlockCommentCloser = textDocument.languageId === 'coffeescript' ? '###' : '*/';
 	function createDisableLineTextEdit(editInfo: Problem, indentationText: string): TextEdit {
-		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
+		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}${languageSpecificLineCommentOpener} eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
 
 	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
-		return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), ` // eslint-disable-line ${editInfo.ruleId}`);
+		return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), ` ${languageSpecificLineCommentOpener} eslint-disable-line ${editInfo.ruleId}`);
 	}
 
 	function createDisableFileTextEdit(editInfo: Problem): TextEdit {
-		return TextEdit.insert(Position.create(0, 0), `/* eslint-disable ${editInfo.ruleId} */${EOL}`);
+		return TextEdit.insert(Position.create(0, 0), `${languageSpecificBlockCommentOpener} eslint-disable ${editInfo.ruleId} ${languageSpecificBlockCommentCloser}${EOL}`);
 	}
 
 	function getLastEdit(array: FixableProblem[]): FixableProblem | undefined {
