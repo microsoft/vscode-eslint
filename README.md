@@ -120,7 +120,7 @@ This extension contributes the following variables to the [settings](https://cod
   }
 ```
 
-The old `eslint.autoFixOnSave` setting is now deprecated and can safely be removed.
+The old `eslint.autoFixOnSave` setting is now deprecated and can safely be removed. Please also note that if you use ESLint as your default formatter you should turn off `editor.formatOnSave` when you have turned on `editor.codeActionsOnSave`. Otherwise you file gets fixed twice which in unnecessary.
 
 ## Settings Migration
 
