@@ -1802,6 +1802,8 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllF
 							newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
 						});
 					}
+				} else if (problemFixes !== undefined) {
+					result.push(...problemFixes);
 				}
 			}
 			return result;
