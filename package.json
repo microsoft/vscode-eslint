@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.0.11",
+	"version": "2.0.12",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -351,10 +351,10 @@
 					],
 					"enumDescriptions": [
 						"Fixes all possible problems in the file. This option might take some time.",
-						"Only fixes reported non overlapping problems."
+						"Only fixes reported problems that have non overlapping textual edits. This options runs a lot faster."
 					],
 					"default": "all",
-					"description": "Specifies whether code action on save should try to fix all possible or only fixable problems."
+					"description": "Specifies the code action mode. Possible values are 'all' and 'problems'."
 				},
 				"eslint.format.enable": {
 					"scope": "resource",
