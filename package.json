@@ -342,6 +342,20 @@
 						}
 					}
 				},
+				"eslint.codeActionsOnSave.mode": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"all",
+						"problems"
+					],
+					"enumDescriptions": [
+						"Fixes all possible problems in the file. This option might take some time.",
+						"Only fixes reported non overlapping problems."
+					],
+					"default": "all",
+					"description": "Specifies whether code action on save should try to fix all possible or only fixable problems."
+				},
 				"eslint.format.enable": {
 					"scope": "resource",
 					"type": "boolean",
@@ -428,7 +442,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^12.12.6",
-		"typescript": "^3.7.3",
+		"typescript": "^3.7.4",
 		"eslint": "^6.6.0",
 		"@typescript-eslint/parser": "^2.6.1",
 		"webpack": "^4.41.2",

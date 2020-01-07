@@ -119,6 +119,27 @@ interface CodeActionSettings {
 	};
 }
 
+enum CodeActionsOnSaveMode {
+	all = 'all',
+	problems = 'problems'
+}
+
+namespace CodeActionsOnSaveMode {
+	export function from(value: string): CodeActionsOnSaveMode {
+		switch(value.toLowerCase()) {
+			case CodeActionsOnSaveMode.problems:
+				return CodeActionsOnSaveMode.problems;
+			default:
+				return CodeActionsOnSaveMode.all;
+		}
+	}
+}
+
+interface CodeActionsOnSaveSettings {
+	enable: boolean;
+	mode: CodeActionsOnSaveMode
+}
+
 enum Validate {
 	on = 'on',
 	off = 'off',
@@ -150,7 +171,7 @@ interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
 	codeAction: CodeActionSettings;
-	codeActionOnSave: boolean;
+	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
@@ -996,7 +1017,10 @@ function realActivate(context: ExtensionContext): void {
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: config.get('packageManager', 'npm'),
-							codeActionOnSave: false,
+							codeActionOnSave: {
+								enable: false,
+								mode: CodeActionsOnSaveMode.all
+							},
 							format: false,
 							quiet: config.get('quiet', false),
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
@@ -1020,7 +1044,8 @@ function realActivate(context: ExtensionContext): void {
 						}
 						if (settings.validate !== Validate.off) {
 							settings.format = !!config.get('format.enable', false);
-							settings.codeActionOnSave = readCodeActionsOnSaveSetting(document);
+							settings.codeActionOnSave.enable = readCodeActionsOnSaveSetting(document);
+							settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
 						}
 						if (workspaceFolder !== undefined) {
 							settings.workspaceFolder = {

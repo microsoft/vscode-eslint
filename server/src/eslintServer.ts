@@ -177,11 +177,21 @@ enum ESLintSeverity {
 	error = 'error'
 }
 
+enum CodeActionsOnSaveMode {
+	all = 'all',
+	problems = 'problems'
+}
+
+interface CodeActionsOnSaveSettings {
+	enable: boolean;
+	mode: CodeActionsOnSaveMode
+}
+
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
 	codeAction: CodeActionSettings;
-	codeActionOnSave: boolean;
+	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
@@ -260,6 +270,10 @@ namespace RuleData {
 	}
 }
 
+interface ParserOptions {
+	parser?: string;
+}
+
 interface ESLintConfig {
  	env: Record<string, boolean>;
 	extends:  string | string[];
@@ -268,7 +282,7 @@ interface ESLintConfig {
  	noInlineConfig: boolean;
  	// overrides: OverrideConfigData[];
  	parser: string | null;
- 	// parserOptions: ParserOptions;
+ 	parserOptions?: ParserOptions;
  	plugins: string[];
  	processor: string;
  	reportUnusedDisableDirectives: boolean | undefined;
@@ -337,13 +351,19 @@ interface Problem {
 	edit?: ESLintAutoFixEdit;
 }
 
+namespace Problem {
+	export function isFixable(problem: Problem): problem is FixableProblem {
+		return problem.edit !== undefined;
+	}
+}
+
 interface FixableProblem extends Problem {
 	edit: ESLintAutoFixEdit;
 }
 
-namespace Problem {
-	export function isFixable(problem: Problem): problem is FixableProblem {
-		return problem.edit !== undefined;
+namespace FixableProblem {
+	export function createTextEdit(document: TextDocument, editInfo: FixableProblem): TextEdit {
+		return TextEdit.replace(Range.create(document.positionAt(editInfo.edit.range[0]), document.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
 	}
 }
 
@@ -548,6 +568,13 @@ const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId
 	return result;
 }();
 
+const languageId2ParserOptions: Map<string, { regExps: RegExp[]; parsers: Set<string> }> = function createLanguageId2ParserOptionsRegExp() {
+	const result = new Map<string, { regExps: RegExp[]; parsers: Set<string> }>();
+	const vue = /vue-eslint-parser\/.*\.js$/;
+	result.set('typescript', { regExps: [vue], parsers: new Set<string>(['@typescript-eslint/parser'])});
+	return result;
+}();
+
 const languageId2PluginName: Map<string, string> = new Map([
 	['html', 'html'],
 	['vue', 'vue']
@@ -701,9 +728,10 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				if (filePath !== undefined) {
 					const parserRegExps = languageId2ParserRegExp.get(document.languageId);
 					const pluginName = languageId2PluginName.get(document.languageId);
+					const parserOptions = languageId2ParserOptions.get(document.languageId);
 					if (defaultLanguageIds.has(document.languageId)) {
 						settings.validate = Validate.on;
-					} else if (parserRegExps !== undefined || pluginName !== undefined) {
+					} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
 						const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
 							if (typeof cli.getConfigForFile === 'function') {
 								return cli.getConfigForFile(filePath!);
@@ -712,12 +740,24 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 							}
 						}, settings);
 						if (eslintConfig !== undefined) {
-							if (eslintConfig.parser !== null && parserRegExps !== undefined) {
-								const parser = process.platform === 'win32' ? eslintConfig.parser.replace(/\\/g, '/') : eslintConfig.parser;
-								for (const regExp of parserRegExps) {
-									if (regExp.test(parser)) {
-										settings.validate = Validate.on;
-										break;
+							const parser: string | undefined =  eslintConfig.parser !== null
+								? (process.platform === 'win32' ? eslintConfig.parser.replace(/\\/g, '/') : eslintConfig.parser)
+								: undefined;
+							if (parser !== undefined) {
+								if (parserRegExps !== undefined) {
+									for (const regExp of parserRegExps) {
+										if (regExp.test(parser)) {
+											settings.validate = Validate.on;
+											break;
+										}
+									}
+								}
+								if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
+									for (const regExp of parserOptions.regExps) {
+										if (regExp.test(parser) && parserOptions.parsers.has(eslintConfig.parserOptions.parser)) {
+											settings.validate = Validate.on;
+											break;
+										}
 									}
 								}
 							} else if (Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
@@ -1535,10 +1575,6 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return action;
 	}
 
-	function createTextEdit(editInfo: FixableProblem): TextEdit {
-		return TextEdit.replace(Range.create(textDocument!.positionAt(editInfo.edit.range[0]), textDocument!.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
-	}
-
 	function createDisableLineTextEdit(editInfo: Problem, indentationText: string): TextEdit {
 		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
@@ -1568,11 +1604,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 		const only: string | undefined = params.context.only !== undefined && params.context.only.length > 0 ? params.context.only[0] : undefined;
 		const isSource = only === CodeActionKind.Source;
-		const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave;
+		const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave.enable;
 		if (isSourceFixAll || isSource) {
 			if (isSourceFixAll) {
 				const textDocumentIdentifer: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
-				const edits = await computeAllFixes(textDocumentIdentifer);
+				const edits = await computeAllFixes(textDocumentIdentifer, AllFixesMode.onSave);
 				if (edits !== undefined) {
 					result.fixAll.push(CodeAction.create(
 						`Fix all ESLint auto-fixable problems`,
@@ -1611,7 +1647,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 			if (Problem.isFixable(editInfo)) {
 				const workspaceChange = new WorkspaceChange();
-				workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createTextEdit(editInfo));
+				workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(FixableProblem.createTextEdit(textDocument, editInfo));
 				changes.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
 				const action = createCodeAction(
 					editInfo.label,
@@ -1684,7 +1720,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				if (same.length > 1) {
 					const sameFixes: WorkspaceChange = new WorkspaceChange();
 					const sameTextChange = sameFixes.getTextEditChange({ uri, version: documentVersion });
-					same.map(createTextEdit).forEach(edit => sameTextChange.add(edit));
+					same.map(fix => FixableProblem.createTextEdit(textDocument, fix)).forEach(edit => sameTextChange.add(edit));
 					changes.set(CommandIds.applySameFixes, sameFixes);
 					result.get(ruleId).fixAll = createCodeAction(
 						`Fix all ${ruleId} problems`,
@@ -1708,7 +1744,13 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	return document !== undefined ? document.version : undefined;
 });
 
-function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkFormat: boolean = false): Promise<TextEdit[]> | undefined {
+enum AllFixesMode {
+	onSave = 'onsave',
+	format = 'format',
+	command = 'command'
+}
+
+function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllFixesMode): Promise<TextEdit[]> | undefined {
 	const uri = identifier.uri;
 	const textDocument = documents.get(uri)!;
 	if (textDocument === undefined || identifier.version !== textDocument.version) {
@@ -1716,29 +1758,50 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, checkForma
 	}
 
 	return resolveSettings(textDocument).then((settings) => {
-		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings) || (checkFormat && !settings.format)) {
+		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings) || (mode === AllFixesMode.format && !settings.format)) {
 			return [];
 		}
 		const filePath = getFilePath(textDocument);
 		return withCLIEngine((cli) => {
-			const content = textDocument.getText();
+			const problems = codeActions.get(uri);
+			const originalContent = textDocument.getText();
+			let problemFixes: TextEdit[] | undefined;
 			const result: TextEdit[] = [];
 			let start = Date.now();
-			const report = cli.executeOnText(content, filePath);
-			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
-			if (Array.isArray(report.results) && report.results.length === 1 && report.results[0].output !== undefined) {
-				const formatted = report.results[0].output;
-				start = Date.now();
-				const diffs = stringDiff(content, formatted, false);
-				connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);
-				for (let diff of diffs) {
-					result.push({
-						range: {
-							start: textDocument.positionAt(diff.originalStart),
-							end: textDocument.positionAt(diff.originalStart + diff.originalLength)
-						},
-						newText: formatted.substr(diff.modifiedStart, diff.modifiedLength)
-					});
+			if (problems !== undefined && problems.size > 0) {
+				const fixes = (new Fixes(problems)).getOverlapFree();
+				if (fixes.length > 0) {
+					problemFixes = fixes.map(fix => FixableProblem.createTextEdit(textDocument, fix));
+				}
+			}
+			if (mode === AllFixesMode.onSave && settings.codeActionOnSave.mode === CodeActionsOnSaveMode.problems) {
+				connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
+				if (problemFixes !== undefined) {
+					result.push(...problemFixes);
+				}
+			} else {
+				let content: string;
+				if (problemFixes !== undefined) {
+					content = TextDocument.applyEdits(textDocument, problemFixes);
+				} else {
+					content = originalContent;
+				}
+				const report = cli.executeOnText(content, filePath);
+				connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
+				if (Array.isArray(report.results) && report.results.length === 1 && report.results[0].output !== undefined) {
+					const fixedContent = report.results[0].output;
+					start = Date.now();
+					const diffs = stringDiff(originalContent, fixedContent, false);
+					connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);
+					for (let diff of diffs) {
+						result.push({
+							range: {
+								start: textDocument.positionAt(diff.originalStart),
+								end: textDocument.positionAt(diff.originalStart + diff.originalLength)
+							},
+							newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
+						});
+					}
 				}
 			}
 			return result;
@@ -1750,7 +1813,7 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 	let workspaceChange: WorkspaceChange | undefined;
 	const commandParams: CommandParams = params.arguments![0];
 	if (params.command === CommandIds.applyAllFixes) {
-		const edits = await computeAllFixes(commandParams);
+		const edits = await computeAllFixes(commandParams, AllFixesMode.command);
 		if (edits !== undefined) {
 			workspaceChange = new WorkspaceChange();
 			const textChange = workspaceChange.getTextEditChange(commandParams);
@@ -1795,7 +1858,7 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	if (textDocument === undefined) {
 		return [];
 	}
-	return computeAllFixes({ uri: textDocument.uri, version: textDocument.version }, true);
+	return computeAllFixes({ uri: textDocument.uri, version: textDocument.version }, AllFixesMode.format);
 }, (params) => {
 	const document = documents.get(params.textDocument.uri);
 	return document !== undefined ? document.version : undefined;
