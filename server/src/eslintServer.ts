@@ -760,7 +760,8 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 										}
 									}
 								}
-							} else if (Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
+							}
+							if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
 								for (const name of eslintConfig.plugins) {
 									if (name === pluginName) {
 										settings.validate = Validate.on;
