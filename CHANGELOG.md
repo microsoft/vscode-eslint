@@ -1,3 +1,10 @@
+### 2.0.12
+
+- Improved performance for code actions on save by reusing fixes for already known problems.
+- Added a setting `eslint.codeActionsOnSave.mode` to revive the 1.9.x version behavior of only fixing already known problems on save.
+- Bug fixes:
+  - [Can't lint .ts files when use vue-eslint-parser](https://github.com/microsoft/vscode-eslint/issues/864)
+
 ### 2.0.11
 
 - Fixes [Eslint not working when open above level directory](https://github.com/microsoft/vscode-eslint/issues/854)
