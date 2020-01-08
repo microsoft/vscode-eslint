@@ -1,3 +1,7 @@
+### 2.0.13
+
+- Fixes [no validation of .vue files (2.0.12)](https://github.com/microsoft/vscode-eslint/issues/870)
+
 ### 2.0.12
 
 - Improved performance for code actions on save by reusing fixes for already known problems.
