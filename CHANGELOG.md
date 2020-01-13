@@ -1,3 +1,8 @@
+### 2.0.14
+
+- Bug Fixes:
+  - [Auto fix made double comma to fix trailing comma](https://github.com/microsoft/vscode-eslint/issues/871)
+
 ### 2.0.13
 
 - Fixes [no validation of .vue files (2.0.12)](https://github.com/microsoft/vscode-eslint/issues/870)

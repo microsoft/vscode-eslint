@@ -1372,8 +1372,12 @@ class Fixes {
 	constructor(private edits: Map<string, Problem>) {
 	}
 
-	public static overlaps(lastEdit: FixableProblem | undefined, newEdit: FixableProblem): boolean {
-		return lastEdit !== undefined && lastEdit.edit.range[1] > newEdit.edit.range[0];
+	public static overlaps(a: FixableProblem | undefined, b: FixableProblem): boolean {
+		return a !== undefined && a.edit.range[1] > b.edit.range[0];
+	}
+
+	public static isSame(a: FixableProblem, b: FixableProblem): boolean {
+		return a.edit.range[0] === b.edit.range[0] && a.edit.range[1] === b.edit.range[1] && a.edit.text === b.edit.text;
 	}
 
 	public isEmpty(): boolean {
@@ -1421,7 +1425,7 @@ class Fixes {
 		});
 	}
 
-	public getOverlapFree(): FixableProblem[] {
+	public getApplicable(): FixableProblem[] {
 		const sorted = this.getAllSorted();
 		if (sorted.length <= 1) {
 			return sorted;
@@ -1431,7 +1435,7 @@ class Fixes {
 		result.push(last);
 		for (let i = 1; i < sorted.length; i++) {
 			let current = sorted[i];
-			if (!Fixes.overlaps(last, current)) {
+			if (!Fixes.overlaps(last, current) && !Fixes.isSame(last, current)) {
 				result.push(current);
 				last = current;
 			}
@@ -1770,7 +1774,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllF
 			const result: TextEdit[] = [];
 			let start = Date.now();
 			if (problems !== undefined && problems.size > 0) {
-				const fixes = (new Fixes(problems)).getOverlapFree();
+				const fixes = (new Fixes(problems)).getApplicable();
 				if (fixes.length > 0) {
 					problemFixes = fixes.map(fix => FixableProblem.createTextEdit(textDocument, fix));
 				}

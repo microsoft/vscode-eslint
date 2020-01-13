@@ -13,6 +13,7 @@
 	"typescript.tsdk": "./node_modules/typescript/lib",
 	"typescript.tsc.autoDetect": "off",
 	"typescript.tsserver.trace": "off",
+	"typescript.tsserver.log": "off",
 	"tslint.enable": false,
 	"eslint.enable": true,
 	"editor.codeActionsOnSave": {
