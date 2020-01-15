@@ -1773,7 +1773,9 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllF
 			let problemFixes: TextEdit[] | undefined;
 			const result: TextEdit[] = [];
 			let start = Date.now();
-			if (problems !== undefined && problems.size > 0) {
+			// Only use known fixes when running in onSave mode. See https://github.com/microsoft/vscode-eslint/issues/871
+			// for details
+			if (mode === AllFixesMode.onSave && problems !== undefined && problems.size > 0) {
 				const fixes = (new Fixes(problems)).getApplicable();
 				if (fixes.length > 0) {
 					problemFixes = fixes.map(fix => FixableProblem.createTextEdit(textDocument, fix));
