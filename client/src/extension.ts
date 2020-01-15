@@ -35,6 +35,10 @@ namespace Is {
 	export function string(value: any): value is string {
 		return toString.call(value) === '[object String]';
 	}
+
+	export function objectLiteral(value: any): value is object {
+		return value !== null && value !== undefined && !Array.isArray(value) && typeof value === 'object';
+	}
 }
 
 interface ValidateItem {
@@ -521,7 +525,7 @@ class Migration {
 			if (setting.value?.['source.fixAll.eslint'] === false) {
 				return false;
 			}
-			if (setting.value === undefined) {
+			if (!Is.objectLiteral(setting.value)) {
 				setting.value = {};
 			}
 			const autoFix: boolean = !!elem.value;
@@ -560,7 +564,7 @@ class Migration {
 				}
 				if (fixAll && item.autoFix === false && typeof item.language === 'string') {
 					const setting = settingAccessor(item.language);
-					if (setting.value === undefined) {
+					if (!Is.objectLiteral(setting.value)) {
 						setting.value = Object.create(null);
 					}
 					if (setting.value!['source.fixAll.eslint'] !== false) {
