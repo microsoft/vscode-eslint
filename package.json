@@ -409,6 +409,10 @@
 			{
 				"fileMatch": ".eslintrc.json",
 				"url": "http://json.schemastore.org/eslintrc"
+			},
+			{
+				"fileMatch": "package.json",
+				"url": "./package-json-schema.json"
 			}
 		],
 		"languages": [
