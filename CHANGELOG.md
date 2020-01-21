@@ -1,3 +1,7 @@
+### 2.0.15
+
+- Update to latest LSP libraries
+
 ### 2.0.14
 
 - Bug Fixes:
