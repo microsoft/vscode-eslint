@@ -1685,13 +1685,12 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				result.get(ruleId).fixes.push(action);
 			}
 			if (Problem.hasSuggestions(editInfo)) {
-				const numOfSuggestions = editInfo.suggestions.length;
 				editInfo.suggestions.forEach((suggestion, suggestionSequence) => {
 					const workspaceChange = new WorkspaceChange();
 					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(SuggestionsProblem.createTextEdit(textDocument, suggestion));
 					changes.set(`${CommandIds.applySuggestion}:${ruleId}:${suggestionSequence}`, workspaceChange);
 					const action = createCodeAction(
-						`Fix this ${editInfo.ruleId} (suggestion${numOfSuggestions > 1 ? ` ${suggestionSequence + 1}`: ''}): ${suggestion.desc}`,
+						`${suggestion.desc} (${editInfo.ruleId})`,
 						CodeActionKind.QuickFix,
 						CommandIds.applySuggestion,
 						CommandParams.create(textDocument, ruleId, suggestionSequence)
