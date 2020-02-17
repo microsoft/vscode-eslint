@@ -130,7 +130,7 @@ The old `eslint.autoFixOnSave` setting is now deprecated and can safely be remov
 
 If the old `eslint.autoFixOnSave` option is set to true ESLint will prompt to convert it to the new `editor.codeActionsOnSave` format. If you want to avoid the migration you can respond in the dialog in the following ways:
 
-- Not now: the setting will not be migrated by ESLint prompts again the next time you open the worksapce
+- Not now: the setting will not be migrated by ESLint prompts again the next time you open the workspace
 - Never migrate Settings: the settings migration will be disabled by changing the user setting `eslint.migration.2_x` to `off`
 
 The migration can always be triggered manually using the command `ESLint: Migrate Settings`
