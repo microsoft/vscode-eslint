@@ -1,9 +1,5 @@
 {
     "root": true,
-    "plugins": [
-        "html",
-        "vue"
-    ],
     "env": {
         "browser": true,
         "commonjs": true,
@@ -17,6 +13,7 @@
         "sourceType": "module"
     },
     "rules": {
+        "no-useless-escape": "error",
         "no-const-assign": "warn",
         "no-this-before-super": "warn",
         "no-undef": "warn",

@@ -43,6 +43,7 @@
 	"eslint.format.enable": true,
 	"eslint.onIgnoredFiles": "off",
 	"editor.codeActionsOnSave": {
+		"source.fixAll": true,
 		"source.fixAll.eslint": false
 	}
 }
