@@ -1,3 +1,8 @@
+### 2.1.0
+
+- [Support for ESLint suggest API](https://github.com/microsoft/vscode-eslint/pull/814)
+
+
 ### 2.0.15
 
 - Update to latest LSP libraries
