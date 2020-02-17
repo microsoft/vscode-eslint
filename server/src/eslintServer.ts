@@ -46,6 +46,7 @@ namespace Is {
 
 namespace CommandIds {
 	export const applySingleFix: string = 'eslint.applySingleFix';
+	export const applySuggestion: string = 'eslint.applySuggestion';
 	export const applySameFixes: string = 'eslint.applySameFixes';
 	export const applyAllFixes: string = 'eslint.applyAllFixes';
 	export const applyDisableLine: string = 'eslint.applyDisableLine';
@@ -222,6 +223,10 @@ interface ESLintAutoFixEdit {
 	range: [number, number];
 	text: string;
 }
+interface ESLintSuggestionResult {
+	desc: string
+	fix: ESLintAutoFixEdit
+}
 
 interface ESLintProblem {
 	line: number;
@@ -232,6 +237,7 @@ interface ESLintProblem {
 	ruleId: string;
 	message: string;
 	fix?: ESLintAutoFixEdit;
+	suggestions?: ESLintSuggestionResult[]
 }
 
 interface ESLintDocumentReport {
@@ -349,11 +355,16 @@ interface Problem {
 	ruleId: string;
 	line: number;
 	edit?: ESLintAutoFixEdit;
+	suggestions?: ESLintSuggestionResult[]
 }
 
 namespace Problem {
 	export function isFixable(problem: Problem): problem is FixableProblem {
 		return problem.edit !== undefined;
+	}
+
+	export function hasSuggestions(problem: Problem): problem is SuggestionsProblem {
+		return problem.suggestions !== undefined;
 	}
 }
 
@@ -364,6 +375,16 @@ interface FixableProblem extends Problem {
 namespace FixableProblem {
 	export function createTextEdit(document: TextDocument, editInfo: FixableProblem): TextEdit {
 		return TextEdit.replace(Range.create(document.positionAt(editInfo.edit.range[0]), document.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
+	}
+}
+
+interface SuggestionsProblem extends Problem {
+	suggestions: ESLintSuggestionResult[];
+}
+
+namespace SuggestionsProblem {
+	export function createTextEdit(document: TextDocument, suggestion: ESLintSuggestionResult): TextEdit {
+		return TextEdit.replace(Range.create(document.positionAt(suggestion.fix.range[0]), document.positionAt(suggestion.fix.range[1])), suggestion.fix.text || '');
 	}
 }
 
@@ -383,7 +404,7 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 		edits = new Map<string, Problem>();
 		codeActions.set(uri, edits);
 	}
-	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix, line: problem.line });
+	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix, suggestions: problem.suggestions, line: problem.line });
 }
 
 function convertSeverity(severity: number): DiagnosticSeverity {
@@ -1049,6 +1070,7 @@ connection.onInitialize((_params, _cancel, progress) => {
 			executeCommandProvider: {
 				commands: [
 					CommandIds.applySingleFix,
+					CommandIds.applySuggestion,
 					CommandIds.applySameFixes,
 					CommandIds.applyAllFixes,
 					CommandIds.applyDisableLine,
@@ -1446,6 +1468,7 @@ class Fixes {
 
 interface RuleCodeActions {
 	fixes: CodeAction[];
+	suggestions: CodeAction[];
 	disable?: CodeAction;
 	fixAll?: CodeAction;
 	disableFile?: CodeAction;
@@ -1463,7 +1486,7 @@ class CodeActionResult {
 	public get(ruleId: string): RuleCodeActions {
 		let result: RuleCodeActions | undefined = this._actions.get(ruleId);
 		if (result === undefined) {
-			result = { fixes: [] };
+			result = { fixes: [], suggestions: [] };
 			this._actions.set(ruleId, result);
 		}
 		return result;
@@ -1480,6 +1503,7 @@ class CodeActionResult {
 		const result: CodeAction[] = [];
 		for (let actions of this._actions.values()) {
 			result.push(...actions.fixes);
+			result.push(...actions.suggestions);
 			if (actions.disable) {
 				result.push(actions.disable);
 			}
@@ -1547,11 +1571,12 @@ class Changes {
 interface CommandParams extends VersionedTextDocumentIdentifier {
 	version: number;
 	ruleId?: string;
+	sequence?: number;
 }
 
 namespace CommandParams {
-	export function create(textDocument: TextDocument, ruleId?: string): CommandParams {
-		return { uri: textDocument.uri, version: textDocument.version, ruleId };
+	export function create(textDocument: TextDocument, ruleId?: string, sequence?: number): CommandParams {
+		return { uri: textDocument.uri, version: textDocument.version, ruleId, sequence };
 	}
 	export function hasRuleId(value: CommandParams): value is CommandParams & { ruleId: string } {
 		return value.ruleId !== undefined;
@@ -1662,6 +1687,20 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				);
 				action.isPreferred = true;
 				result.get(ruleId).fixes.push(action);
+			}
+			if (Problem.hasSuggestions(editInfo)) {
+				editInfo.suggestions.forEach((suggestion, suggestionSequence) => {
+					const workspaceChange = new WorkspaceChange();
+					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(SuggestionsProblem.createTextEdit(textDocument, suggestion));
+					changes.set(`${CommandIds.applySuggestion}:${ruleId}:${suggestionSequence}`, workspaceChange);
+					const action = createCodeAction(
+						`${suggestion.desc} (${editInfo.ruleId})`,
+						CodeActionKind.QuickFix,
+						CommandIds.applySuggestion,
+						CommandParams.create(textDocument, ruleId, suggestionSequence)
+					);
+					result.get(ruleId).suggestions.push(action);
+				});
 			}
 
 			if (settings.codeAction.disableRuleComment.enable) {
@@ -1831,6 +1870,8 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 	} else {
 		if ([CommandIds.applySingleFix, CommandIds.applyDisableLine, CommandIds.applyDisableFile].indexOf(params.command) !== -1) {
 			workspaceChange = changes.get(`${params.command}:${commandParams.ruleId}`);
+		} else if ([CommandIds.applySuggestion].indexOf(params.command) !== -1) {
+			workspaceChange = changes.get(`${params.command}:${commandParams.ruleId}:${commandParams.sequence}`);
 		} else if (params.command === CommandIds.openRuleDoc && CommandParams.hasRuleId(commandParams)) {
 			const url = ruleDocData.urls.get(commandParams.ruleId);
 			if (url) {
