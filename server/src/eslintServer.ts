@@ -223,9 +223,10 @@ interface ESLintAutoFixEdit {
 	range: [number, number];
 	text: string;
 }
+
 interface ESLintSuggestionResult {
-	desc: string
-	fix: ESLintAutoFixEdit
+	desc: string;
+	fix: ESLintAutoFixEdit;
 }
 
 interface ESLintProblem {
