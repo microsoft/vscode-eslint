@@ -283,7 +283,7 @@ export class Semaphore<T = void> {
 		if (this._waiting.length === 0 || this._active === this._capacity) {
 			return;
 		}
-		process.nextTick(() => this.doRunNext());
+		setImmediate(() => this.doRunNext());
 	}
 
 	private doRunNext(): void {
