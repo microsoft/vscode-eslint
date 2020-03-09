@@ -1067,6 +1067,11 @@ connection.onInitialize((_params, _cancel, progress) => {
 					includeText: false
 				}
 			},
+			workspace: {
+				workspaceFolders: {
+					supported: true
+				}
+			},
 			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
 			executeCommandProvider: {
 				commands: [

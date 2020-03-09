@@ -3,12 +3,11 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"type": "extensionHost",
+			"type": "pwa-extensionHost",
 			"request": "launch",
 			"name": "Launch Client",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}" ],
-			"stopOnEntry": false,
 			"sourceMaps": true,
 			"outFiles": ["${workspaceFolder}/client/out/**/*.js"],
 			"preLaunchTask": "npm: watch"
