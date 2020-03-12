@@ -266,7 +266,8 @@
 						"typescript",
 						"typescriptreact",
 						"html",
-						"vue"
+						"vue",
+						"markdown"
 					],
 					"description": "An array of language ids for which the extension should probe if support is installed."
 				},

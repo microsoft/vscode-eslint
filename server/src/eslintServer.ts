@@ -599,7 +599,8 @@ const languageId2ParserOptions: Map<string, { regExps: RegExp[]; parsers: Set<st
 
 const languageId2PluginName: Map<string, string> = new Map([
 	['html', 'html'],
-	['vue', 'vue']
+	['vue', 'vue'],
+	['markdown', 'markdown']
 ]);
 
 const defaultLanguageIds: Set<string> = new Set([
