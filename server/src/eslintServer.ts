@@ -1091,7 +1091,6 @@ connection.onInitialize((_params, _cancel, progress) => {
 
 connection.onInitialized(() => {
 	connection.client.register(DidChangeConfigurationNotification.type, undefined);
-	connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
 });
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
