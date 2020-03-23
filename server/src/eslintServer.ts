@@ -338,16 +338,27 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	const startChar = Math.max(0, problem.column - 1);
 	const endLine = Is.nullOrUndefined(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
 	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
-	return {
+	const result: Diagnostic = {
 		message: message,
 		severity: convertSeverity(problem.severity),
 		source: 'eslint',
 		range: {
 			start: { line: startLine, character: startChar },
 			end: { line: endLine, character: endChar }
-		},
-		code: problem.ruleId
+		}
 	};
+	if (problem.ruleId) {
+		const url = ruleDocData.urls.get(problem.ruleId);
+		if (url !== undefined) {
+			result.code = {
+				value: problem.ruleId,
+				target: url
+			};
+		} else {
+			result.code = problem.ruleId;
+		}
+	}
+	return result;
 }
 
 interface Problem {
