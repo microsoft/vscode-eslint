@@ -256,7 +256,7 @@ interface WorkspaceFolderItem extends QuickPickItem {
 	folder: VWorkspaceFolder;
 }
 
-async function pickFolder(folders: VWorkspaceFolder[], placeHolder: string): Promise<VWorkspaceFolder | undefined> {
+async function pickFolder(folders: ReadonlyArray<VWorkspaceFolder>, placeHolder: string): Promise<VWorkspaceFolder | undefined> {
 	if (folders.length === 1) {
 		return Promise.resolve(folders[0]);
 	}
