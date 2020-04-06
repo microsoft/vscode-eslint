@@ -454,10 +454,54 @@ interface MigrationData<T> {
 	workspaceFolder: MigrationElement<T>;
 }
 
-interface CodeActionsOnSave {
+interface CodeActionsOnSaveMap {
 	'source.fixAll'?: boolean;
 	'source.fixAll.eslint'?: boolean;
 	[key: string]: boolean | undefined;
+}
+
+type CodeActionsOnSave = CodeActionsOnSaveMap | string[];
+
+namespace CodeActionsOnSave {
+	export function isExplicitlyDisabled(setting: CodeActionsOnSave | undefined): boolean {
+		if (setting === undefined || Array.isArray(setting)) {
+			return false;
+		}
+		return setting['source.fixAll.eslint'] === false;
+	}
+
+	export function getSourceFixAll(setting: CodeActionsOnSave): boolean | undefined {
+		if (Array.isArray(setting)) {
+			return setting.includes('source.fixAll') ? true : undefined;
+		} else {
+			return setting['source.fixAll'];
+		}
+	}
+
+	export function getSourceFixAllESLint(setting: CodeActionsOnSave): boolean | undefined {
+		if (Array.isArray(setting)) {
+			return setting.includes('source.fixAll.eslint') ? true : undefined;
+		} else {
+			return setting['source.fixAll.eslint'];
+		}
+	}
+
+	export function setSourceFixAllESLint(setting: CodeActionsOnSave, value: boolean | undefined): void {
+		if (Array.isArray(setting)) {
+			const index = setting.indexOf('source.fixAll.eslint');
+			if (value === true) {
+				if (index === -1) {
+					setting.push('source.fixAll.eslint');
+				}
+			} else {
+				if (index >= 0) {
+					setting.splice(index, 1);
+				}
+			}
+		} else {
+			setting['source.fixAll.eslint'] = value;
+		}
+	}
 }
 
 interface LanguageSettings {
@@ -522,21 +566,21 @@ class Migration {
 	private recordAutoFixOnSave(): [boolean, boolean, boolean] {
 		function record(this: void, elem: MigrationElement<boolean>, setting: MigrationElement<CodeActionsOnSave>): boolean {
 			// if it is explicitly set to false don't convert anything anymore
-			if (setting.value?.['source.fixAll.eslint'] === false) {
+			if (CodeActionsOnSave.isExplicitlyDisabled(setting.value)) {
 				return false;
 			}
 			if (!Is.objectLiteral(setting.value)) {
 				setting.value = {};
 			}
 			const autoFix: boolean = !!elem.value;
-			const sourceFixAll: boolean = !!setting.value['source.fixAll'];
+			const sourceFixAll: boolean = !!CodeActionsOnSave.getSourceFixAll(setting.value);
 			let result: boolean;
-			if (autoFix !== sourceFixAll && autoFix && setting.value['source.fixAll.eslint'] === undefined){
-				setting.value['source.fixAll.eslint'] = elem.value;
+			if (autoFix !== sourceFixAll && autoFix && CodeActionsOnSave.getSourceFixAllESLint(setting.value) === undefined) {
+				CodeActionsOnSave.setSourceFixAllESLint(setting.value, elem.value);
 				setting.changed = true;
-				result = !!setting.value['source.fixAll.eslint'];
+				result = !!CodeActionsOnSave.getSourceFixAllESLint(setting.value);
 			} else {
-				result = !!setting.value['source.fixAll'];
+				result = !!CodeActionsOnSave.getSourceFixAll(setting.value);
 			}
 			/* For now we don't rewrite the settings to allow users to go back to an older version
 			elem.value = undefined;
@@ -564,11 +608,11 @@ class Migration {
 				}
 				if (fixAll && item.autoFix === false && typeof item.language === 'string') {
 					const setting = settingAccessor(item.language);
-					if (!Is.objectLiteral(setting.value)) {
+					if (!Is.objectLiteral(setting.value) && !Array.isArray(setting.value)) {
 						setting.value = Object.create(null);
 					}
-					if (setting.value!['source.fixAll.eslint'] !== false) {
-						setting.value![`source.fixAll.eslint`] = false;
+					if (CodeActionsOnSave.getSourceFixAllESLint(setting.value!) !== false) {
+						CodeActionsOnSave.setSourceFixAllESLint(setting.value!, false);
 						setting.changed = true;
 					}
 				}
@@ -759,16 +803,28 @@ function realActivate(context: ExtensionContext): void {
 	function readCodeActionsOnSaveSetting(document: TextDocument): boolean {
 		let result: boolean | undefined = undefined;
 		const languageConfig = Workspace.getConfiguration(undefined, document.uri).get<LanguageSettings>(`[${document.languageId}]`);
+
+		function isEnabled(value: CodeActionsOnSave | string[]): boolean {
+			if (value === undefined) {
+				return false;
+			}
+			if (Array.isArray(value)) {
+				return value.some((element) => { return element === 'source.fixAll.eslint' || element === 'source.fixAll'; });
+			} else {
+				return (value['source.fixAll.eslint'] ?? value['source.fixAll']) === true;
+			}
+		}
+
 		if (languageConfig !== undefined) {
 			const codeActionsOnSave = languageConfig?.['editor.codeActionsOnSave'];
 			if (codeActionsOnSave !== undefined) {
-				result = codeActionsOnSave['source.fixAll.eslint'] ?? codeActionsOnSave['source.fixAll'];
+				result = isEnabled(codeActionsOnSave);
 			}
 		}
 		if (result === undefined) {
 			const codeActionsOnSave = Workspace.getConfiguration('editor', document.uri).get<CodeActionsOnSave>('codeActionsOnSave');
 			if (codeActionsOnSave !== undefined) {
-				result = codeActionsOnSave[`source.fixAll.eslint`] ?? codeActionsOnSave['source.fixAll'];
+				result = isEnabled(codeActionsOnSave);
 			}
 		}
 		return result ?? false;
