@@ -7,8 +7,8 @@ pool:
 steps:
 - task: NodeTool@0
   inputs:
-    versionSpec: '10.15.1'
-  displayName: 'Use Node.js 10.15.1'
+    versionSpec: '12.8.1'
+  displayName: 'Use Node.js 12.8.1'
 
 - script: |
     npm ci
