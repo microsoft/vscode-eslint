@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "devDependencies": {
     "eslint": "^6.7.1",
-    "@typescript-eslint/parser": "^2.8.0"
+    "@typescript-eslint/parser": "^2.8.0",
+    "typescript": "3.8.3"
   }
 }
