@@ -1,7 +1,14 @@
+### 2.1.3
+
+- [FixAll on save doesn't pick up file change from organize imports](https://github.com/microsoft/vscode-eslint/issues/939)
+
+### 2.1.2
+
+- [Adopt new link support in diagnostics](https://github.com/microsoft/vscode-eslint/issues/911)
+
 ### 2.1.1
 
 - [Support for ESLint suggest API](https://github.com/microsoft/vscode-eslint/pull/814)
-
 
 ### 2.0.15
 
