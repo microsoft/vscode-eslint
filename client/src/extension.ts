@@ -464,7 +464,7 @@ type CodeActionsOnSave = CodeActionsOnSaveMap | string[];
 
 namespace CodeActionsOnSave {
 	export function isExplicitlyDisabled(setting: CodeActionsOnSave | undefined): boolean {
-		if (setting === undefined || Array.isArray(setting)) {
+		if (!setting || Array.isArray(setting)) {
 			return false;
 		}
 		return setting['source.fixAll.eslint'] === false;
