@@ -460,18 +460,20 @@ interface CodeActionsOnSaveMap {
 	[key: string]: boolean | undefined;
 }
 
-type CodeActionsOnSave = CodeActionsOnSaveMap | string[];
+type CodeActionsOnSave = CodeActionsOnSaveMap | string[] | null;
 
 namespace CodeActionsOnSave {
 	export function isExplicitlyDisabled(setting: CodeActionsOnSave | undefined): boolean {
-		if (setting === undefined || Array.isArray(setting)) {
+		if (setting === undefined || setting === null || Array.isArray(setting)) {
 			return false;
 		}
 		return setting['source.fixAll.eslint'] === false;
 	}
 
 	export function getSourceFixAll(setting: CodeActionsOnSave): boolean | undefined {
-		if (Array.isArray(setting)) {
+		if (setting === null) {
+			return undefined;
+		} if (Array.isArray(setting)) {
 			return setting.includes('source.fixAll') ? true : undefined;
 		} else {
 			return setting['source.fixAll'];
@@ -479,7 +481,9 @@ namespace CodeActionsOnSave {
 	}
 
 	export function getSourceFixAllESLint(setting: CodeActionsOnSave): boolean | undefined {
-		if (Array.isArray(setting)) {
+		if (setting === null) {
+			return undefined;
+		} else if (Array.isArray(setting)) {
 			return setting.includes('source.fixAll.eslint') ? true : undefined;
 		} else {
 			return setting['source.fixAll.eslint'];
@@ -487,7 +491,10 @@ namespace CodeActionsOnSave {
 	}
 
 	export function setSourceFixAllESLint(setting: CodeActionsOnSave, value: boolean | undefined): void {
-		if (Array.isArray(setting)) {
+		// If the setting is mistyped do nothing.
+		if (setting === null) {
+			return;
+		} else  if (Array.isArray(setting)) {
 			const index = setting.indexOf('source.fixAll.eslint');
 			if (value === true) {
 				if (index === -1) {
@@ -569,8 +576,8 @@ class Migration {
 			if (CodeActionsOnSave.isExplicitlyDisabled(setting.value)) {
 				return false;
 			}
-			if (!Is.objectLiteral(setting.value)) {
-				setting.value = {};
+			if (!Is.objectLiteral(setting.value) && !Array.isArray(setting.value)) {
+				setting.value = Object.create(null) as {};
 			}
 			const autoFix: boolean = !!elem.value;
 			const sourceFixAll: boolean = !!CodeActionsOnSave.getSourceFixAll(setting.value);
@@ -609,7 +616,7 @@ class Migration {
 				if (fixAll && item.autoFix === false && typeof item.language === 'string') {
 					const setting = settingAccessor(item.language);
 					if (!Is.objectLiteral(setting.value) && !Array.isArray(setting.value)) {
-						setting.value = Object.create(null);
+						setting.value = Object.create(null) as {};
 					}
 					if (CodeActionsOnSave.getSourceFixAllESLint(setting.value!) !== false) {
 						CodeActionsOnSave.setSourceFixAllESLint(setting.value!, false);
@@ -805,7 +812,7 @@ function realActivate(context: ExtensionContext): void {
 		const languageConfig = Workspace.getConfiguration(undefined, document.uri).get<LanguageSettings>(`[${document.languageId}]`);
 
 		function isEnabled(value: CodeActionsOnSave | string[]): boolean {
-			if (value === undefined) {
+			if (value === undefined || value === null) {
 				return false;
 			}
 			if (Array.isArray(value)) {
