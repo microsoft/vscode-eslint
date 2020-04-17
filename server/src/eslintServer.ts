@@ -1652,9 +1652,9 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 		const only: string | undefined = params.context.only !== undefined && params.context.only.length > 0 ? params.context.only[0] : undefined;
 		const isSource = only === CodeActionKind.Source;
-		const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll) && settings.codeActionOnSave.enable;
+		const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll);
 		if (isSourceFixAll || isSource) {
-			if (isSourceFixAll) {
+			if (isSourceFixAll && settings.codeActionOnSave.enable) {
 				const textDocumentIdentifer: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
 				const edits = await computeAllFixes(textDocumentIdentifer, AllFixesMode.onSave);
 				if (edits !== undefined) {
