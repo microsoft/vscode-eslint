@@ -811,14 +811,15 @@ function realActivate(context: ExtensionContext): void {
 		let result: boolean | undefined = undefined;
 		const languageConfig = Workspace.getConfiguration(undefined, document.uri).get<LanguageSettings>(`[${document.languageId}]`);
 
-		function isEnabled(value: CodeActionsOnSave | string[]): boolean {
+		function isEnabled(value: CodeActionsOnSave | string[]): boolean | undefined {
 			if (value === undefined || value === null) {
-				return false;
+				return undefined;
 			}
 			if (Array.isArray(value)) {
-				return value.some((element) => { return element === 'source.fixAll.eslint' || element === 'source.fixAll'; });
+				const result = value.some((element) => { return element === 'source.fixAll.eslint' || element === 'source.fixAll'; });
+				return result === true ? true : undefined;
 			} else {
-				return (value['source.fixAll.eslint'] ?? value['source.fixAll']) === true;
+				return value['source.fixAll.eslint'] ?? value['source.fixAll'];
 			}
 		}
 
