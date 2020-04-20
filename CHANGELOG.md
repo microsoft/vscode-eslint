@@ -1,3 +1,14 @@
+### 2.1.5
+
+- [UnhandledPromiseRejectionWarning: Error: Request workspace/configuration failed with message: Cannot read property 'source.fixAll.eslint' of null](https://github.com/microsoft/vscode-eslint/issues/950)
+- ["Do you want Code to open the external website?" on eslint errors](https://github.com/microsoft/vscode-eslint/issues/949)
+- [all suggestions being applied on save](https://github.com/microsoft/vscode-eslint/issues/947)
+- [Error: "Cannot read property 'source.fixAll.eslint' of null"](https://github.com/microsoft/vscode-eslint/issues/945)
+
+### 2.1.4
+
+Was used as an insider preview release
+
 ### 2.1.3
 
 - [FixAll on save doesn't pick up file change from organize imports](https://github.com/microsoft/vscode-eslint/issues/939)
