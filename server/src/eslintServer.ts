@@ -1204,6 +1204,14 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	withCLIEngine((cli) => {
 		codeActions.delete(uri);
 		const report: ESLintReport = cli.executeOnText(content, file, settings.onIgnoredFiles !== ESLintSeverity.off);
+		if (CLIEngine.hasRule(cli) && !ruleDocData.handled.has(uri)) {
+			ruleDocData.handled.add(uri);
+			cli.getRules().forEach((rule, key) => {
+				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
+					ruleDocData.urls.set(key, rule.meta.docs.url);
+				}
+			});
+		}
 		const diagnostics: Diagnostic[] = [];
 		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
 			const docReport = report.results[0];
@@ -1231,16 +1239,6 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 		}
 		if (publishDiagnostics) {
 			connection.sendDiagnostics({ uri, diagnostics });
-		}
-
-		// cache documentation urls for all rules
-		if (CLIEngine.hasRule(cli) && !ruleDocData.handled.has(uri)) {
-			ruleDocData.handled.add(uri);
-			cli.getRules().forEach((rule, key) => {
-				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
-					ruleDocData.urls.set(key, rule.meta.docs.url);
-				}
-			});
 		}
 	}, settings);
 }
