@@ -200,6 +200,7 @@ interface CommonSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
+	treatErrorsAsWarnings: boolean | undefined;
 }
 
 interface ConfigurationSettings extends CommonSettings {
@@ -332,7 +333,7 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
-function makeDiagnostic(problem: ESLintProblem): Diagnostic {
+function makeDiagnostic(problem: ESLintProblem, forceWarningSeverity: boolean): Diagnostic {
 	const message = problem.message;
 	const startLine = Math.max(0, problem.line - 1);
 	const startChar = Math.max(0, problem.column - 1);
@@ -340,7 +341,7 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
 	const result: Diagnostic = {
 		message: message,
-		severity: convertSeverity(problem.severity),
+		severity: forceWarningSeverity ? DiagnosticSeverity.Warning : convertSeverity(problem.severity),
 		source: 'eslint',
 		range: {
 			start: { line: startLine, character: startChar },
@@ -1223,7 +1224,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 							// Filter out warnings when quiet mode is enabled
 							return;
 						}
-						const diagnostic = makeDiagnostic(problem);
+						const diagnostic = makeDiagnostic(problem, settings.treatErrorsAsWarnings || false);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const rule = cli.getRules().get(problem.ruleId);

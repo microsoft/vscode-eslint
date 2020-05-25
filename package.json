@@ -362,6 +362,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enables ESLint as a formatter."
+				},
+				"eslint.treatErrorsAsWarnings": {
+					"type": "boolean",
+					"default": false,
+					"description": "Any linting error reported by ESLint will instead be seen as a warning within VS Code."
 				}
 			}
 		},

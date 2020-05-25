@@ -181,6 +181,7 @@ interface ConfigurationSettings {
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
+	treatErrorsAsWarnings: boolean | undefined;
 }
 
 interface NoESLintState {
@@ -1097,7 +1098,8 @@ function realActivate(context: ExtensionContext): void {
 							codeAction: {
 								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
-							}
+							},
+							treatErrorsAsWarnings: config.get('treatErrorsAsWarnings', false),
 						};
 						const document: TextDocument | undefined = syncedDocuments.get(item.scopeUri);
 						if (document === undefined) {
