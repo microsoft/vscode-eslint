@@ -5,7 +5,7 @@
 'use strict';
 
 import {
-	createConnection, IConnection,
+	createConnection, Connection,
 	ResponseError, RequestType, NotificationType, ErrorCodes,
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
@@ -15,7 +15,7 @@ import {
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
 	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit
-} from 'vscode-languageserver';
+} from 'vscode-languageserver/node';
 
 import {
 	TextDocument
@@ -866,7 +866,7 @@ class BufferedMessageQueue {
 	private notificationHandlers: Map<string, { handler: NotificationHandler<any>, versionProvider?: VersionProvider<any> }>;
 	private timer: NodeJS.Immediate | undefined;
 
-	constructor(private connection: IConnection) {
+	constructor(private connection: Connection) {
 		this.queue = [];
 		this.requestHandlers = new Map();
 		this.notificationHandlers = new Map();
@@ -993,10 +993,15 @@ function setupDocumentsListeners() {
 			if (settings.format) {
 				const uri = URI.parse(event.document.uri);
 				const isFile = uri.scheme === 'file';
-				const filter: DocumentFilter = isFile
-					? { scheme: uri.scheme, pattern: uri.fsPath.replace(/\\/g, '/') }
-					: { scheme: uri.scheme, pattern: uri.path };
+				let pattern: string = isFile
+					? uri.path.replace(/\\/g, '/')
+					: uri.path;
+				pattern = pattern.replace('[', '\\[');
+				pattern = pattern.replace(']', '\\]');
+				pattern = pattern.replace('{', '\\{');
+				pattern = pattern.replace('}', '\\}');
 
+				const filter: DocumentFilter = { scheme: uri.scheme, pattern: pattern };
 				const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
 				if (!isFile) {
 					formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
