@@ -207,7 +207,7 @@ interface CommonSettings {
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	rulesCustomizations: {
-		'!'?: RuleSeverity
+		'*'?: RuleSeverity
 	};
 }
 
