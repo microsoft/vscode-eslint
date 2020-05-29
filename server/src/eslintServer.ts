@@ -188,6 +188,12 @@ interface CodeActionsOnSaveSettings {
 	mode: CodeActionsOnSaveMode
 }
 
+enum RuleSeverity {
+	info = 'info',
+	warn = 'warn',
+	error = 'error'
+}
+
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -200,6 +206,9 @@ interface CommonSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
+	rulesCustomizations: {
+		'!'?: RuleSeverity
+	};
 }
 
 interface ConfigurationSettings extends CommonSettings {

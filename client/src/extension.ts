@@ -168,6 +168,12 @@ namespace ESLintSeverity {
 	}
 }
 
+enum RuleSeverity {
+	info = 'info',
+	warn = 'warn',
+	error = 'error'
+}
+
 interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -181,6 +187,9 @@ interface ConfigurationSettings {
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
+	rulesCustomizations: {
+		'!'?: RuleSeverity
+	};
 }
 
 interface NoESLintState {
@@ -1097,7 +1106,8 @@ function realActivate(context: ExtensionContext): void {
 							codeAction: {
 								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
-							}
+							},
+							rulesCustomizations: config.get('rules.customizations', {})
 						};
 						const document: TextDocument | undefined = syncedDocuments.get(item.scopeUri);
 						if (document === undefined) {
