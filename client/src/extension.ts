@@ -178,6 +178,7 @@ interface ConfigurationSettings {
 	onIgnoredFiles: ESLintSeverity;
 	options: any | undefined;
 	run: RunValues;
+	nodeEnv: string | null;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
@@ -875,12 +876,14 @@ function realActivate(context: ExtensionContext): void {
 	const eslintConfig = Workspace.getConfiguration('eslint');
 	const runtime = eslintConfig.get('runtime', undefined);
 	const debug = eslintConfig.get('debug');
+	const nodeEnv = eslintConfig.get('nodeEnv', null);
 
-	let env: { [key: string]: string | number | boolean } | undefined;
+	const env: { [key: string]: string | number | boolean } | undefined = {};
+	if (nodeEnv) {
+		env.NODE_ENV = nodeEnv;
+	}
 	if (debug) {
-		env = {
-			DEBUG: 'eslint:*,-eslint:code-path'
-		};
+		env.DEBUG = 'eslint:*,-eslint:code-path';
 	}
 	const serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd(), env } },
@@ -1091,6 +1094,7 @@ function realActivate(context: ExtensionContext): void {
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
 							run: config.get('run', 'onType'),
+							nodeEnv: config.get('nodeEnv', null),
 							nodePath: config.get('nodePath', null),
 							workingDirectory: undefined,
 							workspaceFolder: undefined,

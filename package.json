@@ -56,6 +56,15 @@
 					"description": "Always show the ESlint status bar item.",
 					"scope": "window"
 				},
+				"eslint.nodeEnv": {
+					"scope": "resource",
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "The value of NODE_ENV to use when running eslint tasks."
+				},
 				"eslint.nodePath": {
 					"scope": "resource",
 					"type": [
