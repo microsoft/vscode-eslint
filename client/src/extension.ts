@@ -242,8 +242,8 @@ interface ProbeFailedParams {
 	textDocument: TextDocumentIdentifier;
 }
 
-namespace ProbleFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probleFailed');
+namespace ProbeFailedRequest {
+	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
 }
 
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
@@ -1330,7 +1330,7 @@ function realActivate(context: ExtensionContext): void {
 			return {};
 		});
 
-		client.onRequest(ProbleFailedRequest.type, (params) => {
+		client.onRequest(ProbeFailedRequest.type, (params) => {
 			probeFailed.add(params.textDocument.uri);
 			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
 			for (const document of Workspace.textDocuments) {
