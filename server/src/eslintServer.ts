@@ -198,7 +198,6 @@ interface CommonSettings {
 	onIgnoredFiles: ESLintSeverity;
 	options: ESLintOptions | undefined;
 	run: RunValues;
-	nodeEnv: string | null;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 }

@@ -178,7 +178,6 @@ interface ConfigurationSettings {
 	onIgnoredFiles: ESLintSeverity;
 	options: any | undefined;
 	run: RunValues;
-	nodeEnv: string | null;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
