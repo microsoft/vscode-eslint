@@ -894,7 +894,7 @@ function realActivate(context: ExtensionContext): void {
 	const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}' };
 	const syncedDocuments: Map<string, TextDocument> = new Map<string, TextDocument>();
 
-	Workspace.onDidChangeConfiguration(async() => {
+	Workspace.onDidChangeConfiguration(async () => {
 		probeFailed.clear();
 		for (const textDocument of syncedDocuments.values()) {
 			if (computeValidate(textDocument) === Validate.off) {
