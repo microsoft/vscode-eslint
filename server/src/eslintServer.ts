@@ -334,8 +334,8 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	const message = problem.message;
-	const startLine = Math.max(0, problem.line - 1);
-	const startChar = Math.max(0, problem.column - 1);
+	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
+	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
 	const endLine = Is.nullOrUndefined(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
 	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
 	const result: Diagnostic = {
