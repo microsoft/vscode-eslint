@@ -113,8 +113,8 @@ interface ProbeFailedParams {
 	textDocument: TextDocumentIdentifier;
 }
 
-namespace ProbleFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probleFailed');
+namespace ProbeFailedRequest {
+	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
 }
 
 type RunValues = 'onType' | 'onSave';
@@ -808,7 +808,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				}
 				if (settings.validate === Validate.off) {
 					const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
-					connection.sendRequest(ProbleFailedRequest.type, params);
+					connection.sendRequest(ProbeFailedRequest.type, params);
 				}
 			}
 			return settings;
