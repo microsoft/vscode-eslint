@@ -877,11 +877,13 @@ function realActivate(context: ExtensionContext): void {
 	const debug = eslintConfig.get('debug');
 	const nodeEnv = eslintConfig.get('nodeEnv', null);
 
-	const env: { [key: string]: string | number | boolean } | undefined = {};
+	let env: { [key: string]: string | number | boolean } | undefined;
 	if (nodeEnv) {
+		env = env || {};
 		env.NODE_ENV = nodeEnv;
 	}
 	if (debug) {
+		env = env || {};
 		env.DEBUG = 'eslint:*,-eslint:code-path';
 	}
 	const serverOptions: ServerOptions = {
