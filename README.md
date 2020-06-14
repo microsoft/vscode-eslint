@@ -108,9 +108,16 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.codeAction.showDocumentation` - object with properties:
   - `enable` - show open lint rule documentation web page in the quick fix menu. `true` by default.
 
-- `eslint.codeActionsOnSave.mode` (@since 2.0.12): controls which problems are fix when running code actions on save
+- `eslint.codeActionsOnSave.mode` (@since 2.0.12): controls which problems are fixed when running code actions on save
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
+- `eslint.rules.customizations`: force rules to report a different severity within VS Code compared to the project's true ESLint configuration. This allows both a per-rule override, or an asterisk to set a default severity for all rules. These can be combined, such that all rules are just warnings except `no-extra-semi` in this example:
+  ```json
+    "eslint.rules.customizations": {
+      "no-extra-semi": "info",
+      "*": "warn"
+    }
+  ```
 
 - `eslint.format.enable` (@since 2.0.0): uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
 - `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
