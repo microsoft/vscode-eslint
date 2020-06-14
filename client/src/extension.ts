@@ -188,7 +188,8 @@ interface ConfigurationSettings {
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
 	rulesCustomizations: {
-		'*'?: RuleSeverity
+		// One of these may be an asterisk to represent all rules.
+		[ruleName: string]: RuleSeverity;
 	};
 }
 
