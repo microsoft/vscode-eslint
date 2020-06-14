@@ -365,21 +365,16 @@
 				},
 				"eslint.rules.customizations": {
 					"scope": "resource",
-					"anyOf": [
-						{
-							"type": "object",
-							"properties": {
-								"!": {
-									"type": "string",
-									"enum": [
-										"info",
-										"warn",
-										"error"
-									]
-								}
-							}
-						}
-					]
+					"type": "object",
+					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use an asterisk to apply a default severity for all rules.",
+					"additionalProperties": {
+						"type": "string",
+						"enum": [
+							"info",
+							"warn",
+							"error"
+						]
+					}
 				}
 			}
 		},
