@@ -207,7 +207,8 @@ interface CommonSettings {
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	rulesCustomizations: {
-		'*'?: RuleSeverity
+		// One of these may be an asterisk to represent all rules.
+		[ruleName: string]: RuleSeverity;
 	};
 }
 
@@ -341,7 +342,7 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
-function makeDiagnostic(problem: ESLintProblem): Diagnostic {
+function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): Diagnostic {
 	const message = problem.message;
 	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
 	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
@@ -366,6 +367,13 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 		} else {
 			result.code = problem.ruleId;
 		}
+	}
+
+	// Is this rule overidden by the extension config?
+	if (problem.ruleId && settings.rulesCustomizations[problem.ruleId]) {
+		result.severity = convertSeverity(settings.rulesCustomizations[problem.ruleId]);
+	} else if (settings.rulesCustomizations['*']) {
+		result.severity = convertSeverity(settings.rulesCustomizations['*']);
 	}
 	return result;
 }
@@ -428,13 +436,18 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix, suggestions: problem.suggestions, line: problem.line });
 }
 
-function convertSeverity(severity: number): DiagnosticSeverity {
+function convertSeverity(severity: number | RuleSeverity): DiagnosticSeverity {
+	// RuleSeverity concerns an overridden rule. A number is direct from ESLint.
 	switch (severity) {
 		// Eslint 1 is warning
 		case 1:
+		case RuleSeverity.warn:
 			return DiagnosticSeverity.Warning;
 		case 2:
+		case RuleSeverity.error:
 			return DiagnosticSeverity.Error;
+		case RuleSeverity.info:
+			return DiagnosticSeverity.Information;
 		default:
 			return DiagnosticSeverity.Error;
 	}
@@ -1237,7 +1250,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 							// Filter out warnings when quiet mode is enabled
 							return;
 						}
-						const diagnostic = makeDiagnostic(problem);
+						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const rule = cli.getRules().get(problem.ruleId);
