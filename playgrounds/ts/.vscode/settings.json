@@ -6,6 +6,7 @@
 	"eslint.format.enable": true,
 	"eslint.trace.server": "off",
 	"eslint.rules.customizations": {
-		"*": "info"
+		"no-extra-semi": "info",
+		"*": "warn"
 	}
 }
