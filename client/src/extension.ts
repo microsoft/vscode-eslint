@@ -178,7 +178,6 @@ interface ConfigurationSettings {
 	onIgnoredFiles: ESLintSeverity;
 	options: any | undefined;
 	run: RunValues;
-	nodeEnv: string | null;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
@@ -1097,7 +1096,6 @@ function realActivate(context: ExtensionContext): void {
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
 							run: config.get('run', 'onType'),
-							nodeEnv: config.get('nodeEnv', null),
 							nodePath: config.get('nodePath', null),
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
