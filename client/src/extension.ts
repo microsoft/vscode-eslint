@@ -878,14 +878,13 @@ function realActivate(context: ExtensionContext): void {
 	const nodeEnv = eslintConfig.get('nodeEnv', null);
 
 	let env: { [key: string]: string | undefined } | undefined;
-	if (debug || nodeEnv) {
-		env = { ...process.env };
-		if (debug) {
-			env.DEBUG = 'eslint:*,-eslint:code-path';
-		}
-		if (nodeEnv) {
-			env.NODE_ENV = nodeEnv;
-		}
+	if (debug) {
+		env = env || {};
+		env.DEBUG = 'eslint:*,-eslint:code-path';
+	}
+	if (nodeEnv) {
+		env = env || {};
+		env.NODE_ENV = nodeEnv;
 	}
 	const serverOptions: ServerOptions = {
 		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd(), env } },
