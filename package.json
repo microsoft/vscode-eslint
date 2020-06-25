@@ -395,6 +395,11 @@
 				"title": "Migrate Settings",
 				"category": "ESLint",
 				"command": "eslint.migrateSettings"
+			},
+			{
+				"title": "Manage Libraray Confirmations",
+				"category": "ESLint",
+				"command": "eslint.manageLibraryConfirmations"
 			}
 		],
 		"taskDefinitions": [

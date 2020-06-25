@@ -18,7 +18,7 @@ import {
 	ErrorAction, CloseAction, State as ClientState,
 	RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
 	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder,
+	WorkspaceFolder, DidChangeConfigurationNotification,
 } from 'vscode-languageclient';
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
@@ -194,7 +194,8 @@ interface NoESLintState {
 enum Status {
 	ok = 1,
 	warn = 2,
-	error = 3
+	error = 3,
+	notConfirmed = 4
 }
 
 interface StatusParams {
@@ -247,6 +248,20 @@ interface ProbeFailedParams {
 
 namespace ProbleFailedRequest {
 	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probleFailed');
+}
+
+interface ESLintLibraryState {
+	libs: { [key: string]: boolean };
+}
+
+interface ConfirmESLintLibraryParams {
+	scope: 'local' | 'global';
+	file: string;
+	libraryPath: string;
+}
+
+namespace ConfirmESLintLibrary {
+	export const type = new RequestType<ConfirmESLintLibraryParams, boolean, void, void>('eslint/confirmLocalESLint');
 }
 
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
@@ -775,6 +790,10 @@ function realActivate(context: ExtensionContext): void {
 	statusBarItem.text = 'ESLint';
 	statusBarItem.command = 'eslint.showOutputChannel';
 
+	const eslintLibraryKey = 'eslintLibraries';
+	const eslintLibraryState = context.globalState.get<ESLintLibraryState>(eslintLibraryKey, { libs: {} });
+	const checkedLibraries: Set<string> = new Set();
+
 	function showStatusBarItem(show: boolean): void {
 		if (show) {
 			statusBarItem.show();
@@ -794,6 +813,9 @@ function realActivate(context: ExtensionContext): void {
 				break;
 			case Status.error:
 				statusBarItem.text = '$(issue-opened) ESLint';
+				break;
+			case Status.notConfirmed:
+				statusBarItem.text = '$(circle-slash) ESLint';
 				break;
 			default:
 				statusBarItem.text = 'ESLint';
@@ -915,6 +937,7 @@ function realActivate(context: ExtensionContext): void {
 
 	let migration: Migration | undefined;
 	const migrationSemaphore: Semaphore<void> = new Semaphore<void>(1);
+	const confirmationSemaphore: Semaphore<boolean> = new Semaphore<boolean>(1);
 	let notNow: boolean = false;
 	const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 	const clientOptions: LanguageClientOptions = {
@@ -1262,6 +1285,7 @@ function realActivate(context: ExtensionContext): void {
 		client.onRequest(NoESLintLibraryRequest.type, (params) => {
 			const key = 'noESLintMessageShown';
 			const state = context.globalState.get<NoESLintState>(key, {});
+
 			const uri: Uri = Uri.parse(params.source.uri);
 			const workspaceFolder = Workspace.getWorkspaceFolder(uri);
 			const packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
@@ -1342,6 +1366,47 @@ function realActivate(context: ExtensionContext): void {
 				}
 			}
 		});
+
+		client.onRequest(ConfirmESLintLibrary.type, async (params): Promise<boolean> => {
+			return confirmationSemaphore.lock(async () => {
+				try {
+					checkedLibraries.add(params.libraryPath);
+					let state = eslintLibraryState.libs[params.libraryPath];
+					if (state !== true && state !== false) {
+						const libraryUri = Uri.file(params.libraryPath);
+						const folder = Workspace.getWorkspaceFolder(libraryUri);
+
+						interface ConfirmMessageItem extends MessageItem {
+							value: boolean;
+						}
+						let message: string;
+						if (folder !== undefined) {
+							let relativePath = libraryUri.toString().substr(folder.uri.toString().length + 1);
+							const mainPath = '/lib/api.js';
+							if (relativePath.endsWith(mainPath)) {
+								relativePath = relativePath.substr(0, relativePath.length - mainPath.length);
+							}
+							message = `The ESLint extension will use the ESLint library '${relativePath}' installed locally to the workspace folder '${folder.name}' for validation. Do you allow this?`;
+						} else {
+							message = params.scope === 'global'
+								? `The ESLint extension will use a globally installed ESLint library for validation. Do you allow this?`
+								: `The ESLint extension will use a locally installed ESLint library for validation. Do you allow this?`;
+						}
+						const item = await Window.showInformationMessage<ConfirmMessageItem>(message, { modal: true }, { title: 'Yes', value: true }, { title: 'No', value: false });
+						if (item === undefined) {
+							state = false;
+						} else {
+							eslintLibraryState.libs[params.libraryPath] = item.value;
+							context.globalState.update(eslintLibraryKey, eslintLibraryState);
+							state = item.value;
+						}
+					}
+					return state;
+				} catch (err) {
+					return false;
+				}
+			});
+		});
 	});
 
 	if (dummyCommands) {
@@ -1350,6 +1415,51 @@ function realActivate(context: ExtensionContext): void {
 	}
 
 	updateStatusBarVisibility();
+
+	async function manageLibraryConfirmations(): Promise<void> {
+		interface ESLintQuickPickItem extends QuickPickItem {
+			kind: 'all' | 'allConfirmed' | 'allRejected' | 'session'
+		}
+		const selected = await Window.showQuickPick<ESLintQuickPickItem>(
+			[
+				{ label: 'Clear all ESLint library confirmations', kind: 'all' },
+				{ label: 'Clear all confirmed ESLint libraries', kind: 'allConfirmed' },
+				{ label: 'Clear all rejected ESLint libraries', kind: 'allRejected' },
+				{ label: 'Clear all ESLint library confirmations used in the current VS Code session', kind: 'session' },
+			],
+			{ placeHolder: 'Clear library confirmations'}
+		);
+		if (selected !== undefined) {
+			switch (selected.kind) {
+				case 'all':
+					eslintLibraryState.libs = {};
+					break;
+				case 'allConfirmed':
+					for (const key of Object.keys(eslintLibraryState.libs)) {
+						if (eslintLibraryState.libs[key] === true) {
+							delete eslintLibraryState.libs[key];
+						}
+					}
+					break;
+				case 'allRejected':
+					for (const key of Object.keys(eslintLibraryState.libs)) {
+						if (eslintLibraryState.libs[key] === false) {
+							delete eslintLibraryState.libs[key];
+						}
+					}
+					break;
+				case 'session':
+					for (const lib of checkedLibraries) {
+						delete eslintLibraryState.libs[lib];
+					}
+					break;
+			}
+			checkedLibraries.clear();
+			context.globalState.update(eslintLibraryKey, eslintLibraryState);
+			client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
+		}
+
+	}
 
 	context.subscriptions.push(
 		client.start(),
@@ -1370,11 +1480,19 @@ function realActivate(context: ExtensionContext): void {
 				Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});
 		}),
-		Commands.registerCommand('eslint.showOutputChannel', () => { client.outputChannel.show(); }),
+		Commands.registerCommand('eslint.showOutputChannel', async () => {
+			if (eslintStatus === Status.notConfirmed) {
+				manageLibraryConfirmations();
+			} else {
+				client.outputChannel.show();
+			}
+		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			migrateSettings();
 		}),
-		statusBarItem
+		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
+			manageLibraryConfirmations();
+		})
 	);
 }
 
