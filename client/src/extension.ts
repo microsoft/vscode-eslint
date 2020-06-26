@@ -1422,10 +1422,10 @@ function realActivate(context: ExtensionContext): void {
 		}
 		const selected = await Window.showQuickPick<ESLintQuickPickItem>(
 			[
+				{ label: 'Clear all ESLint library confirmations used in the current VS Code session', kind: 'session' },
 				{ label: 'Clear all ESLint library confirmations', kind: 'all' },
 				{ label: 'Clear all confirmed ESLint libraries', kind: 'allConfirmed' },
-				{ label: 'Clear all rejected ESLint libraries', kind: 'allRejected' },
-				{ label: 'Clear all ESLint library confirmations used in the current VS Code session', kind: 'session' },
+				{ label: 'Clear all rejected ESLint libraries', kind: 'allRejected' }
 			],
 			{ placeHolder: 'Clear library confirmations'}
 		);
