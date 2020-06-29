@@ -397,7 +397,7 @@
 				"command": "eslint.migrateSettings"
 			},
 			{
-				"title": "Manage Libraray Confirmations",
+				"title": "Manage Library Confirmations",
 				"category": "ESLint",
 				"command": "eslint.manageLibraryConfirmations"
 			}
