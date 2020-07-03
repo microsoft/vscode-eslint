@@ -327,7 +327,8 @@
 							"default": "separateLine",
 							"description": "Configure the disable rule code action to insert the comment on the same line or a new line."
 						}
-					}
+					},
+					"additionalProperties": false
 				},
 				"eslint.codeAction.showDocumentation": {
 					"scope": "resource",
@@ -341,7 +342,8 @@
 							"default": true,
 							"description": "Show the documentation code actions."
 						}
-					}
+					},
+					"additionalProperties": false
 				},
 				"eslint.codeActionsOnSave.mode": {
 					"scope": "resource",
