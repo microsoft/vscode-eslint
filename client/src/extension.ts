@@ -405,7 +405,58 @@ function computeValidate(textDocument: TextDocument): Validate {
 }
 
 let taskProvider: TaskProvider;
+const eslintLibraryKey = 'eslintLibraries';
+let eslintLibraryState: ESLintLibraryState;
+const checkedLibraries: Set<string> = new Set();
+const canceledLibraries: Map<string, boolean> = new Map();
+
+async function manageLibraryConfirmations(client: LanguageClient | undefined, context: ExtensionContext): Promise<void> {
+	interface ESLintQuickPickItem extends QuickPickItem {
+		kind: 'all' | 'allConfirmed' | 'allRejected' | 'session'
+	}
+	const selected = await Window.showQuickPick<ESLintQuickPickItem>(
+		[
+			{ label: 'Reset ESLint library decisions for this workspace', kind: 'session' },
+			{ label: 'Reset all ESLint library decisions', kind: 'all' }
+		],
+		{ placeHolder: 'Clear library confirmations'}
+	);
+	if (selected !== undefined) {
+		switch (selected.kind) {
+			case 'all':
+				eslintLibraryState.libs = {};
+				break;
+			case 'allConfirmed':
+				for (const key of Object.keys(eslintLibraryState.libs)) {
+					if (eslintLibraryState.libs[key] === true) {
+						delete eslintLibraryState.libs[key];
+					}
+				}
+				break;
+			case 'allRejected':
+				for (const key of Object.keys(eslintLibraryState.libs)) {
+					if (eslintLibraryState.libs[key] === false) {
+						delete eslintLibraryState.libs[key];
+					}
+				}
+				break;
+			case 'session':
+				for (const lib of checkedLibraries) {
+					delete eslintLibraryState.libs[lib];
+				}
+				break;
+		}
+		checkedLibraries.clear();
+		canceledLibraries.clear();
+		context.globalState.update(eslintLibraryKey, eslintLibraryState);
+		if (client !== undefined) {
+			client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
+		}
+	}
+}
+
 export function activate(context: ExtensionContext) {
+	eslintLibraryState =  context.globalState.get<ESLintLibraryState>(eslintLibraryKey, { libs: {} });
 	function didOpenTextDocument(textDocument: TextDocument) {
 		if (activated) {
 			return;
@@ -445,7 +496,10 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(
 		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
 		Commands.registerCommand('eslint.enable', enable),
-		Commands.registerCommand('eslint.disable', disable)
+		Commands.registerCommand('eslint.disable', disable),
+		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
+			manageLibraryConfirmations(undefined, context);
+		})
 	);
 	taskProvider = new TaskProvider();
 	taskProvider.start();
@@ -790,10 +844,6 @@ function realActivate(context: ExtensionContext): void {
 	statusBarItem.text = 'ESLint';
 	statusBarItem.command = 'eslint.showOutputChannel';
 
-	const eslintLibraryKey = 'eslintLibraries';
-	const eslintLibraryState = context.globalState.get<ESLintLibraryState>(eslintLibraryKey, { libs: {} });
-	const checkedLibraries: Set<string> = new Set();
-	const canceledLibraries: Map<string, boolean> = new Map();
 
 	function showStatusBarItem(show: boolean): void {
 		if (show) {
@@ -919,22 +969,6 @@ function realActivate(context: ExtensionContext): void {
 	const packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json' };
 	const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}' };
 	const syncedDocuments: Map<string, TextDocument> = new Map<string, TextDocument>();
-
-	Workspace.onDidChangeConfiguration(() => {
-		probeFailed.clear();
-		for (const textDocument of syncedDocuments.values()) {
-			if (computeValidate(textDocument) === Validate.off) {
-				syncedDocuments.delete(textDocument.uri.toString());
-				client.sendNotification(DidCloseTextDocumentNotification.type, client.code2ProtocolConverter.asCloseTextDocumentParams(textDocument));
-			}
-		}
-		for (const textDocument of Workspace.textDocuments) {
-			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
-				client.sendNotification(DidOpenTextDocumentNotification.type, client.code2ProtocolConverter.asOpenTextDocumentParams(textDocument));
-				syncedDocuments.set(textDocument.uri.toString(), textDocument);
-			}
-		}
-	});
 
 	let migration: Migration | undefined;
 	const migrationSemaphore: Semaphore<void> = new Semaphore<void>(1);
@@ -1234,6 +1268,31 @@ function realActivate(context: ExtensionContext): void {
 		return;
 	}
 	client.registerProposedFeatures();
+
+	Workspace.onDidChangeConfiguration(() => {
+		probeFailed.clear();
+		for (const textDocument of syncedDocuments.values()) {
+			if (computeValidate(textDocument) === Validate.off) {
+				try {
+					const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
+					provider.send(textDocument);
+				} catch (err) {
+					// A feature currently throws if no provider can be found. So for now we catch the exception.
+				}
+			}
+		}
+		for (const textDocument of Workspace.textDocuments) {
+			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
+				try {
+					const provider = client.getFeature(DidOpenTextDocumentNotification.method).getProvider(textDocument);
+					provider.send(textDocument);
+				} catch (err) {
+					// A feature currently throws if no provider can be found. So for now we catch the exception.
+				}
+			}
+		}
+	});
+
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	const running = 'ESLint server is running.';
 	const stopped = 'ESLint server stopped.';
@@ -1418,50 +1477,6 @@ function realActivate(context: ExtensionContext): void {
 
 	updateStatusBarVisibility();
 
-	async function manageLibraryConfirmations(): Promise<void> {
-		interface ESLintQuickPickItem extends QuickPickItem {
-			kind: 'all' | 'allConfirmed' | 'allRejected' | 'session'
-		}
-		const selected = await Window.showQuickPick<ESLintQuickPickItem>(
-			[
-				{ label: 'Reset ESLint library decisions for this workspace', kind: 'session' },
-				{ label: 'Reset all ESLint library decisions', kind: 'all' }
-			],
-			{ placeHolder: 'Clear library confirmations'}
-		);
-		if (selected !== undefined) {
-			switch (selected.kind) {
-				case 'all':
-					eslintLibraryState.libs = {};
-					break;
-				case 'allConfirmed':
-					for (const key of Object.keys(eslintLibraryState.libs)) {
-						if (eslintLibraryState.libs[key] === true) {
-							delete eslintLibraryState.libs[key];
-						}
-					}
-					break;
-				case 'allRejected':
-					for (const key of Object.keys(eslintLibraryState.libs)) {
-						if (eslintLibraryState.libs[key] === false) {
-							delete eslintLibraryState.libs[key];
-						}
-					}
-					break;
-				case 'session':
-					for (const lib of checkedLibraries) {
-						delete eslintLibraryState.libs[lib];
-					}
-					break;
-			}
-			checkedLibraries.clear();
-			canceledLibraries.clear();
-			context.globalState.update(eslintLibraryKey, eslintLibraryState);
-			client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
-		}
-
-	}
-
 	context.subscriptions.push(
 		client.start(),
 		Commands.registerCommand('eslint.executeAutofix', () => {
@@ -1483,7 +1498,7 @@ function realActivate(context: ExtensionContext): void {
 		}),
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			if (eslintStatus === Status.notConfirmed) {
-				manageLibraryConfirmations();
+				manageLibraryConfirmations(client, context);
 			} else {
 				client.outputChannel.show();
 			}
@@ -1492,7 +1507,7 @@ function realActivate(context: ExtensionContext): void {
 			migrateSettings();
 		}),
 		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
-			manageLibraryConfirmations();
+			manageLibraryConfirmations(client, context);
 		})
 	);
 }
