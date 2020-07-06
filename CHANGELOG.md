@@ -1,3 +1,7 @@
+### 2.1.6
+
+- Update LSP libraries
+
 ### 2.1.5
 
 - [UnhandledPromiseRejectionWarning: Error: Request workspace/configuration failed with message: Cannot read property 'source.fixAll.eslint' of null](https://github.com/microsoft/vscode-eslint/issues/950)
