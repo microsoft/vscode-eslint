@@ -793,6 +793,7 @@ function realActivate(context: ExtensionContext): void {
 	const eslintLibraryKey = 'eslintLibraries';
 	const eslintLibraryState = context.globalState.get<ESLintLibraryState>(eslintLibraryKey, { libs: {} });
 	const checkedLibraries: Set<string> = new Set();
+	const canceledLibraries: Map<string, boolean> = new Map();
 
 	function showStatusBarItem(show: boolean): void {
 		if (show) {
@@ -1371,7 +1372,7 @@ function realActivate(context: ExtensionContext): void {
 			return confirmationSemaphore.lock(async () => {
 				try {
 					checkedLibraries.add(params.libraryPath);
-					let state = eslintLibraryState.libs[params.libraryPath];
+					let state = eslintLibraryState.libs[params.libraryPath] || canceledLibraries.get(params.libraryPath);
 					if (state !== true && state !== false) {
 						const libraryUri = Uri.file(params.libraryPath);
 						const folder = Workspace.getWorkspaceFolder(libraryUri);
@@ -1394,6 +1395,7 @@ function realActivate(context: ExtensionContext): void {
 						}
 						const item = await Window.showInformationMessage<ConfirmMessageItem>(message, { modal: true }, { title: 'Yes', value: true }, { title: 'No', value: false });
 						if (item === undefined) {
+							canceledLibraries.set(params.libraryPath, false);
 							state = false;
 						} else {
 							eslintLibraryState.libs[params.libraryPath] = item.value;
@@ -1422,10 +1424,8 @@ function realActivate(context: ExtensionContext): void {
 		}
 		const selected = await Window.showQuickPick<ESLintQuickPickItem>(
 			[
-				{ label: 'Clear all ESLint library confirmations used in the current VS Code session', kind: 'session' },
-				{ label: 'Clear all ESLint library confirmations', kind: 'all' },
-				{ label: 'Clear all confirmed ESLint libraries', kind: 'allConfirmed' },
-				{ label: 'Clear all rejected ESLint libraries', kind: 'allRejected' }
+				{ label: 'Reset ESLint library decisions for this workspace', kind: 'session' },
+				{ label: 'Reset all ESLint library decisions', kind: 'all' }
 			],
 			{ placeHolder: 'Clear library confirmations'}
 		);
@@ -1455,6 +1455,7 @@ function realActivate(context: ExtensionContext): void {
 					break;
 			}
 			checkedLibraries.clear();
+			canceledLibraries.clear();
 			context.globalState.update(eslintLibraryKey, eslintLibraryState);
 			client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
 		}

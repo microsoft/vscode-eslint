@@ -397,7 +397,7 @@
 				"command": "eslint.migrateSettings"
 			},
 			{
-				"title": "Manage Library Confirmations",
+				"title": "Reset Library Decisions ",
 				"category": "ESLint",
 				"command": "eslint.manageLibraryConfirmations"
 			}
