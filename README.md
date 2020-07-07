@@ -143,6 +143,7 @@ This extension contributes the following commands to the Command palette.
 - `Fix all auto-fixable problems`: applies ESLint auto-fix resolutions to all fixable problems.
 - `Disable ESLint for this Workspace`: disables ESLint extension for this workspace.
 - `Enable ESLint for this Workspace`: enable ESLint extension for this workspace.
+- `Reset Library Decisions`: Resets the ESLint library validation confirmations.
 
 ## Using the extension with VS Code's task running
 

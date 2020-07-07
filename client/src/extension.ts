@@ -370,7 +370,7 @@ function createDefaultConfiguration(): void {
 	});
 }
 
-let dummyCommands: Disposable[] | undefined;
+let onActivateCommands: Disposable[] | undefined;
 
 const probeFailed: Set<string> = new Set();
 function computeValidate(textDocument: TextDocument): Validate {
@@ -488,18 +488,18 @@ export function activate(context: ExtensionContext) {
 	const configurationListener: Disposable = Workspace.onDidChangeConfiguration(configurationChanged);
 
 	const notValidating = () => Window.showInformationMessage('ESLint is not running. By default only JavaScript files are validated. If you want to validate other file types please specify them in the \'eslint.validate\' setting.');
-	dummyCommands = [
+	onActivateCommands = [
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
-		Commands.registerCommand('eslint.showOutputChannel', notValidating)
+		Commands.registerCommand('eslint.showOutputChannel', notValidating),
+		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
+			manageLibraryConfirmations(undefined, context);
+		})
 	];
 
 	context.subscriptions.push(
 		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
 		Commands.registerCommand('eslint.enable', enable),
-		Commands.registerCommand('eslint.disable', disable),
-		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
-			manageLibraryConfirmations(undefined, context);
-		})
+		Commands.registerCommand('eslint.disable', disable)
 	);
 	taskProvider = new TaskProvider();
 	taskProvider.start();
@@ -1470,9 +1470,9 @@ function realActivate(context: ExtensionContext): void {
 		});
 	});
 
-	if (dummyCommands) {
-		dummyCommands.forEach(command => command.dispose());
-		dummyCommands = undefined;
+	if (onActivateCommands) {
+		onActivateCommands.forEach(command => command.dispose());
+		onActivateCommands = undefined;
 	}
 
 	updateStatusBarVisibility();
@@ -1513,8 +1513,8 @@ function realActivate(context: ExtensionContext): void {
 }
 
 export function deactivate() {
-	if (dummyCommands) {
-		dummyCommands.forEach(command => command.dispose());
+	if (onActivateCommands) {
+		onActivateCommands.forEach(command => command.dispose());
 	}
 
 	if (taskProvider) {

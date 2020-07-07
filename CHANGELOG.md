@@ -1,3 +1,7 @@
+### 2.1.7
+
+- Ask the user for confirmation before executing the code from an installed ESLint library. Also added commands to manage the decisions made for the ESLint libraries.
+
 ### 2.1.6
 
 - Update LSP libraries
