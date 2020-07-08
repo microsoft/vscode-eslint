@@ -450,6 +450,7 @@
 		"typescript": "^3.7.4",
 		"eslint": "^6.6.0",
 		"@typescript-eslint/parser": "^2.6.1",
+		"@typescript-eslint/eslint-plugin": "^3.6.0",
 		"webpack": "^4.41.2",
 		"webpack-cli": "^3.3.10",
 		"ts-loader": "^6.2.1",

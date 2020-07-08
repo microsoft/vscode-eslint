@@ -542,7 +542,7 @@ class Migration {
 	private codeActionOnSave: MigrationData<CodeActionsOnSave>;
 	private languageSpecificSettings: Map<string, MigrationData<CodeActionsOnSave>>;
 
-	private autoFixOnSave: MigrationData<boolean>
+	private autoFixOnSave: MigrationData<boolean>;
 	private validate: MigrationData<(ValidateItem | string)[]>;
 
 	private workingDirectories: MigrationData<(string | DirectoryItem)[]>;
