@@ -601,10 +601,11 @@ const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId
 	return result;
 }();
 
-const languageId2ParserOptions: Map<string, { regExps: RegExp[]; parsers: Set<string> }> = function createLanguageId2ParserOptionsRegExp() {
-	const result = new Map<string, { regExps: RegExp[]; parsers: Set<string> }>();
+const languageId2ParserOptions: Map<string, { regExps: RegExp[]; parsers: Set<string>; parserRegExps?: RegExp[] }> = function createLanguageId2ParserOptionsRegExp() {
+	const result = new Map<string, { regExps: RegExp[]; parsers: Set<string>; parserRegExps?: RegExp[] }>();
 	const vue = /vue-eslint-parser\/.*\.js$/;
-	result.set('typescript', { regExps: [vue], parsers: new Set<string>(['@typescript-eslint/parser'])});
+	const typescriptEslintParser = /@typescript-eslint\/parser\/.*\.js$/;
+	result.set('typescript', { regExps: [vue], parsers: new Set<string>(['@typescript-eslint/parser']), parserRegExps: [typescriptEslintParser] });
 	return result;
 }();
 
@@ -788,7 +789,10 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 								}
 								if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
 									for (const regExp of parserOptions.regExps) {
-										if (regExp.test(parser) && parserOptions.parsers.has(eslintConfig.parserOptions.parser)) {
+										if (regExp.test(parser) && (
+											parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
+											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfig.parserOptions!.parser!))
+										)) {
 											settings.validate = Validate.on;
 											break;
 										}
