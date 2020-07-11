@@ -1447,7 +1447,7 @@ function realActivate(context: ExtensionContext): void {
 							if (relativePath.endsWith(mainPath)) {
 								relativePath = relativePath.substr(0, relativePath.length - mainPath.length);
 							}
-							message = `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. If you trust this version of ESLint, press 'Allow', otherwise press 'Do Not Allow'. Press 'Cancel' to disable ESLint for this session.`
+							message = `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. If you trust this version of ESLint, press 'Allow', otherwise press 'Do Not Allow'. Press 'Cancel' to disable ESLint for this session.`;
 						} else {
 							message = params.scope === 'global'
 								? `The ESLint extension will use a globally installed ESLint library for validation. Do you allow this?`
