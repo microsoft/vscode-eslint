@@ -1,4 +1,9 @@
+### 2.1.9
+
+- More polish to the message dialog that was introduced in 2.1.7
+
 ### 2.1.8
+
 - Polish the message of the confirmation dialog that was introduced in 2.1.7
 - Fix bug that caused the confirmation dialog to pop up for all open editors when not trusting the local version of VS Code
 
