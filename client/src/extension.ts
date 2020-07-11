@@ -1431,7 +1431,7 @@ function realActivate(context: ExtensionContext): void {
 			return confirmationSemaphore.lock(async () => {
 				try {
 					checkedLibraries.add(params.libraryPath);
-					let canceled = canceledLibraries.get(params.libraryPath);
+					const canceled = canceledLibraries.get(params.libraryPath);
 					let state = eslintLibraryState.libs[params.libraryPath];
 					if (canceled === undefined && state === undefined) {
 						const libraryUri = Uri.file(params.libraryPath);
