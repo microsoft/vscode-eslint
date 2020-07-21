@@ -47,7 +47,7 @@
 
 ### 2.0.10
 
-Various bug fixes especially around settings migration.
+- Various bug fixes especially around settings migration.
 
 ### 2.0.4
 
