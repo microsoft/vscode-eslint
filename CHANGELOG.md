@@ -7,7 +7,7 @@
 
 ### 2.1.4
 
-Was used as an insider preview release
+- Was used as an insider preview release
 
 ### 2.1.3
 
