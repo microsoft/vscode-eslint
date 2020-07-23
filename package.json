@@ -410,11 +410,11 @@
 		"jsonValidation": [
 			{
 				"fileMatch": ".eslintrc",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
 			},
 			{
 				"fileMatch": ".eslintrc.json",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
 			},
 			{
 				"fileMatch": "package.json",
