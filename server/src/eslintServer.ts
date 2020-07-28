@@ -1164,6 +1164,9 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 			validate(document, settings, publishDiagnostics);
 			connection.sendNotification(StatusNotification.type, { state: Status.ok });
 		} catch (err) {
+			// if an exception has occurred while validating clear all errors to ensure
+			// we are not showing any stale once
+			connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 			if (!settings.silent) {
 				let status: Status | undefined = undefined;
 				for (let handler of singleErrorHandlers) {
