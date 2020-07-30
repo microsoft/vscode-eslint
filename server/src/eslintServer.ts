@@ -1639,7 +1639,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	function createDisableFileTextEdit(editInfo: Problem): TextEdit {
-		return TextEdit.insert(Position.create(0, 0), `/* eslint-disable ${editInfo.ruleId} */${EOL}`);
+		// If firts line contains a shebang, insert on the next line instead.
+		const shebang = textDocument?.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
+		const line = shebang === '#!' ? 1 : 0;
+
+		return TextEdit.insert(Position.create(line, 0), `/* eslint-disable ${editInfo.ruleId} */${EOL}`);
 	}
 
 	function getLastEdit(array: FixableProblem[]): FixableProblem | undefined {
