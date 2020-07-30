@@ -7,7 +7,7 @@
 
 ### 2.1.4
 
-Was used as an insider preview release
+- Was used as an insider preview release
 
 ### 2.1.3
 
@@ -47,7 +47,7 @@ Was used as an insider preview release
 
 ### 2.0.10
 
-Various bug fixes especially around settings migration.
+- Various bug fixes especially around settings migration.
 
 ### 2.0.4
 

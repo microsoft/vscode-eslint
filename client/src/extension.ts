@@ -242,8 +242,8 @@ interface ProbeFailedParams {
 	textDocument: TextDocumentIdentifier;
 }
 
-namespace ProbleFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probleFailed');
+namespace ProbeFailedRequest {
+	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
 }
 
 const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
@@ -539,7 +539,7 @@ class Migration {
 	private codeActionOnSave: MigrationData<CodeActionsOnSave>;
 	private languageSpecificSettings: Map<string, MigrationData<CodeActionsOnSave>>;
 
-	private autoFixOnSave: MigrationData<boolean>
+	private autoFixOnSave: MigrationData<boolean>;
 	private validate: MigrationData<(ValidateItem | string)[]>;
 
 	private workingDirectories: MigrationData<(string | DirectoryItem)[]>;
@@ -898,16 +898,18 @@ function realActivate(context: ExtensionContext): void {
 	const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}' };
 	const syncedDocuments: Map<string, TextDocument> = new Map<string, TextDocument>();
 
-	Workspace.onDidChangeConfiguration(() => {
+	Workspace.onDidChangeConfiguration(async () => {
 		probeFailed.clear();
 		for (const textDocument of syncedDocuments.values()) {
 			if (computeValidate(textDocument) === Validate.off) {
 				syncedDocuments.delete(textDocument.uri.toString());
+				await client.onReady();
 				client.sendNotification(DidCloseTextDocumentNotification.type, client.code2ProtocolConverter.asCloseTextDocumentParams(textDocument));
 			}
 		}
 		for (const textDocument of Workspace.textDocuments) {
 			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
+				await client.onReady();
 				client.sendNotification(DidOpenTextDocumentNotification.type, client.code2ProtocolConverter.asOpenTextDocumentParams(textDocument));
 				syncedDocuments.set(textDocument.uri.toString(), textDocument);
 			}
@@ -1334,7 +1336,7 @@ function realActivate(context: ExtensionContext): void {
 			return {};
 		});
 
-		client.onRequest(ProbleFailedRequest.type, (params) => {
+		client.onRequest(ProbeFailedRequest.type, (params) => {
 			probeFailed.add(params.textDocument.uri);
 			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
 			for (const document of Workspace.textDocuments) {
@@ -1354,7 +1356,7 @@ function realActivate(context: ExtensionContext): void {
 
 	context.subscriptions.push(
 		client.start(),
-		Commands.registerCommand('eslint.executeAutofix', () => {
+		Commands.registerCommand('eslint.executeAutofix', async () => {
 			const textEditor = Window.activeTextEditor;
 			if (!textEditor) {
 				return;
@@ -1367,6 +1369,7 @@ function realActivate(context: ExtensionContext): void {
 				command: 'eslint.applyAllFixes',
 				arguments: [textDocument]
 			};
+			await client.onReady();
 			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
 				Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});

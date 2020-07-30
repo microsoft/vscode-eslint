@@ -300,7 +300,7 @@
 					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
 				},
 				"eslint.runtime": {
-					"scope": "machine",
+					"scope": "machine-overridable",
 					"type": [
 						"string",
 						"null"
@@ -428,7 +428,7 @@
 		"languages": [
 			{
 				"id": "ignore",
-				"filenames": [
+				"extensions": [
 					".eslintignore"
 				]
 			},
@@ -459,6 +459,7 @@
 		"typescript": "^3.8.3",
 		"eslint": "^6.8.0",
 		"@typescript-eslint/parser": "^2.31.0",
+		"@typescript-eslint/eslint-plugin": "^3.6.0",
 		"webpack": "^4.43.0",
 		"webpack-cli": "^3.3.11",
 		"ts-loader": "^6.2.1",

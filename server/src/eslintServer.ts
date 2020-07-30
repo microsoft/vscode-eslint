@@ -113,8 +113,8 @@ interface ProbeFailedParams {
 	textDocument: TextDocumentIdentifier;
 }
 
-namespace ProbleFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probleFailed');
+namespace ProbeFailedRequest {
+	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
 }
 
 type RunValues = 'onType' | 'onSave';
@@ -334,8 +334,8 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 
 function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	const message = problem.message;
-	const startLine = Math.max(0, problem.line - 1);
-	const startChar = Math.max(0, problem.column - 1);
+	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
+	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
 	const endLine = Is.nullOrUndefined(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
 	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
 	const result: Diagnostic = {
@@ -601,10 +601,11 @@ const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId
 	return result;
 }();
 
-const languageId2ParserOptions: Map<string, { regExps: RegExp[]; parsers: Set<string> }> = function createLanguageId2ParserOptionsRegExp() {
-	const result = new Map<string, { regExps: RegExp[]; parsers: Set<string> }>();
+const languageId2ParserOptions: Map<string, { regExps: RegExp[]; parsers: Set<string>; parserRegExps?: RegExp[] }> = function createLanguageId2ParserOptionsRegExp() {
+	const result = new Map<string, { regExps: RegExp[]; parsers: Set<string>; parserRegExps?: RegExp[] }>();
 	const vue = /vue-eslint-parser\/.*\.js$/;
-	result.set('typescript', { regExps: [vue], parsers: new Set<string>(['@typescript-eslint/parser'])});
+	const typescriptEslintParser = /@typescript-eslint\/parser\/.*\.js$/;
+	result.set('typescript', { regExps: [vue], parsers: new Set<string>(['@typescript-eslint/parser']), parserRegExps: [typescriptEslintParser] });
 	return result;
 }();
 
@@ -788,7 +789,10 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 								}
 								if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
 									for (const regExp of parserOptions.regExps) {
-										if (regExp.test(parser) && parserOptions.parsers.has(eslintConfig.parserOptions.parser)) {
+										if (regExp.test(parser) && (
+											parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
+											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfig.parserOptions!.parser!))
+										)) {
 											settings.validate = Validate.on;
 											break;
 										}
@@ -808,7 +812,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				}
 				if (settings.validate === Validate.off) {
 					const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
-					connection.sendRequest(ProbleFailedRequest.type, params);
+					connection.sendRequest(ProbeFailedRequest.type, params);
 				}
 			}
 			return settings;
