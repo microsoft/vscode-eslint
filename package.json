@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.5",
+	"version": "2.1.9",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -404,6 +404,11 @@
 				"title": "Migrate Settings",
 				"category": "ESLint",
 				"command": "eslint.migrateSettings"
+			},
+			{
+				"title": "Reset Library Decisions",
+				"category": "ESLint",
+				"command": "eslint.manageLibraryConfirmations"
 			}
 		],
 		"taskDefinitions": [
@@ -414,11 +419,11 @@
 		"jsonValidation": [
 			{
 				"fileMatch": ".eslintrc",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
 			},
 			{
 				"fileMatch": ".eslintrc.json",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
 			},
 			{
 				"fileMatch": "package.json",

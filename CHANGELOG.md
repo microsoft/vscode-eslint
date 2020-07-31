@@ -1,3 +1,20 @@
+### 2.1.9
+
+- More polish to the message dialog that was introduced in 2.1.7
+
+### 2.1.8
+
+- Polish the message of the confirmation dialog that was introduced in 2.1.7
+- Fix bug that caused the confirmation dialog to pop up for all open editors when not trusting the local version of VS Code
+
+### 2.1.7
+
+- Ask the user for confirmation before executing the code from an installed ESLint library. Also added commands to manage the decisions made for the ESLint libraries.
+
+### 2.1.6
+
+- Update LSP libraries
+
 ### 2.1.5
 
 - [UnhandledPromiseRejectionWarning: Error: Request workspace/configuration failed with message: Cannot read property 'source.fixAll.eslint' of null](https://github.com/microsoft/vscode-eslint/issues/950)
