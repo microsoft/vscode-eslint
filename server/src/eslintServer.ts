@@ -747,10 +747,10 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				? 'global'
 				: 'local';
 			const cachedLibraryConfirmation = libraryConfirmations.get(libraryPath);
-			const conformationPromise = cachedLibraryConfirmation === undefined
+			const confirmationPromise = cachedLibraryConfirmation === undefined
 				? connection.sendRequest(ConfirmESLintLibrary.type, { scope: scope, file: uri, libraryPath })
 				: Promise.resolve(cachedLibraryConfirmation);
-			return conformationPromise.then((confirmed) => {
+			return confirmationPromise.then((confirmed) => {
 				libraryConfirmations.set(libraryPath, confirmed);
 				if (confirmed !== true) {
 					settings.validate = Validate.off;
