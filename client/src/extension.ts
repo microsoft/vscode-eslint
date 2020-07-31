@@ -877,7 +877,7 @@ function realActivate(context: ExtensionContext): void {
 	const debug = eslintConfig.get('debug');
 	const nodeEnv = eslintConfig.get('nodeEnv', null);
 
-	let env: { [key: string]: string | undefined } | undefined;
+	let env: { [key: string]: string | number | boolean } | undefined;
 	if (debug) {
 		env = env || {};
 		env.DEBUG = 'eslint:*,-eslint:code-path';
