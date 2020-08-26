@@ -4,6 +4,11 @@
 	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
+	"bin": "out/cli.js",
+	"main": "out/eslintServer.js",
+	"files": [
+		"out"
+	],
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Microsoft/vscode-eslint.git"
@@ -19,5 +24,7 @@
 		"vscode-languageserver": "7.0.0-next.4",
 		"vscode-languageserver-textdocument": "1.0.1"
 	},
-	"scripts": {}
+	"scripts": {
+		"prepare": "tsc"
+	}
 }
