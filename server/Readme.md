@@ -14,7 +14,7 @@ Notifications from the server:
 
 - `eslint/status`
 - `eslint/exitCalled`
-``
+
 Requests from the server:
 
 - `eslint/openDoc`
