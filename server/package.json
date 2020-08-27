@@ -1,7 +1,6 @@
 {
-	"name": "eslint-server",
+	"name": "eslint-language-server",
 	"version": "2.1.5",
-	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"bin": "out/cli.js",
