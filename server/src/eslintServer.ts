@@ -1055,6 +1055,8 @@ function setupDocumentsListeners() {
 
 	// A text document has changed. Validate the document according the run setting.
 	documents.onDidChangeContent((event) => {
+		const uri = event.document.uri;
+		codeActions.delete(uri);
 		resolveSettings(event.document).then((settings) => {
 			if (settings.validate !== Validate.on|| settings.run !== 'onType') {
 				return;
