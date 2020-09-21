@@ -168,6 +168,12 @@ namespace ESLintSeverity {
 	}
 }
 
+enum ConfirmationSelection {
+	no = 1,
+	allow = 2,
+	always = 3
+}
+
 interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -402,26 +408,35 @@ function computeValidate(textDocument: TextDocument): Validate {
 }
 
 let taskProvider: TaskProvider;
+
 const eslintLibraryKey = 'eslintLibraries';
 let eslintLibraryState: ESLintLibraryState;
 const checkedLibraries: Set<string> = new Set();
 const canceledLibraries: Map<string, boolean> = new Map();
 
+const eslintAlwaysAllowLibraryKey = 'eslintAlwaysAllowLibraries';
+let eslintAlwaysAllowLibraryState: boolean = false;
+
 async function manageLibraryConfirmations(client: LanguageClient | undefined, context: ExtensionContext): Promise<void> {
 	interface ESLintQuickPickItem extends QuickPickItem {
-		kind: 'all' | 'allConfirmed' | 'allRejected' | 'session'
+		kind: 'all' | 'allConfirmed' | 'allRejected' | 'session' | 'alwaysAllow';
 	}
-	const selected = await Window.showQuickPick<ESLintQuickPickItem>(
-		[
-			{ label: 'Reset ESLint library decisions for this workspace', kind: 'session' },
-			{ label: 'Reset all ESLint library decisions', kind: 'all' }
-		],
-		{ placeHolder: 'Clear library confirmations'}
-	);
+	const items: ESLintQuickPickItem[] = [
+		{ label: 'Reset ESLint library decisions for this workspace', kind: 'session' },
+		{ label: 'Reset all ESLint library decisions', kind: 'all' }
+	];
+	if (eslintAlwaysAllowLibraryState) {
+		items.splice(1, 0, { label: 'Reset Always Allow all ESlint libraries decision', kind: 'alwaysAllow'});
+	}
+	const selected = await Window.showQuickPick<ESLintQuickPickItem>(items, { placeHolder: 'Clear library confirmations'});
 	if (selected !== undefined) {
 		switch (selected.kind) {
 			case 'all':
 				eslintLibraryState.libs = {};
+				eslintAlwaysAllowLibraryState = false;
+				break;
+			case 'alwaysAllow':
+				eslintAlwaysAllowLibraryState = false;
 				break;
 			case 'allConfirmed':
 				for (const key of Object.keys(eslintLibraryState.libs)) {
@@ -446,6 +461,7 @@ async function manageLibraryConfirmations(client: LanguageClient | undefined, co
 		checkedLibraries.clear();
 		canceledLibraries.clear();
 		context.globalState.update(eslintLibraryKey, eslintLibraryState);
+		context.globalState.update(eslintAlwaysAllowLibraryKey, eslintAlwaysAllowLibraryState);
 		if (client !== undefined) {
 			client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
 		}
@@ -454,6 +470,8 @@ async function manageLibraryConfirmations(client: LanguageClient | undefined, co
 
 export function activate(context: ExtensionContext) {
 	eslintLibraryState =  context.globalState.get<ESLintLibraryState>(eslintLibraryKey, { libs: {} });
+	eslintAlwaysAllowLibraryState = context.globalState.get<boolean>(eslintAlwaysAllowLibraryKey, false);
+
 	function didOpenTextDocument(textDocument: TextDocument) {
 		if (activated) {
 			return;
@@ -854,7 +872,7 @@ function realActivate(context: ExtensionContext): void {
 		eslintStatus = status;
 		switch (status) {
 			case Status.ok:
-				statusBarItem.text = 'ESLint';
+				statusBarItem.text = eslintAlwaysAllowLibraryState ? '$(globe) ESLint' : '$(check) ESLint';
 				break;
 			case Status.warn:
 				statusBarItem.text = '$(alert) ESLint';
@@ -866,7 +884,7 @@ function realActivate(context: ExtensionContext): void {
 				statusBarItem.text = '$(circle-slash) ESLint';
 				break;
 			default:
-				statusBarItem.text = 'ESLint';
+				statusBarItem.text = eslintAlwaysAllowLibraryState ? '$(globe) ESLint' : '$(check) ESLint';
 		}
 		updateStatusBarVisibility();
 	}
@@ -1431,6 +1449,9 @@ function realActivate(context: ExtensionContext): void {
 		client.onRequest(ConfirmESLintLibrary.type, async (params): Promise<boolean> => {
 			return confirmationSemaphore.lock(async () => {
 				try {
+					if (eslintAlwaysAllowLibraryState === true) {
+						return true;
+					}
 					checkedLibraries.add(params.libraryPath);
 					const canceled = canceledLibraries.get(params.libraryPath);
 					let state = eslintLibraryState.libs[params.libraryPath];
@@ -1439,29 +1460,42 @@ function realActivate(context: ExtensionContext): void {
 						const folder = Workspace.getWorkspaceFolder(libraryUri);
 
 						interface ConfirmMessageItem extends MessageItem {
-							value: boolean;
+							value: ConfirmationSelection;
 						}
 						let message: string;
+						let alwaysAllow: boolean = false;
 						if (folder !== undefined) {
 							let relativePath = libraryUri.toString().substr(folder.uri.toString().length + 1);
 							const mainPath = '/lib/api.js';
 							if (relativePath.endsWith(mainPath)) {
 								relativePath = relativePath.substr(0, relativePath.length - mainPath.length);
 							}
-							message = `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. If you trust this version of ESLint including all plugins and configuration files it will load, press 'Allow', otherwise press 'Do Not Allow'. Press 'Cancel' to disable ESLint for this session.`;
+							alwaysAllow = true;
+							message = `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. If you trust this version of ESLint including all plugins and configuration files it will load, press 'Allow', otherwise press 'Do Not Allow'. Press 'Always Allow' if you trust all local installed ESLint versions in any folder or 'Cancel' to disable ESLint for this session.`;
 						} else {
 							message = params.scope === 'global'
 								? `The ESLint extension will use a globally installed ESLint library for validation. Do you allow this?`
 								: `The ESLint extension will use a locally installed ESLint library for validation. Do you allow this?`;
 						}
-						const item = await Window.showInformationMessage<ConfirmMessageItem>(message, { modal: true }, { title: 'Allow', value: true }, { title: 'Do Not Allow', value: false });
+						const messageItems: ConfirmMessageItem[] = alwaysAllow
+							? [{ title: 'Always Allow', value: ConfirmationSelection.always }, { title: 'Allow', value: ConfirmationSelection.allow }, { title: 'Do Not Allow', value: ConfirmationSelection.no }]
+							: [{ title: 'Allow', value: ConfirmationSelection.allow }, { title: 'Do Not Allow', value: ConfirmationSelection.no }];
+
+						const item = await Window.showInformationMessage<ConfirmMessageItem>(message, { modal: true }, ...messageItems);
 						if (item === undefined) {
 							canceledLibraries.set(params.libraryPath, false);
 							state = false;
 						} else {
-							eslintLibraryState.libs[params.libraryPath] = item.value;
-							context.globalState.update(eslintLibraryKey, eslintLibraryState);
-							state = item.value;
+							if (item.value === ConfirmationSelection.allow || item.value === ConfirmationSelection.no) {
+								const value = item.value === ConfirmationSelection.allow ? true : false;
+								eslintLibraryState.libs[params.libraryPath] = value;
+								context.globalState.update(eslintLibraryKey, eslintLibraryState);
+								state = value;
+							} else if (item.value === ConfirmationSelection.always) {
+								eslintAlwaysAllowLibraryState = true;
+								context.globalState.update(eslintAlwaysAllowLibraryKey, eslintAlwaysAllowLibraryState);
+								state = true;
+							}
 						}
 					}
 					return state;

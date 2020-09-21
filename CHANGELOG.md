@@ -1,6 +1,6 @@
 ### 2.1.9
 
-- More polish to the message dialog that was introduced in 2.1.7
+- Add an 'Always Allow' to the library confirmation dialog added in 2.1.7. Also added a status indication show the ESLint library decision mode.
 
 ### 2.1.8
 
