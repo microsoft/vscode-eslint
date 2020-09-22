@@ -469,6 +469,14 @@ function clearDiagnostic(params: ConfirmESLintLibraryParams): void {
 	}
 }
 
+function clearAllDiagnostics(): void {
+	eslintStatusDiagnostics.clear();
+	for (const disposable of confirmationCodeActionProviders.values()) {
+		disposable.dispose();
+	}
+	confirmationCodeActionProviders.clear();
+}
+
 async function askForLibraryConfirmation(client: LanguageClient | undefined, context: ExtensionContext, params: ConfirmESLintLibraryParams, modal: boolean): Promise<void> {
 	const trusted = isTrusted(params);
 	if (trusted !== undefined) {
@@ -515,11 +523,12 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 			const value = item.value === ConfirmationSelection.trust ? true : false;
 			eslintLibraryState.libs[params.libraryPath] = value;
 			context.globalState.update(eslintLibraryKey, eslintLibraryState);
+			clearDiagnostic(params);
 		} else if (item.value === ConfirmationSelection.alwaysTrust) {
 			eslintAlwaysAllowLibraryState = true;
 			context.globalState.update(eslintAlwaysAllowLibraryKey, eslintAlwaysAllowLibraryState);
+			clearAllDiagnostics();
 		}
-		clearDiagnostic(params);
 	}
 	const newTrusted = isTrusted(params);
 	if (trusted !== newTrusted && client !== undefined) {
