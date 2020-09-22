@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri,
 	StatusBarAlignment, TextDocument, CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem,
-	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind
+	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, DiagnosticSeverity as VDiagnosticSeverity
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
@@ -21,6 +21,8 @@ import {
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
 import { TaskProvider } from './tasks';
 import { WorkspaceConfiguration } from 'vscode';
+import { DiagnosticCollection } from 'vscode';
+import { Range } from 'vscode';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -169,9 +171,9 @@ namespace ESLintSeverity {
 }
 
 enum ConfirmationSelection {
-	no = 1,
-	allow = 2,
-	always = 3
+	doNotTrust = 1,
+	trust = 2,
+	alwaysTrust = 3
 }
 
 interface ConfigurationSettings {
@@ -411,11 +413,119 @@ let taskProvider: TaskProvider;
 
 const eslintLibraryKey = 'eslintLibraries';
 let eslintLibraryState: ESLintLibraryState;
-const checkedLibraries: Set<string> = new Set();
+const pendingApprovals: Set<string> = new Set();
+const sessionState: Map<string, ConfirmESLintLibraryParams> = new Map();
 const canceledLibraries: Map<string, boolean> = new Map();
 
 const eslintAlwaysAllowLibraryKey = 'eslintAlwaysAllowLibraries';
 let eslintAlwaysAllowLibraryState: boolean = false;
+
+let eslintStatusDiagnostics: DiagnosticCollection = Languages.createDiagnosticCollection();
+const confirmationCodeActionProviders: Map<string, Disposable> = new Map();
+
+function isTrusted(params: ConfirmESLintLibraryParams): boolean | undefined {
+	const state = eslintLibraryState.libs[params.libraryPath];
+	if (state === false || state === true) {
+		return state;
+	}
+	const canceled = canceledLibraries.get(params.libraryPath);
+	if (canceled === false) {
+		return false;
+	}
+	return undefined;
+}
+
+function addDiagnostic(params: ConfirmESLintLibraryParams): void {
+	const uri = Uri.file(params.libraryPath);
+	if (eslintStatusDiagnostics.has(uri)) {
+		return;
+	}
+	const diagnostic = new Diagnostic(new Range(0,0,0,0), 'ESLint is disabled since its execution has not been approved or rejected yet.', VDiagnosticSeverity.Warning);
+	diagnostic.source = 'eslint';
+	eslintStatusDiagnostics.set(uri, [
+		diagnostic
+	]);
+	const disposable = Languages.registerCodeActionsProvider({ pattern: params.libraryPath }, {
+		provideCodeActions: () => {
+			const result = new CodeAction('Confirm execution', CodeActionKind.QuickFix);
+			result.command = {
+				title: 'Confirm ESLint execution',
+				command: 'eslint.confirmExecution',
+				arguments: [params]
+			};
+			return [result];
+		}
+	});
+	confirmationCodeActionProviders.set(params.libraryPath, disposable);
+}
+
+function clearDiagnostic(params: ConfirmESLintLibraryParams): void {
+	const uri = Uri.file(params.libraryPath);
+	eslintStatusDiagnostics.delete(uri);
+	const disposable = confirmationCodeActionProviders.get(params.libraryPath);
+	if (disposable !== undefined) {
+		disposable.dispose();
+		confirmationCodeActionProviders.delete(params.libraryPath);
+	}
+}
+
+async function askForLibraryConfirmation(client: LanguageClient | undefined, context: ExtensionContext, params: ConfirmESLintLibraryParams, modal: boolean): Promise<void> {
+	const trusted = isTrusted(params);
+	if (trusted !== undefined) {
+		return;
+	}
+	pendingApprovals.add(params.libraryPath);
+	sessionState.set(params.libraryPath, params);
+
+	// Reevaluate state and cancel since the information meessage is async
+	const libraryUri = Uri.file(params.libraryPath);
+	const folder = Workspace.getWorkspaceFolder(libraryUri);
+
+	interface ConfirmMessageItem extends MessageItem {
+		value: ConfirmationSelection;
+	}
+	let message: string;
+	let alwaysAllow: boolean = false;
+	if (folder !== undefined) {
+		let relativePath = libraryUri.toString().substr(folder.uri.toString().length + 1);
+		const mainPath = '/lib/api.js';
+		if (relativePath.endsWith(mainPath)) {
+			relativePath = relativePath.substr(0, relativePath.length - mainPath.length);
+		}
+		alwaysAllow = true;
+		message = modal
+		 ? `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. Do you trust this version of ESLint including all plugins and configuration files it will load?\n\nPress 'Always Trust' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`
+		 : `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. Do you trust this version of ESLint including all plugins and configuration files it will load? Press 'Always Trust' to remember the choice for all workspaces. Disposing the notification will disable ESLint for this session.`;
+	} else {
+		message = params.scope === 'global'
+			? `The ESLint extension will use a globally installed ESLint library for validation. Do you allow this?`
+			: `The ESLint extension will use a locally installed ESLint library for validation. Do you allow this?`;
+	}
+	const messageItems: ConfirmMessageItem[] = alwaysAllow
+		? [{ title: 'Always Trust', value: ConfirmationSelection.alwaysTrust }, { title: 'Trust', value: ConfirmationSelection.trust }, { title: 'Do Not Trust', value: ConfirmationSelection.doNotTrust }]
+		: [{ title: 'Trust', value: ConfirmationSelection.trust }, { title: 'Do Not Trust', value: ConfirmationSelection.doNotTrust }];
+
+	const item = await Window.showInformationMessage<ConfirmMessageItem>(message, { modal: modal }, ...messageItems);
+	pendingApprovals.delete(params.libraryPath);
+	if (item === undefined) {
+		canceledLibraries.set(params.libraryPath, false);
+		addDiagnostic(params);
+	} else {
+		if (item.value === ConfirmationSelection.trust || item.value === ConfirmationSelection.doNotTrust) {
+			const value = item.value === ConfirmationSelection.trust ? true : false;
+			eslintLibraryState.libs[params.libraryPath] = value;
+			context.globalState.update(eslintLibraryKey, eslintLibraryState);
+		} else if (item.value === ConfirmationSelection.alwaysTrust) {
+			eslintAlwaysAllowLibraryState = true;
+			context.globalState.update(eslintAlwaysAllowLibraryKey, eslintAlwaysAllowLibraryState);
+		}
+		clearDiagnostic(params);
+	}
+	const newTrusted = isTrusted(params);
+	if (trusted !== newTrusted && client !== undefined) {
+		client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
+	}
+}
 
 async function manageLibraryConfirmations(client: LanguageClient | undefined, context: ExtensionContext): Promise<void> {
 	interface ESLintQuickPickItem extends QuickPickItem {
@@ -438,30 +548,24 @@ async function manageLibraryConfirmations(client: LanguageClient | undefined, co
 			case 'alwaysAllow':
 				eslintAlwaysAllowLibraryState = false;
 				break;
-			case 'allConfirmed':
-				for (const key of Object.keys(eslintLibraryState.libs)) {
-					if (eslintLibraryState.libs[key] === true) {
-						delete eslintLibraryState.libs[key];
-					}
-				}
-				break;
-			case 'allRejected':
-				for (const key of Object.keys(eslintLibraryState.libs)) {
-					if (eslintLibraryState.libs[key] === false) {
-						delete eslintLibraryState.libs[key];
-					}
-				}
-				break;
 			case 'session':
-				for (const lib of checkedLibraries) {
+				for (const lib of sessionState.keys()) {
 					delete eslintLibraryState.libs[lib];
 				}
 				break;
 		}
-		checkedLibraries.clear();
-		canceledLibraries.clear();
 		context.globalState.update(eslintLibraryKey, eslintLibraryState);
 		context.globalState.update(eslintAlwaysAllowLibraryKey, eslintAlwaysAllowLibraryState);
+		canceledLibraries.clear();
+		const currentSessionState = new Map(sessionState);
+		sessionState.clear();
+		for (const state of currentSessionState) {
+			const trusted = isTrusted(state[1]);
+			if (trusted === undefined) {
+				await askForLibraryConfirmation(client, context, state[1], true);
+				pendingApprovals.delete(state[0]);
+			}
+		}
 		if (client !== undefined) {
 			client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
 		}
@@ -471,6 +575,7 @@ async function manageLibraryConfirmations(client: LanguageClient | undefined, co
 export function activate(context: ExtensionContext) {
 	eslintLibraryState =  context.globalState.get<ESLintLibraryState>(eslintLibraryKey, { libs: {} });
 	eslintAlwaysAllowLibraryState = context.globalState.get<boolean>(eslintAlwaysAllowLibraryKey, false);
+	eslintStatusDiagnostics = Languages.createDiagnosticCollection('ESLint Status Collection');
 
 	function didOpenTextDocument(textDocument: TextDocument) {
 		if (activated) {
@@ -514,7 +619,7 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(
 		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
 		Commands.registerCommand('eslint.enable', enable),
-		Commands.registerCommand('eslint.disable', disable)
+		Commands.registerCommand('eslint.disable', disable),
 	);
 	taskProvider = new TaskProvider();
 	taskProvider.start();
@@ -856,9 +961,10 @@ function realActivate(context: ExtensionContext): void {
 	let eslintStatus: Status = Status.ok;
 	let serverRunning: boolean = false;
 
+	const running = 'ESLint server is running.';
+	const stopped = 'ESLint server stopped.';
 	statusBarItem.text = 'ESLint';
 	statusBarItem.command = 'eslint.showOutputChannel';
-
 
 	function showStatusBarItem(show: boolean): void {
 		if (show) {
@@ -870,28 +976,37 @@ function realActivate(context: ExtensionContext): void {
 
 	function updateStatus(status: Status) {
 		eslintStatus = status;
-		switch (status) {
-			case Status.ok:
-				statusBarItem.text = eslintAlwaysAllowLibraryState ? '$(globe) ESLint' : '$(check) ESLint';
-				break;
-			case Status.warn:
-				statusBarItem.text = '$(alert) ESLint';
-				break;
-			case Status.error:
-				statusBarItem.text = '$(issue-opened) ESLint';
-				break;
-			case Status.notConfirmed:
-				statusBarItem.text = '$(circle-slash) ESLint';
-				break;
-			default:
-				statusBarItem.text = eslintAlwaysAllowLibraryState ? '$(globe) ESLint' : '$(check) ESLint';
+		let icon: string| undefined;
+		let tooltip: string | undefined;
+		if (serverRunning === false) {
+			icon = '$(alert)';
+		} else {
+			switch (status) {
+				case Status.ok:
+					icon = eslintAlwaysAllowLibraryState ? '$(globe)' : '$(check)';
+					break;
+				case Status.warn:
+					icon = '$(alert)';
+					break;
+				case Status.error:
+					icon = '$(issue-opened)';
+					break;
+				case Status.notConfirmed:
+					icon = '$(circle-slash)';
+					tooltip = 'ESLint execution not trused.';
+					break;
+				default:
+					icon = eslintAlwaysAllowLibraryState ? '$(globe)' : '$(check)';
+			}
 		}
+		statusBarItem.text = icon ? `${icon} ESLint` : 'ESLint';
+		statusBarItem.tooltip = tooltip ? tooltip : serverRunning ? running : stopped;
 		updateStatusBarVisibility();
 	}
 
 	function updateStatusBarVisibility(): void {
 		showStatusBarItem(
-			(serverRunning && eslintStatus !== Status.ok) || Workspace.getConfiguration('eslint').get('alwaysShowStatus', false)
+			serverRunning || Workspace.getConfiguration('eslint').get('alwaysShowStatus', false)
 		);
 	}
 
@@ -1313,18 +1428,15 @@ function realActivate(context: ExtensionContext): void {
 	});
 
 	defaultErrorHandler = client.createDefaultErrorHandler();
-	const running = 'ESLint server is running.';
-	const stopped = 'ESLint server stopped.';
 	client.onDidChangeState((event) => {
 		if (event.newState === ClientState.Running) {
 			client.info(running);
-			statusBarItem.tooltip = running;
 			serverRunning = true;
 		} else {
 			client.info(stopped);
-			statusBarItem.tooltip = stopped;
 			serverRunning = false;
 		}
+		updateStatus(eslintStatus);
 		updateStatusBarVisibility();
 	});
 	client.onReady().then(() => {
@@ -1449,56 +1561,29 @@ function realActivate(context: ExtensionContext): void {
 		client.onRequest(ConfirmESLintLibrary.type, async (params): Promise<boolean> => {
 			return confirmationSemaphore.lock(async () => {
 				try {
+					sessionState.set(params.libraryPath, params);
 					if (eslintAlwaysAllowLibraryState === true) {
+						clearDiagnostic(params);
 						return true;
 					}
-					checkedLibraries.add(params.libraryPath);
-					const canceled = canceledLibraries.get(params.libraryPath);
-					let state = eslintLibraryState.libs[params.libraryPath];
-					if (canceled === undefined && state === undefined) {
-						const libraryUri = Uri.file(params.libraryPath);
-						const folder = Workspace.getWorkspaceFolder(libraryUri);
-
-						interface ConfirmMessageItem extends MessageItem {
-							value: ConfirmationSelection;
-						}
-						let message: string;
-						let alwaysAllow: boolean = false;
-						if (folder !== undefined) {
-							let relativePath = libraryUri.toString().substr(folder.uri.toString().length + 1);
-							const mainPath = '/lib/api.js';
-							if (relativePath.endsWith(mainPath)) {
-								relativePath = relativePath.substr(0, relativePath.length - mainPath.length);
-							}
-							alwaysAllow = true;
-							message = `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. If you trust this version of ESLint including all plugins and configuration files it will load, press 'Allow', otherwise press 'Do Not Allow'. Press 'Always Allow' if you trust all local installed ESLint versions in any folder or 'Cancel' to disable ESLint for this session.`;
-						} else {
-							message = params.scope === 'global'
-								? `The ESLint extension will use a globally installed ESLint library for validation. Do you allow this?`
-								: `The ESLint extension will use a locally installed ESLint library for validation. Do you allow this?`;
-						}
-						const messageItems: ConfirmMessageItem[] = alwaysAllow
-							? [{ title: 'Always Allow', value: ConfirmationSelection.always }, { title: 'Allow', value: ConfirmationSelection.allow }, { title: 'Do Not Allow', value: ConfirmationSelection.no }]
-							: [{ title: 'Allow', value: ConfirmationSelection.allow }, { title: 'Do Not Allow', value: ConfirmationSelection.no }];
-
-						const item = await Window.showInformationMessage<ConfirmMessageItem>(message, { modal: true }, ...messageItems);
-						if (item === undefined) {
-							canceledLibraries.set(params.libraryPath, false);
-							state = false;
-						} else {
-							if (item.value === ConfirmationSelection.allow || item.value === ConfirmationSelection.no) {
-								const value = item.value === ConfirmationSelection.allow ? true : false;
-								eslintLibraryState.libs[params.libraryPath] = value;
-								context.globalState.update(eslintLibraryKey, eslintLibraryState);
-								state = value;
-							} else if (item.value === ConfirmationSelection.always) {
-								eslintAlwaysAllowLibraryState = true;
-								context.globalState.update(eslintAlwaysAllowLibraryKey, eslintAlwaysAllowLibraryState);
-								state = true;
-							}
-						}
+					if (pendingApprovals.has(params.libraryPath)) {
+						clearDiagnostic(params);
+						return false;
 					}
-					return state;
+					let state = eslintLibraryState.libs[params.libraryPath];
+					if (state === true || state === false) {
+						clearDiagnostic(params);
+						return state;
+					}
+					const canceled = canceledLibraries.get(params.libraryPath);
+					if (canceled === false) {
+						return false;
+					}
+
+					addDiagnostic(params);
+					askForLibraryConfirmation(client, context, params, false);
+
+					return false;
 				} catch (err) {
 					return false;
 				}
@@ -1535,7 +1620,26 @@ function realActivate(context: ExtensionContext): void {
 		}),
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			if (eslintStatus === Status.notConfirmed) {
-				manageLibraryConfirmations(client, context);
+				let candidate: string | undefined;
+				let toRemove: Set<string> | Map<string, boolean> | undefined;
+				if (pendingApprovals.size === 1) {
+					candidate = pendingApprovals.values().next().value;
+				} else if (canceledLibraries.size === 1) {
+					candidate = canceledLibraries.keys().next().value;
+					toRemove = canceledLibraries;
+				}
+				if (candidate !== undefined) {
+					if (sessionState.has(candidate)) {
+						if (toRemove !== undefined) {
+							toRemove.delete(candidate);
+						}
+						askForLibraryConfirmation(client, context, sessionState.get(candidate)!, true);
+					} else {
+						manageLibraryConfirmations(client, context);
+					}
+				} else {
+					manageLibraryConfirmations(client, context);
+				}
 			} else {
 				client.outputChannel.show();
 			}
@@ -1545,6 +1649,10 @@ function realActivate(context: ExtensionContext): void {
 		}),
 		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
 			manageLibraryConfirmations(client, context);
+		}),
+		Commands.registerCommand('eslint.confirmExecution', (params: ConfirmESLintLibraryParams) => {
+			canceledLibraries.delete(params.libraryPath);
+			askForLibraryConfirmation(client, context, params, true);
 		})
 	);
 }
