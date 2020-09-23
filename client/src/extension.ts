@@ -9,7 +9,8 @@ import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri,
 	StatusBarAlignment, TextDocument, CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem,
-	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, DiagnosticSeverity as VDiagnosticSeverity
+	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, DiagnosticSeverity as VDiagnosticSeverity,
+	WorkspaceConfiguration, DiagnosticCollection, Range, TextEditor, Position
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
@@ -20,11 +21,6 @@ import {
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
 import { TaskProvider } from './tasks';
-import { WorkspaceConfiguration } from 'vscode';
-import { DiagnosticCollection } from 'vscode';
-import { Range } from 'vscode';
-import { TextEditor } from 'vscode';
-import { Position } from 'vscode';
 
 namespace Is {
 	const toString = Object.prototype.toString;
