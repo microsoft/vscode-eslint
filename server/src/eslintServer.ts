@@ -120,7 +120,7 @@ namespace ProbeFailedRequest {
 
 interface ConfirmESLintLibraryParams {
 	scope: 'local' | 'global';
-	file: string;
+	uri: string;
 	libraryPath: string;
 }
 
@@ -748,15 +748,18 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				: 'local';
 			const cachedLibraryConfirmation = libraryConfirmations.get(libraryPath);
 			const confirmationPromise = cachedLibraryConfirmation === undefined
-				? connection.sendRequest(ConfirmESLintLibrary.type, { scope: scope, file: uri, libraryPath })
+				? connection.sendRequest(ConfirmESLintLibrary.type, { scope: scope, uri: uri, libraryPath })
 				: Promise.resolve(cachedLibraryConfirmation);
 			return confirmationPromise.then((confirmed) => {
-				libraryConfirmations.set(libraryPath, confirmed);
+				// Only cache if the execution got confirm to give the UI the change
+				// to update on un confirmed execution.
 				if (confirmed !== true) {
 					settings.validate = Validate.off;
 					connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 					connection.sendNotification(StatusNotification.type, { state: Status.notConfirmed });
 					return settings;
+				} else {
+					libraryConfirmations.set(libraryPath, confirmed);
 				}
 				let library = path2Library.get(libraryPath);
 				if (library === undefined) {
