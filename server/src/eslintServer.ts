@@ -65,10 +65,13 @@ enum Status {
 	ok = 1,
 	warn = 2,
 	error = 3,
-	notConfirmed = 4
+	confirmationPending = 4,
+	confirmationCanceled = 5,
+	executionDenied = 6
 }
 
 interface StatusParams {
+	uri: string;
 	state: Status;
 }
 
@@ -118,16 +121,37 @@ namespace ProbeFailedRequest {
 	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
 }
 
-interface ConfirmESLintLibraryParams {
+interface ConfirmExecutionParams {
 	scope: 'local' | 'global';
 	uri: string;
 	libraryPath: string;
 }
 
-namespace ConfirmESLintLibrary {
-	export const type = new RequestType<ConfirmESLintLibraryParams, boolean, void, void>('eslint/confirmLocalESLint');
+enum ConfirmExecutionResult {
+	deny = 1,
+	confirmationPending = 2,
+	confirmationCanceled = 3,
+	approved = 4
 }
 
+namespace ConfirmExecutionResult {
+	export function toStatus(value: ConfirmExecutionResult): Status {
+		switch (value) {
+			case ConfirmExecutionResult.deny:
+				return Status.executionDenied;
+			case ConfirmExecutionResult.confirmationPending:
+				return Status.confirmationPending;
+			case ConfirmExecutionResult.confirmationCanceled:
+				return Status.confirmationCanceled;
+			case ConfirmExecutionResult.approved:
+				return Status.ok;
+		}
+	}
+}
+
+namespace ConfirmExecution {
+	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void, void>('eslint/confirmESLintExecution');
+}
 
 type RunValues = 'onType' | 'onSave';
 
@@ -633,7 +657,7 @@ const defaultLanguageIds: Set<string> = new Set([
 
 const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 const document2Settings: Map<string, Promise<TextDocumentSettings>> = new Map<string, Promise<TextDocumentSettings>>();
-const libraryConfirmations: Map<string, boolean> = new Map();
+const executionConfirmations: Map<string, ConfirmExecutionResult> = new Map();
 
 const projectFolderIndicators: [string, boolean][] = [
 	[ 'package.json',  true ],
@@ -746,20 +770,20 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 			const scope: 'local' | 'global' = settings.resolvedGlobalPackageManagerPath !== undefined && libraryPath.startsWith(settings.resolvedGlobalPackageManagerPath)
 				? 'global'
 				: 'local';
-			const cachedLibraryConfirmation = libraryConfirmations.get(libraryPath);
-			const confirmationPromise = cachedLibraryConfirmation === undefined
-				? connection.sendRequest(ConfirmESLintLibrary.type, { scope: scope, uri: uri, libraryPath })
-				: Promise.resolve(cachedLibraryConfirmation);
+			const cachedExecutionConfirmation = executionConfirmations.get(libraryPath);
+			const confirmationPromise = cachedExecutionConfirmation === undefined
+				? connection.sendRequest(ConfirmExecution.type, { scope: scope, uri: uri, libraryPath })
+				: Promise.resolve(cachedExecutionConfirmation);
 			return confirmationPromise.then((confirmed) => {
 				// Only cache if the execution got confirm to give the UI the change
 				// to update on un confirmed execution.
-				if (confirmed !== true) {
+				if (confirmed !== ConfirmExecutionResult.approved) {
 					settings.validate = Validate.off;
 					connection.sendDiagnostics({ uri: uri, diagnostics: [] });
-					connection.sendNotification(StatusNotification.type, { state: Status.notConfirmed });
+					connection.sendNotification(StatusNotification.type, { uri: uri, state: ConfirmExecutionResult.toStatus(confirmed) });
 					return settings;
 				} else {
-					libraryConfirmations.set(libraryPath, confirmed);
+					executionConfirmations.set(libraryPath, confirmed);
 				}
 				let library = path2Library.get(libraryPath);
 				if (library === undefined) {
@@ -1097,7 +1121,7 @@ function setupDocumentsListeners() {
 
 function environmentChanged() {
 	document2Settings.clear();
-	libraryConfirmations.clear();
+	executionConfirmations.clear();
 	for (let document of documents.all()) {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}
@@ -1176,7 +1200,7 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 		}
 		try {
 			validate(document, settings, publishDiagnostics);
-			connection.sendNotification(StatusNotification.type, { state: Status.ok });
+			connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		} catch (err) {
 			// if an exception has occurred while validating clear all errors to ensure
 			// we are not showing any stale once
@@ -1190,10 +1214,10 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 					}
 				}
 				status = status || Status.error;
-				connection.sendNotification(StatusNotification.type, { state: status });
+				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: status });
 			} else {
 				connection.console.info(getMessage(err, document));
-				connection.sendNotification(StatusNotification.type, { state: Status.ok });
+				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 			}
 		}
 	});
