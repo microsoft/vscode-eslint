@@ -579,15 +579,14 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 	interface ConfirmMessageItem extends MessageItem {
 		value: ConfirmationSelection;
 	}
+
 	let message: string;
-	let alwaysAllow: boolean = false;
 	if (folder !== undefined) {
 		let relativePath = libraryUri.toString().substr(folder.uri.toString().length + 1);
 		const mainPath = '/lib/api.js';
 		if (relativePath.endsWith(mainPath)) {
 			relativePath = relativePath.substr(0, relativePath.length - mainPath.length);
 		}
-		alwaysAllow = true;
 		message = modal
 		 ? `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. Do you trust this version of ESLint including all plugins and configuration files it will load and execute on your behave?\n\nPress 'Always Trust' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`
 		 : `The ESLint extension will use '${relativePath}' for validation, which is installed locally in '${folder.name}'. Do you trust this version of ESLint including all plugins and configuration files it will load and execute on your behave? Press 'Always Trust' to remember the choice for all workspaces. Closing the notification will disable ESLint for this session.`;
@@ -596,11 +595,14 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 			? `The ESLint extension will use a globally installed ESLint library for validation. Do you trust this version of ESLint including all plugins and configuration files it will load and execute on your behave?\n\nPress 'Always Trust' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`
 			: `The ESLint extension will use a locally installed ESLint library for validation. Do you trust this version of ESLint including all plugins and configuration files it will load and execute on your behave?\n\nPress 'Always Trust' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`;
 	}
-	const messageItems: ConfirmMessageItem[] = alwaysAllow
-		? [{ title: 'Always Trust', value: ConfirmationSelection.alwaysTrust }, { title: 'Trust', value: ConfirmationSelection.trust }, { title: 'Do Not Trust', value: ConfirmationSelection.doNotTrust }]
-		: [{ title: 'Trust', value: ConfirmationSelection.trust }, { title: 'Do Not Trust', value: ConfirmationSelection.doNotTrust }];
 
+	const messageItems: ConfirmMessageItem[] = [
+		{ title: 'Always Trust', value: ConfirmationSelection.alwaysTrust },
+		{ title: 'Trust', value: ConfirmationSelection.trust },
+		{ title: 'Do Not Trust', value: ConfirmationSelection.doNotTrust }
+	];
 	const item = await Window.showInformationMessage<ConfirmMessageItem>(message, { modal: modal }, ...messageItems);
+
 	if (item === undefined) {
 		canceledLibraries.set(params.libraryPath, false);
 		clearDiagnosticState(params);
@@ -618,6 +620,7 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 		}
 		updateStatus && updateStatus(Status.ok);
 	}
+
 	const newTrusted = isTrusted(params);
 	if (trusted !== newTrusted && client !== undefined) {
 		client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
