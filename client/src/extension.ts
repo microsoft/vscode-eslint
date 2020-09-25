@@ -443,30 +443,43 @@ let eslintAlwaysAllowExecutionState: boolean = false;
 const sessionState: Map<string, ConfirmExecutionParams> = new Map();
 const canceledLibraries: Map<string, boolean> = new Map();
 
-const resource2LibraryPath: Map<string, string> = new Map();
+type ResourceInfo = {
+	status: Status;
+	executionInfo: ExecutionInfo | undefined;
+};
+const resource2ResourceInfo: Map<string, ResourceInfo> = new Map();
+
 type ExecutionInfo = {
 	params: ConfirmExecutionParams;
 	result: ConfirmExecutionResult;
-	status: Status | undefined;
 	editorErrorUri: Uri | undefined;
 	diagnostics: DiagnosticCollection;
 	codeActionProvider: Disposable | undefined;
 };
-const libraryPath2ExecutionInfo: Map<string, ExecutionInfo> = new Map();
 let lastExecutionInfo: ExecutionInfo | undefined;
+const libraryPath2ExecutionInfo: Map<string, ExecutionInfo> = new Map();
+const workspaceFolder2ExecutionInfos: Map<string, ExecutionInfo[]> = new Map();
+
+function updateStatusInfo(param: StatusParams): void {
+	let info = resource2ResourceInfo.get(param.uri);
+	if (info === undefined) {
+		info = {
+			executionInfo: undefined,
+			status: param.state
+		};
+		resource2ResourceInfo.set(param.uri, info);
+	} else {
+		info.status = param.state;
+	}
+}
 
 function getExecutionInfo(editor: TextEditor | undefined): ExecutionInfo | undefined {
 	if (editor === undefined) {
 		return undefined;
 	}
-	const libraryPath = resource2LibraryPath.get(editor.document.uri.toString());
-	if (libraryPath === undefined) {
-		return undefined;
-	}
-
-	return libraryPath2ExecutionInfo.get(libraryPath);
+	const info = resource2ResourceInfo.get(editor.document.uri.toString());
+	return info?.executionInfo;
 }
-
 
 function isTrusted(params: ConfirmExecutionParams): boolean | undefined {
 	const state = eslintExecutionState.libs[params.libraryPath];
@@ -481,7 +494,7 @@ function isTrusted(params: ConfirmExecutionParams): boolean | undefined {
 }
 
 const flaggedLanguages = new Set(['javascript', 'javascriptreact', 'typescript', 'typescriptreact']);
-function checkStatusAndDiagnostics(editor: TextEditor | undefined, updateStatus: undefined | ((status: Status) => void)): void {
+function updateStatusBarAndDiagnostics(editor: TextEditor | undefined, updateStatusBar: undefined | ((status: Status) => void)): void {
 
 	function clearLastExecutionInfo(): void {
 		if (lastExecutionInfo === undefined) {
@@ -498,16 +511,16 @@ function checkStatusAndDiagnostics(editor: TextEditor | undefined, updateStatus:
 		lastExecutionInfo = undefined;
 	}
 
-	function handleEditor(editor: TextEditor): boolean {
+	function handleEditor(editor: TextEditor): void {
 		const uri = editor.document.uri.toString();
 
-		const libraryPath = resource2LibraryPath.get(uri);
-		if (libraryPath === undefined) {
-			return false;
+		const resourceInfo = resource2ResourceInfo.get(uri);
+		if (resourceInfo === undefined) {
+			return;
 		}
-		const info = libraryPath2ExecutionInfo.get(libraryPath);
+		const info = resourceInfo.executionInfo;
 		if (info === undefined) {
-			return false;
+			return;
 		}
 
 		if (info.result === ConfirmExecutionResult.confirmationPending && info.editorErrorUri?.toString() !== uri.toString()) {
@@ -547,38 +560,37 @@ function checkStatusAndDiagnostics(editor: TextEditor | undefined, updateStatus:
 		}
 
 		lastExecutionInfo = info;
-		return true;
 	}
 
 	function findApplicableStatus(editor: TextEditor | undefined): Status {
+		let candidates: IterableIterator<ExecutionInfo> | ExecutionInfo[] | undefined;
 		if (editor !== undefined) {
-			const libraryPath = resource2LibraryPath.get(editor.document.uri.toString());
-			if (libraryPath !== undefined) {
-				const info = libraryPath2ExecutionInfo.get(libraryPath);
-				if (info !== undefined) {
-					return info.status ?? ConfirmExecutionResult.toStatus(info.result);
-				}
+			const resourceInfo = resource2ResourceInfo.get(editor.document.uri.toString());
+			if (resourceInfo !== undefined) {
+				return resourceInfo.status;
+			}
+			const workspaceFolder = Workspace.getWorkspaceFolder(editor.document.uri);
+			if (workspaceFolder !== undefined) {
+				candidates = workspaceFolder2ExecutionInfos.get(workspaceFolder.uri.toString());
 			}
 		}
-		let result: Status | undefined;
-		for (const info of libraryPath2ExecutionInfo.values()) {
-			const status = info.status ?? ConfirmExecutionResult.toStatus(info.result);
+		if (candidates === undefined) {
+			candidates = libraryPath2ExecutionInfo.values();
+		}
+		let result: ConfirmExecutionResult | undefined;
+		for (const info of candidates) {
 			if (result === undefined) {
-				result = status;
-			} else if (status >= Status.confirmationPending) {
-				if (result <= Status.error) {
-					result = status;
-				} else if (status === Status.confirmationPending) {
-					result = status;
-				} else {
-					result = status;
+				result = info.result;
+			} else {
+				if (info.result === ConfirmExecutionResult.confirmationPending) {
+					result = info.result;
+					break;
+				} else if (info.result === ConfirmExecutionResult.deny || info.result === ConfirmExecutionResult.confirmationCanceled) {
+					result = info.result;
 				}
 			}
-			if (result === Status.confirmationPending) {
-				return result;
-			}
 		}
-		return Status.ok;
+		return result !== undefined ? ConfirmExecutionResult.toStatus(result) : Status.ok;
 	}
 
 	const executionInfo = getExecutionInfo(editor);
@@ -592,7 +604,7 @@ function checkStatusAndDiagnostics(editor: TextEditor | undefined, updateStatus:
 		clearLastExecutionInfo();
 	}
 
-	updateStatus && updateStatus(findApplicableStatus(editor));
+	updateStatusBar && updateStatusBar(findApplicableStatus(editor));
 }
 
 function clearInfo(info: ExecutionInfo): void {
@@ -607,17 +619,14 @@ function clearDiagnosticState(params: ConfirmExecutionParams): void {
 	if (info === undefined) {
 		return;
 	}
-	libraryPath2ExecutionInfo.delete(params.libraryPath);
 	clearInfo(info);
 }
 
 function clearAllDiagnosticState(): void {
-	resource2LibraryPath.clear();
 	// Make a copy
 	for (const info of Array.from(libraryPath2ExecutionInfo.values())) {
 		clearInfo(info);
 	}
-	libraryPath2ExecutionInfo.clear();
 }
 
 async function askForLibraryConfirmation(client: LanguageClient | undefined, context: ExtensionContext, params: ConfirmExecutionParams, modal: boolean, _updateStatus: undefined | ((status: Status) => void)): Promise<void> {
@@ -1121,7 +1130,7 @@ function realActivate(context: ExtensionContext): void {
 		}
 	}
 
-	function updateStatus(status: Status) {
+	function updateStatusBar(status: Status) {
 		eslintStatus = status;
 		let icon: string| undefined;
 		let tooltip: string | undefined;
@@ -1596,12 +1605,13 @@ function realActivate(context: ExtensionContext): void {
 			client.info(stopped);
 			serverRunning = false;
 		}
-		updateStatus(eslintStatus);
+		updateStatusBar(eslintStatus);
 		updateStatusBarVisibility();
 	});
 	client.onReady().then(() => {
 		client.onNotification(StatusNotification.type, (params) => {
-			updateStatus(params.state);
+			updateStatusInfo(params);
+			updateStatusBarAndDiagnostics(Window.activeTextEditor, updateStatusBar);
 		});
 
 		client.onNotification(exitCalled, (params) => {
@@ -1739,22 +1749,40 @@ function realActivate(context: ExtensionContext): void {
 						}
 					}
 					result = result ?? ConfirmExecutionResult.confirmationPending;
-					resource2LibraryPath.set(params.uri, params.libraryPath);
-					let info: ExecutionInfo | undefined = libraryPath2ExecutionInfo.get(params.libraryPath);
-					if (info === undefined) {
-						info = {
+					let executionInfo: ExecutionInfo | undefined = libraryPath2ExecutionInfo.get(params.libraryPath);
+					if (executionInfo === undefined) {
+						executionInfo = {
 							params: params,
 							result: result,
-							status: undefined,
 							codeActionProvider: undefined,
 							diagnostics: Languages.createDiagnosticCollection(),
 							editorErrorUri: undefined
 						};
-						libraryPath2ExecutionInfo.set(params.libraryPath, info);
+						libraryPath2ExecutionInfo.set(params.libraryPath, executionInfo);
+						const workspaceFolder = Workspace.getWorkspaceFolder(Uri.parse(params.uri));
+						if (workspaceFolder !== undefined) {
+							const key = workspaceFolder.uri.toString();
+							let infos = workspaceFolder2ExecutionInfos.get(key);
+							if (infos === undefined) {
+								infos = [];
+								workspaceFolder2ExecutionInfos.set(key, infos);
+							}
+							infos.push(executionInfo);
+						}
 					} else {
-						info.result = result;
+						executionInfo.result = result;
 					}
-					checkStatusAndDiagnostics(Window.activeTextEditor, updateStatus);
+					let resourceInfo = resource2ResourceInfo.get(params.uri);
+					if (resourceInfo === undefined) {
+						resourceInfo = {
+							status: ConfirmExecutionResult.toStatus(result),
+							executionInfo: executionInfo
+						};
+						resource2ResourceInfo.set(params.uri, resourceInfo);
+					} else {
+						resourceInfo.status = ConfirmExecutionResult.toStatus(result);
+					}
+					updateStatusBarAndDiagnostics(Window.activeTextEditor, updateStatusBar);
 					return result;
 				} catch (err) {
 					return ConfirmExecutionResult.deny;
@@ -1773,7 +1801,7 @@ function realActivate(context: ExtensionContext): void {
 	context.subscriptions.push(
 		client.start(),
 		Window.onDidChangeActiveTextEditor((editor) => {
-			checkStatusAndDiagnostics(editor, updateStatus);
+			updateStatusBarAndDiagnostics(editor, updateStatusBar);
 		}),
 		Workspace.registerTextDocumentContentProvider('eslint-error', {
 			provideTextDocumentContent: () => {
@@ -1787,7 +1815,8 @@ function realActivate(context: ExtensionContext): void {
 			}
 		}),
 		Workspace.onDidCloseTextDocument((document) => {
-			resource2LibraryPath.delete(document.uri.toString());
+			const uri = document.uri.toString();
+			resource2ResourceInfo.delete(uri);
 		}),
 		Commands.registerCommand('eslint.executeAutofix', async () => {
 			const textEditor = Window.activeTextEditor;
@@ -1810,7 +1839,7 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			const executionInfo = getExecutionInfo(Window.activeTextEditor);
 			if (executionInfo !== undefined && (executionInfo.result === ConfirmExecutionResult.confirmationPending || executionInfo.result === ConfirmExecutionResult.confirmationCanceled)) {
-				askForLibraryConfirmation(client, context, executionInfo.params, true, updateStatus);
+				askForLibraryConfirmation(client, context, executionInfo.params, true, updateStatusBar);
 				return;
 			}
 
@@ -1843,7 +1872,7 @@ function realActivate(context: ExtensionContext): void {
 					if (toRemove !== undefined) {
 						toRemove.delete(candidate);
 					}
-					askForLibraryConfirmation(client, context, sessionState.get(candidate)!, true, updateStatus);
+					askForLibraryConfirmation(client, context, sessionState.get(candidate)!, true, updateStatusBar);
 					return;
 				}
 			}
@@ -1857,7 +1886,7 @@ function realActivate(context: ExtensionContext): void {
 		}),
 		Commands.registerCommand('eslint.confirmExecution', (params: ConfirmExecutionParams) => {
 			canceledLibraries.delete(params.libraryPath);
-			askForLibraryConfirmation(client, context, params, true, updateStatus);
+			askForLibraryConfirmation(client, context, params, true, updateStatusBar);
 		})
 	);
 }
