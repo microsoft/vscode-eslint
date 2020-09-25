@@ -200,7 +200,7 @@ enum Status {
 	warn = 2,
 	error = 3,
 	confirmationPending = 4,
-	confirmationCanceled = 5,
+	executionDisabled = 5,
 	executionDenied = 6
 }
 
@@ -268,21 +268,21 @@ interface ConfirmExecutionParams {
 }
 
 enum ConfirmExecutionResult {
-	deny = 1,
+	denied = 1,
 	confirmationPending = 2,
-	confirmationCanceled = 3,
+	disabled = 3,
 	approved = 4
 }
 
 namespace ConfirmExecutionResult {
 	export function toStatus(value: ConfirmExecutionResult): Status {
 		switch (value) {
-			case ConfirmExecutionResult.deny:
+			case ConfirmExecutionResult.denied:
 				return Status.executionDenied;
 			case ConfirmExecutionResult.confirmationPending:
 				return Status.confirmationPending;
-			case ConfirmExecutionResult.confirmationCanceled:
-				return Status.confirmationCanceled;
+			case ConfirmExecutionResult.disabled:
+				return Status.executionDisabled;
 			case ConfirmExecutionResult.approved:
 				return Status.ok;
 		}
@@ -442,7 +442,7 @@ const eslintAlwaysAllowExecutionKey = 'eslintAlwaysAllowExecution';
 let eslintAlwaysAllowExecutionState: boolean = false;
 
 const sessionState: Map<string, ConfirmExecutionParams> = new Map();
-const disabledLibraries: Map<string, boolean> = new Map();
+const disabledLibraries: Set<string> = new Set();
 
 type ResourceInfo = {
 	status: Status;
@@ -485,129 +485,17 @@ function getExecutionInfo(editor: TextEditor | undefined): ExecutionInfo | undef
 }
 
 function isTrusted(params: ConfirmExecutionParams): boolean | undefined {
+	if (disabledLibraries.has(params.libraryPath)) {
+		return false;
+	}
+	if (eslintAlwaysAllowExecutionState === true) {
+		return true;
+	}
 	const state = eslintExecutionState.libs[params.libraryPath];
 	if (state === false || state === true) {
 		return state;
 	}
-	const canceled = disabledLibraries.get(params.libraryPath);
-	if (canceled === false) {
-		return false;
-	}
 	return undefined;
-}
-
-const flaggedLanguages = new Set(['javascript', 'javascriptreact', 'typescript', 'typescriptreact']);
-function updateStatusBarAndDiagnostics(editor: TextEditor | undefined, updateStatusBar: undefined | ((status: Status) => void)): void {
-
-	function clearLastExecutionInfo(): void {
-		if (lastExecutionInfo === undefined) {
-			return;
-		}
-		if (lastExecutionInfo.codeActionProvider !== undefined) {
-			lastExecutionInfo.codeActionProvider.dispose();
-			lastExecutionInfo.codeActionProvider = undefined;
-		}
-		if (lastExecutionInfo.editorErrorUri !== undefined) {
-			lastExecutionInfo.diagnostics.delete(lastExecutionInfo.editorErrorUri);
-			lastExecutionInfo.editorErrorUri = undefined;
-		}
-		lastExecutionInfo = undefined;
-	}
-
-	function handleEditor(editor: TextEditor): void {
-		const uri = editor.document.uri.toString();
-
-		const resourceInfo = resource2ResourceInfo.get(uri);
-		if (resourceInfo === undefined) {
-			return;
-		}
-		const info = resourceInfo.executionInfo;
-		if (info === undefined) {
-			return;
-		}
-
-		if (info.result === ConfirmExecutionResult.confirmationPending && info.editorErrorUri?.toString() !== uri.toString()) {
-			const range = editor.document.getWordRangeAtPosition(new Position(0, 0)) ?? new Range(0,0,0,0);
-			const diagnostic = new Diagnostic(
-				range,
-				'ESLint is disabled since its execution has not been approved or denied yet. Use the light bulb menu to open the approval dialog.', VDiagnosticSeverity.Warning
-			);
-			diagnostic.source = 'eslint';
-			const errorUri = editor.document.uri;
-
-			info.diagnostics.set(errorUri, [diagnostic]);
-			if (info.editorErrorUri !== undefined) {
-				info.diagnostics.delete(info.editorErrorUri);
-			}
-			info.editorErrorUri = errorUri;
-			if (info.codeActionProvider !== undefined) {
-				info.codeActionProvider.dispose();
-			}
-			info.codeActionProvider =  Languages.registerCodeActionsProvider({ pattern: errorUri.fsPath }, {
-				provideCodeActions: (_document, _range, context) => {
-					for (const diag of context.diagnostics) {
-						if (diag === diagnostic) {
-							const result = new CodeAction('ESLint: Approve execution', CodeActionKind.QuickFix);
-							result.isPreferred = true;
-							result.command = {
-								title: 'Confirm ESLint execution',
-								command: 'eslint.confirmExecution',
-								arguments: [info.params]
-							};
-							return [result];
-						}
-					}
-					return [];
-				}
-			});
-		}
-
-		lastExecutionInfo = info;
-	}
-
-	function findApplicableStatus(editor: TextEditor | undefined): Status {
-		let candidates: IterableIterator<ExecutionInfo> | ExecutionInfo[] | undefined;
-		if (editor !== undefined) {
-			const resourceInfo = resource2ResourceInfo.get(editor.document.uri.toString());
-			if (resourceInfo !== undefined) {
-				return resourceInfo.status;
-			}
-			const workspaceFolder = Workspace.getWorkspaceFolder(editor.document.uri);
-			if (workspaceFolder !== undefined) {
-				candidates = workspaceFolder2ExecutionInfos.get(workspaceFolder.uri.toString());
-			}
-		}
-		if (candidates === undefined) {
-			candidates = libraryPath2ExecutionInfo.values();
-		}
-		let result: ConfirmExecutionResult | undefined;
-		for (const info of candidates) {
-			if (result === undefined) {
-				result = info.result;
-			} else {
-				if (info.result === ConfirmExecutionResult.confirmationPending) {
-					result = info.result;
-					break;
-				} else if (info.result === ConfirmExecutionResult.deny || info.result === ConfirmExecutionResult.confirmationCanceled) {
-					result = info.result;
-				}
-			}
-		}
-		return result !== undefined ? ConfirmExecutionResult.toStatus(result) : Status.ok;
-	}
-
-	const executionInfo = getExecutionInfo(editor);
-	if (lastExecutionInfo !== executionInfo) {
-		clearLastExecutionInfo();
-	}
-
-	if (editor !== undefined && flaggedLanguages.has(editor.document.languageId)) {
-		handleEditor(editor);
-	} else {
-		clearLastExecutionInfo();
-	}
-
-	updateStatusBar && updateStatusBar(findApplicableStatus(editor));
 }
 
 function clearInfo(info: ExecutionInfo): void {
@@ -675,7 +563,7 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 	}
 
 	if (item.value === ConfirmationSelection.disable) {
-		disabledLibraries.set(params.libraryPath, false);
+		disabledLibraries.add(params.libraryPath);
 		clearDiagnosticState(params);
 	} else {
 		if (item.value === ConfirmationSelection.allow || item.value === ConfirmationSelection.deny) {
@@ -1120,58 +1008,170 @@ class Migration {
 function realActivate(context: ExtensionContext): void {
 
 	const statusBarItem = Window.createStatusBarItem(StatusBarAlignment.Right, 0);
-	let serverRunning: boolean = false;
+	let serverRunning: boolean | undefined;
 
+	const starting = 'ESLint server is starting.';
 	const running = 'ESLint server is running.';
 	const stopped = 'ESLint server stopped.';
 	statusBarItem.text = 'ESLint';
 	statusBarItem.command = 'eslint.showOutputChannel';
 
-	function updateStatusBar(status: Status) {
+	function updateStatusBar(status: Status, isPreceise: boolean) {
 		let icon: string| undefined;
 		let tooltip: string | undefined;
 		let text: string = 'ESLint';
 		let color: ThemeColor | undefined;
-		if (serverRunning === false) {
-			icon = '$(alert)';
-		} else {
-			switch (status) {
-				case Status.ok:
-					icon = eslintAlwaysAllowExecutionState ? '$(globe)' : '$(check)';
-					break;
-				case Status.warn:
-					icon = '$(alert)';
-					break;
-				case Status.error:
-					icon = '$(issue-opened)';
-					break;
-				case Status.executionDenied:
-					icon = '$(circle-slash)';
-					tooltip = 'ESLint execution is denied.\nClick to open reset option picker.';
-					break;
-				case Status.confirmationCanceled:
-					icon = '$(circle-slash)',
-					tooltip = 'ESLint execution got disabled for this session.\nClick to open reset option picker.';
-					break;
-				case Status.confirmationPending:
-					icon = '$(circle-slash)';
-					color = new ThemeColor('errorForeground');
-					text = 'ESLINT';
-					tooltip = 'ESLint execution is not approved or denied yet.\nClick to open approval dialog.';
-					break;
-				default:
-					icon = eslintAlwaysAllowExecutionState ? '$(globe)' : '$(check)';
-			}
+		switch (status) {
+			case Status.ok:
+				icon = eslintAlwaysAllowExecutionState ? '$(globe)' : '$(check)';
+				break;
+			case Status.warn:
+				icon = '$(alert)';
+				break;
+			case Status.error:
+				icon = '$(issue-opened)';
+				break;
+			case Status.executionDenied:
+				icon = '$(circle-slash)';
+				tooltip = 'ESLint execution is denied.\nClick to open reset option picker.';
+				break;
+			case Status.executionDisabled:
+				icon = '$(circle-slash)',
+				tooltip = 'ESLint execution got disabled for this session.\nClick to open reset option picker.';
+				break;
+			case Status.confirmationPending:
+				icon = '$(circle-slash)';
+				color = new ThemeColor('errorForeground');
+				text = 'ESLINT';
+				tooltip = 'ESLint execution is not approved or denied yet.\nClick to open approval dialog.';
+				break;
+			default:
+				icon = eslintAlwaysAllowExecutionState ? '$(globe)' : '$(check)';
 		}
 		statusBarItem.text = icon ? `${icon} ${text}` : text;
 		statusBarItem.color = color;
-		statusBarItem.tooltip = tooltip ? tooltip : serverRunning ? running : stopped;
-		const setting = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
-		if (setting || status !== Status.ok || status === Status.ok && eslintAlwaysAllowExecutionState === true) {
-			statusBarItem.show();
-		} else {
+		statusBarItem.tooltip = tooltip ? tooltip : serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
+		const alwaysShow = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
+		if (!alwaysShow && isPreceise && status === Status.ok) {
 			statusBarItem.hide();
+		} else {
+			statusBarItem.show();
 		}
+	}
+
+	const flaggedLanguages = new Set(['javascript', 'javascriptreact', 'typescript', 'typescriptreact']);
+	function updateStatusBarAndDiagnostics(editor: TextEditor | undefined): void {
+
+		function clearLastExecutionInfo(): void {
+			if (lastExecutionInfo === undefined) {
+				return;
+			}
+			if (lastExecutionInfo.codeActionProvider !== undefined) {
+				lastExecutionInfo.codeActionProvider.dispose();
+				lastExecutionInfo.codeActionProvider = undefined;
+			}
+			if (lastExecutionInfo.editorErrorUri !== undefined) {
+				lastExecutionInfo.diagnostics.delete(lastExecutionInfo.editorErrorUri);
+				lastExecutionInfo.editorErrorUri = undefined;
+			}
+			lastExecutionInfo = undefined;
+		}
+
+		function handleEditor(editor: TextEditor): void {
+			const uri = editor.document.uri.toString();
+
+			const resourceInfo = resource2ResourceInfo.get(uri);
+			if (resourceInfo === undefined) {
+				return;
+			}
+			const info = resourceInfo.executionInfo;
+			if (info === undefined) {
+				return;
+			}
+
+			if (info.result === ConfirmExecutionResult.confirmationPending && info.editorErrorUri?.toString() !== uri.toString()) {
+				const range = editor.document.getWordRangeAtPosition(new Position(0, 0)) ?? new Range(0,0,0,0);
+				const diagnostic = new Diagnostic(
+					range,
+					'ESLint is disabled since its execution has not been approved or denied yet. Use the light bulb menu to open the approval dialog.', VDiagnosticSeverity.Warning
+				);
+				diagnostic.source = 'eslint';
+				const errorUri = editor.document.uri;
+
+				info.diagnostics.set(errorUri, [diagnostic]);
+				if (info.editorErrorUri !== undefined) {
+					info.diagnostics.delete(info.editorErrorUri);
+				}
+				info.editorErrorUri = errorUri;
+				if (info.codeActionProvider !== undefined) {
+					info.codeActionProvider.dispose();
+				}
+				info.codeActionProvider =  Languages.registerCodeActionsProvider({ pattern: errorUri.fsPath }, {
+					provideCodeActions: (_document, _range, context) => {
+						for (const diag of context.diagnostics) {
+							if (diag === diagnostic) {
+								const result = new CodeAction('ESLint: Approve execution', CodeActionKind.QuickFix);
+								result.isPreferred = true;
+								result.command = {
+									title: 'Confirm ESLint execution',
+									command: 'eslint.confirmExecution',
+									arguments: [info.params]
+								};
+								return [result];
+							}
+						}
+						return [];
+					}
+				});
+			}
+
+			lastExecutionInfo = info;
+		}
+
+		function findApplicableStatus(editor: TextEditor | undefined): [Status, boolean] {
+			let candidates: IterableIterator<ExecutionInfo> | ExecutionInfo[] | undefined;
+			if (editor !== undefined) {
+				const resourceInfo = resource2ResourceInfo.get(editor.document.uri.toString());
+				if (resourceInfo !== undefined) {
+					return [resourceInfo.status, true];
+				}
+				const workspaceFolder = Workspace.getWorkspaceFolder(editor.document.uri);
+				if (workspaceFolder !== undefined) {
+					candidates = workspaceFolder2ExecutionInfos.get(workspaceFolder.uri.toString());
+				}
+			}
+			if (candidates === undefined) {
+				candidates = libraryPath2ExecutionInfo.values();
+			}
+			let result: ConfirmExecutionResult | undefined;
+			for (const info of candidates) {
+				if (result === undefined) {
+					result = info.result;
+				} else {
+					if (info.result === ConfirmExecutionResult.confirmationPending) {
+						result = info.result;
+						break;
+					} else if (info.result === ConfirmExecutionResult.denied || info.result === ConfirmExecutionResult.disabled) {
+						result = info.result;
+					}
+				}
+			}
+			return [result !== undefined ? ConfirmExecutionResult.toStatus(result) : Status.ok, false];
+		}
+
+		const executionInfo = getExecutionInfo(editor);
+		if (lastExecutionInfo !== executionInfo) {
+			clearLastExecutionInfo();
+		}
+
+		if (editor !== undefined && flaggedLanguages.has(editor.document.languageId)) {
+			handleEditor(editor);
+		} else {
+			clearLastExecutionInfo();
+		}
+
+		const [status, isPreceise] = findApplicableStatus(editor);
+		updateStatusBar(status, isPreceise);
 	}
 
 	function readCodeActionsOnSaveSetting(document: TextDocument): boolean {
@@ -1593,19 +1593,22 @@ function realActivate(context: ExtensionContext): void {
 
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	client.onDidChangeState((event) => {
-		if (event.newState === ClientState.Running) {
+		if (event.newState === ClientState.Starting) {
+			client.info('ESLint server is starting');
+			serverRunning = undefined;
+		} else if (event.newState === ClientState.Running) {
 			client.info(running);
 			serverRunning = true;
 		} else {
 			client.info(stopped);
 			serverRunning = false;
 		}
-		updateStatusBar(globalStatus ?? Status.error);
+		updateStatusBar(globalStatus ?? serverRunning === false ? Status.error : Status.ok, true);
 	});
 	client.onReady().then(() => {
 		client.onNotification(StatusNotification.type, (params) => {
 			updateStatusInfo(params);
-			updateStatusBarAndDiagnostics(Window.activeTextEditor, updateStatusBar);
+			updateStatusBarAndDiagnostics(Window.activeTextEditor);
 		});
 
 		client.onNotification(exitCalled, (params) => {
@@ -1643,7 +1646,7 @@ function realActivate(context: ExtensionContext): void {
 			} else {
 				resourceInfo.status = Status.warn;
 			}
-			updateStatusBarAndDiagnostics(Window.activeTextEditor, updateStatusBar);
+			updateStatusBarAndDiagnostics(Window.activeTextEditor);
 			return {};
 		});
 
@@ -1737,19 +1740,16 @@ function realActivate(context: ExtensionContext): void {
 				try {
 					sessionState.set(params.libraryPath, params);
 					let result: ConfirmExecutionResult | undefined;
-					if (eslintAlwaysAllowExecutionState === true) {
+					if (disabledLibraries.has(params.libraryPath)) {
+						result = ConfirmExecutionResult.disabled;
+					} else if (eslintAlwaysAllowExecutionState === true) {
 						clearDiagnosticState(params);
 						result = ConfirmExecutionResult.approved;
 					} else {
 						const state = eslintExecutionState.libs[params.libraryPath];
 						if (state === true || state === false) {
 							clearDiagnosticState(params);
-							result = state ? ConfirmExecutionResult.approved : ConfirmExecutionResult.deny;
-						} else {
-							const canceled = disabledLibraries.get(params.libraryPath);
-							if (canceled === false) {
-								result = ConfirmExecutionResult.confirmationCanceled;
-							}
+							result = state ? ConfirmExecutionResult.approved : ConfirmExecutionResult.denied;
 						}
 					}
 					result = result ?? ConfirmExecutionResult.confirmationPending;
@@ -1786,10 +1786,10 @@ function realActivate(context: ExtensionContext): void {
 					} else {
 						resourceInfo.status = ConfirmExecutionResult.toStatus(result);
 					}
-					updateStatusBarAndDiagnostics(Window.activeTextEditor, updateStatusBar);
+					updateStatusBarAndDiagnostics(Window.activeTextEditor);
 					return result;
 				} catch (err) {
-					return ConfirmExecutionResult.deny;
+					return ConfirmExecutionResult.denied;
 				}
 			});
 		});
@@ -1803,7 +1803,7 @@ function realActivate(context: ExtensionContext): void {
 	context.subscriptions.push(
 		client.start(),
 		Window.onDidChangeActiveTextEditor((editor) => {
-			updateStatusBarAndDiagnostics(editor, updateStatusBar);
+			updateStatusBarAndDiagnostics(editor);
 		}),
 		Workspace.registerTextDocumentContentProvider('eslint-error', {
 			provideTextDocumentContent: () => {
@@ -1840,7 +1840,7 @@ function realActivate(context: ExtensionContext): void {
 		}),
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			const executionInfo = getExecutionInfo(Window.activeTextEditor);
-			if (executionInfo !== undefined && (executionInfo.result === ConfirmExecutionResult.confirmationPending || executionInfo.result === ConfirmExecutionResult.confirmationCanceled)) {
+			if (executionInfo !== undefined && (executionInfo.result === ConfirmExecutionResult.confirmationPending || executionInfo.result === ConfirmExecutionResult.disabled)) {
 				await askForLibraryConfirmation(client, context, executionInfo.params);
 				return;
 			}
@@ -1862,7 +1862,7 @@ function realActivate(context: ExtensionContext): void {
 					candidate = libraryPath2ExecutionInfo.keys().next().value;
 				}
 			}
-			if (globalStatus === Status.confirmationCanceled) {
+			if (globalStatus === Status.executionDisabled) {
 				if (disabledLibraries.size === 1) {
 					candidate = disabledLibraries.keys().next().value;
 					toRemove = disabledLibraries;
