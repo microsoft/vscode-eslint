@@ -20,7 +20,7 @@
 	// , "languageServerExample.trace.server": "messages"
 	"languageServerExample.maxNumberOfProblems": 1,
 	"testbed.trace.server": "off",
-	"eslint.alwaysShowStatus": true,
+	"eslint.alwaysShowStatus": false,
 	"[javascript]": {
 		"editor.formatOnSave": false,
 		"editor.defaultFormatter": "dbaeumer.vscode-eslint"

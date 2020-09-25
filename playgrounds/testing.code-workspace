@@ -1,12 +1,5 @@
 {
-	"folders": [
-		{
-			"path": "6.0"
-		},
-		{
-			"path": "ts"
-		}
-	],
+	"folders": [],
 	"settings": {
 		"eslint.trace.server": {
 			"verbosity": "messages",
