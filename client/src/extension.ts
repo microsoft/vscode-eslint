@@ -488,12 +488,12 @@ function isTrusted(params: ConfirmExecutionParams): boolean | undefined {
 	if (disabledLibraries.has(params.libraryPath)) {
 		return false;
 	}
-	if (eslintAlwaysAllowExecutionState === true) {
-		return true;
-	}
 	const state = eslintExecutionState.libs[params.libraryPath];
 	if (state === false || state === true) {
 		return state;
+	}
+	if (eslintAlwaysAllowExecutionState === true) {
+		return true;
 	}
 	return undefined;
 }
@@ -1016,7 +1016,7 @@ function realActivate(context: ExtensionContext): void {
 	statusBarItem.text = 'ESLint';
 	statusBarItem.command = 'eslint.showOutputChannel';
 
-	function updateStatusBar(status: Status, isPreceise: boolean) {
+	function updateStatusBar(status: Status, isValidated: boolean) {
 		let icon: string| undefined;
 		let tooltip: string | undefined;
 		let text: string = 'ESLint';
@@ -1052,10 +1052,10 @@ function realActivate(context: ExtensionContext): void {
 		statusBarItem.color = color;
 		statusBarItem.tooltip = tooltip ? tooltip : serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
 		const alwaysShow = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
-		if (!alwaysShow && isPreceise && status === Status.ok) {
-			statusBarItem.hide();
-		} else {
+		if (alwaysShow || eslintAlwaysAllowExecutionState === true || status !== Status.ok || (status === Status.ok && isValidated)) {
 			statusBarItem.show();
+		} else {
+			statusBarItem.hide();
 		}
 	}
 
@@ -1170,8 +1170,8 @@ function realActivate(context: ExtensionContext): void {
 			clearLastExecutionInfo();
 		}
 
-		const [status, isPreceise] = findApplicableStatus(editor);
-		updateStatusBar(status, isPreceise);
+		const [status, isValidated] = findApplicableStatus(editor);
+		updateStatusBar(status, isValidated);
 	}
 
 	function readCodeActionsOnSaveSetting(document: TextDocument): boolean {
@@ -1742,14 +1742,15 @@ function realActivate(context: ExtensionContext): void {
 					let result: ConfirmExecutionResult | undefined;
 					if (disabledLibraries.has(params.libraryPath)) {
 						result = ConfirmExecutionResult.disabled;
-					} else if (eslintAlwaysAllowExecutionState === true) {
-						clearDiagnosticState(params);
-						result = ConfirmExecutionResult.approved;
 					} else {
 						const state = eslintExecutionState.libs[params.libraryPath];
 						if (state === true || state === false) {
 							clearDiagnosticState(params);
 							result = state ? ConfirmExecutionResult.approved : ConfirmExecutionResult.denied;
+						} else if (eslintAlwaysAllowExecutionState === true) {
+							clearDiagnosticState(params);
+							result = ConfirmExecutionResult.approved;
+
 						}
 					}
 					result = result ?? ConfirmExecutionResult.confirmationPending;
