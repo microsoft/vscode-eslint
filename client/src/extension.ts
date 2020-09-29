@@ -566,6 +566,7 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 		disabledLibraries.add(params.libraryPath);
 		clearDiagnosticState(params);
 	} else {
+		disabledLibraries.delete(params.libraryPath);
 		if (item.value === ConfirmationSelection.allow || item.value === ConfirmationSelection.deny) {
 			const value = item.value === ConfirmationSelection.allow ? true : false;
 			eslintExecutionState.libs[params.libraryPath] = value;
@@ -1842,7 +1843,7 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			const executionInfo = getExecutionInfo(Window.activeTextEditor);
 			if (executionInfo !== undefined && (executionInfo.result === ConfirmExecutionResult.confirmationPending || executionInfo.result === ConfirmExecutionResult.disabled)) {
-				await askForLibraryConfirmation(client, context, executionInfo.params);
+				await askForLibraryConfirmation(client, context, executionInfo.params, true);
 				return;
 			}
 
@@ -1875,7 +1876,7 @@ function realActivate(context: ExtensionContext): void {
 					if (toRemove !== undefined) {
 						toRemove.delete(candidate);
 					}
-					await askForLibraryConfirmation(client, context, sessionState.get(candidate)!);
+					await askForLibraryConfirmation(client, context, sessionState.get(candidate)!, true);
 					return;
 				}
 			}
@@ -1887,9 +1888,9 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
 			manageLibraryConfirmations(client, context);
 		}),
-		Commands.registerCommand('eslint.confirmExecution', (params: ConfirmExecutionParams) => {
+		Commands.registerCommand('eslint.confirmExecution', async (params: ConfirmExecutionParams) => {
 			disabledLibraries.delete(params.libraryPath);
-			askForLibraryConfirmation(client, context, params);
+			await askForLibraryConfirmation(client, context, params, true);
 		})
 	);
 }
