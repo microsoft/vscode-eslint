@@ -542,11 +542,11 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 		if (relativePath.endsWith(mainPath)) {
 			relativePath = relativePath.substr(0, relativePath.length - mainPath.length);
 		}
-		message = `The ESLint extension will use '${relativePath}' for validation, which is installed locally in folder '${folder.name}'. Do you allow the execution of this ESLint version including all plugins and configuration files it will load on your behave?\n\nPress 'Allow Everywhere' to remember the choice for all workspaces. Use 'Disable' to disable ESLint for this session.`;
+		message = `The ESLint extension will use '${relativePath}' for validation, which is installed locally in folder '${folder.name}'. Do you allow the execution of this ESLint version including all plugins and configuration files it will load on your behalf?\n\nPress 'Allow Everywhere' to remember the choice for all workspaces. Use 'Disable' to disable ESLint for this session.`;
 	} else {
 		message = params.scope === 'global'
-			? `The ESLint extension will use a globally installed ESLint library for validation. Do you allow the execution of this ESLint version including all plugins and configuration files it will load on your behave?\n\nPress 'Always Allow' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`
-			: `The ESLint extension will use a locally installed ESLint library for validation. Do you allow the execution of this ESLint version including all plugins and configuration files it will load on your behave?\n\nPress 'Always Allow' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`;
+			? `The ESLint extension will use a globally installed ESLint library for validation. Do you allow the execution of this ESLint version including all plugins and configuration files it will load on your behalf?\n\nPress 'Always Allow' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`
+			: `The ESLint extension will use a locally installed ESLint library for validation. Do you allow the execution of this ESLint version including all plugins and configuration files it will load on your behalf?\n\nPress 'Always Allow' to remember the choice for all workspaces. Use 'Cancel' to disable ESLint for this session.`;
 	}
 
 	const messageItems: ConfirmMessageItem[] = [
