@@ -318,52 +318,6 @@ async function pickFolder(folders: ReadonlyArray<VWorkspaceFolder>, placeHolder:
 	return selected.folder;
 }
 
-function enable() {
-	const folders = Workspace.workspaceFolders;
-	if (!folders) {
-		Window.showWarningMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
-		return;
-	}
-	const disabledFolders = folders.filter(folder => !Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
-	if (disabledFolders.length === 0) {
-		if (folders.length === 1) {
-			Window.showInformationMessage('ESLint is already enabled in the workspace.');
-		} else {
-			Window.showInformationMessage('ESLint is already enabled on all workspace folders.');
-		}
-		return;
-	}
-	pickFolder(disabledFolders, 'Select a workspace folder to enable ESLint for').then(folder => {
-		if (!folder) {
-			return;
-		}
-		Workspace.getConfiguration('eslint', folder.uri).update('enable', true);
-	});
-}
-
-function disable() {
-	const folders = Workspace.workspaceFolders;
-	if (!folders) {
-		Window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
-		return;
-	}
-	const enabledFolders = folders.filter(folder => Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
-	if (enabledFolders.length === 0) {
-		if (folders.length === 1) {
-			Window.showInformationMessage('ESLint is already disabled in the workspace.');
-		} else {
-			Window.showInformationMessage('ESLint is already disabled on all workspace folders.');
-		}
-		return;
-	}
-	pickFolder(enabledFolders, 'Select a workspace folder to disable ESLint for').then(folder => {
-		if (!folder) {
-			return;
-		}
-		Workspace.getConfiguration('eslint', folder.uri).update('enable', false);
-	});
-}
-
 function createDefaultConfiguration(): void {
 	const folders = Workspace.workspaceFolders;
 	if (!folders) {
@@ -495,12 +449,22 @@ function updateStatusInfo(param: StatusParams): void {
 	}
 }
 
-function getExecutionInfo(editor: TextEditor | undefined): ExecutionInfo | undefined {
+function getExecutionInfo(editor: TextEditor | undefined, strict: boolean): ExecutionInfo | undefined {
 	if (editor === undefined) {
 		return undefined;
 	}
 	const info = resource2ResourceInfo.get(editor.document.uri.toString());
-	return info?.executionInfo;
+	if (info !== undefined) {
+		return info.executionInfo;
+	}
+	if (!strict) {
+		const folder = Workspace.getWorkspaceFolder(editor.document.uri);
+		if (folder !== undefined) {
+			const values = workspaceFolder2ExecutionInfos.get(folder.uri.toString());
+			return values && values[0];
+		}
+	}
+	return undefined;
 }
 
 function clearInfo(info: ExecutionInfo): void {
@@ -587,7 +551,7 @@ async function askForLibraryConfirmation(client: LanguageClient | undefined, con
 	client && client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
 }
 
-async function manageLibraryConfirmations(client: LanguageClient | undefined, context: ExtensionContext, update: undefined | (() => void)): Promise<void> {
+async function resetLibraryConfirmations(client: LanguageClient | undefined, context: ExtensionContext, update: undefined | (() => void)): Promise<void> {
 	interface ESLintQuickPickItem extends QuickPickItem {
 		kind: 'all' | 'allConfirmed' | 'allRejected' | 'session' | 'alwaysAllow';
 	}
@@ -625,6 +589,10 @@ async function manageLibraryConfirmations(client: LanguageClient | undefined, co
 	context.globalState.update(eslintExecutionKey, eslintExecutionState);
 	context.globalState.update(eslintAlwaysAllowExecutionKey, eslintAlwaysAllowExecutionState);
 	disabledLibraries.clear();
+	libraryPath2ExecutionInfo.clear();
+	resource2ResourceInfo.clear();
+	workspaceFolder2ExecutionInfos.clear();
+	update && update();
 	client && client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
 }
 
@@ -663,19 +631,19 @@ export function activate(context: ExtensionContext) {
 	const openListener: Disposable = Workspace.onDidOpenTextDocument(didOpenTextDocument);
 	const configurationListener: Disposable = Workspace.onDidChangeConfiguration(configurationChanged);
 
-	const notValidating = () => Window.showInformationMessage('ESLint is not running. By default only JavaScript files are validated. If you want to validate other file types please specify them in the \'eslint.validate\' setting.');
+	const notValidating = () => Window.showInformationMessage('ESLint is not running. By default only TypeScript and JavaScript files are validated. If you want to validate other file types please specify them in the \'eslint.probe\' setting.');
 	onActivateCommands = [
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
 		Commands.registerCommand('eslint.showOutputChannel', notValidating),
-		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
-			manageLibraryConfirmations(undefined, context, undefined);
+		Commands.registerCommand('eslint.migrateSettings', notValidating),
+		Commands.registerCommand('eslint.manageLibraryExecution', notValidating),
+		Commands.registerCommand('eslint.resetLibraryExecution', () => {
+			resetLibraryConfirmations(undefined, context, undefined);
 		})
 	];
 
 	context.subscriptions.push(
-		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
-		Commands.registerCommand('eslint.enable', enable),
-		Commands.registerCommand('eslint.disable', disable),
+		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration)
 	);
 	taskProvider = new TaskProvider();
 	taskProvider.start();
@@ -1029,7 +997,7 @@ function realActivate(context: ExtensionContext): void {
 		let color: ThemeColor | undefined;
 		switch (status) {
 			case Status.ok:
-				icon = eslintAlwaysAllowExecutionState ? '$(globe)' : '$(check)';
+				icon = eslintAlwaysAllowExecutionState ? '$(check-all)' : '$(check)';
 				break;
 			case Status.warn:
 				icon = '$(alert)';
@@ -1052,7 +1020,7 @@ function realActivate(context: ExtensionContext): void {
 				tooltip = 'ESLint execution is not approved or denied yet.\nClick to open approval dialog.';
 				break;
 			default:
-				icon = eslintAlwaysAllowExecutionState ? '$(globe)' : '$(check)';
+				icon = eslintAlwaysAllowExecutionState ? '$(check-all)' : '$(check)';
 		}
 		statusBarItem.text = icon ? `${icon} ${text}` : text;
 		statusBarItem.color = color;
@@ -1118,11 +1086,11 @@ function realActivate(context: ExtensionContext): void {
 					provideCodeActions: (_document, _range, context) => {
 						for (const diag of context.diagnostics) {
 							if (diag === diagnostic) {
-								const result = new CodeAction('ESLint: Approve execution', CodeActionKind.QuickFix);
+								const result = new CodeAction('ESLint: Manage Library Execution', CodeActionKind.QuickFix);
 								result.isPreferred = true;
 								result.command = {
-									title: 'Confirm ESLint execution',
-									command: 'eslint.confirmExecution',
+									title: 'Manage Library Execution',
+									command: 'eslint.manageLibraryExecution',
 									arguments: [info.params]
 								};
 								return [result];
@@ -1167,7 +1135,7 @@ function realActivate(context: ExtensionContext): void {
 			return [result !== undefined ? ConfirmExecutionResult.toStatus(result) : Status.ok, false];
 		}
 
-		const executionInfo = getExecutionInfo(editor);
+		const executionInfo = getExecutionInfo(editor, true);
 		if (lastExecutionInfo !== executionInfo) {
 			clearLastExecutionInfo();
 		}
@@ -1848,7 +1816,7 @@ function realActivate(context: ExtensionContext): void {
 			});
 		}),
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
-			const executionInfo = getExecutionInfo(Window.activeTextEditor);
+			const executionInfo = getExecutionInfo(Window.activeTextEditor, false);
 			if (executionInfo !== undefined && (executionInfo.result === ConfirmExecutionResult.confirmationPending || executionInfo.result === ConfirmExecutionResult.disabled)) {
 				await askForLibraryConfirmation(client, context, executionInfo.params, updateStatusBarAndDiagnostics);
 				return;
@@ -1860,7 +1828,7 @@ function realActivate(context: ExtensionContext): void {
 			}
 
 			if (globalStatus === Status.executionDenied) {
-				await manageLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
+				await resetLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
 				return;
 			}
 
@@ -1887,17 +1855,28 @@ function realActivate(context: ExtensionContext): void {
 					return;
 				}
 			}
-			await manageLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
+			await resetLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			migrateSettings();
 		}),
-		Commands.registerCommand('eslint.manageLibraryConfirmations', () => {
-			manageLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
+		Commands.registerCommand('eslint.resetLibraryExecution', () => {
+			resetLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
 		}),
-		Commands.registerCommand('eslint.confirmExecution', async (params: ConfirmExecutionParams) => {
-			disabledLibraries.delete(params.libraryPath);
-			await askForLibraryConfirmation(client, context, params, updateStatusBarAndDiagnostics);
+		Commands.registerCommand('eslint.manageLibraryExecution', async (params: ConfirmExecutionParams | undefined) => {
+			if (params !== undefined) {
+				await askForLibraryConfirmation(client, context, params, updateStatusBarAndDiagnostics);
+			} else {
+				const info = getExecutionInfo(Window.activeTextEditor, false);
+				if (info !== undefined) {
+					await askForLibraryConfirmation(client, context, info.params, updateStatusBarAndDiagnostics);
+				} else {
+					Window.showInformationMessage(
+						Window.activeTextEditor
+							? 'No ESLint library execution information found for the active editor.'
+							: 'No ESLint library execution information found.');
+				}
+			}
 		})
 	);
 }
