@@ -27,6 +27,9 @@
 	"activationEvents": [
 		"onStartupFinished"
 	],
+	"extensionKind": [
+		"workspace"
+	],
 	"main": "./client/out/extension",
 	"contributes": {
 		"configuration": {
