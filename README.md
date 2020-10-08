@@ -10,7 +10,7 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 
 ## Release Notes
 
-This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.MD);
+This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md);
 
 ### Version 2.1.10
 
