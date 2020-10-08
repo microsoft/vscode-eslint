@@ -14,3 +14,4 @@ client/**
 server/**
 !server/out/eslintServer.js
 playgrounds/**
+history/**

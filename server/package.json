@@ -1,6 +1,6 @@
 {
 	"name": "eslint-server",
-	"version": "2.1.5",
+	"version": "2.1.10",
 	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
