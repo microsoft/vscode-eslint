@@ -1,6 +1,10 @@
-### 2.1.9
+### 2.1.10
 
 - Add an 'Always Allow' to the library confirmation dialog added in 2.1.7. Also added a status indication show the ESLint library decision mode.
+
+### 2.1.9
+
+- Internal insider release.
 
 ### 2.1.8
 
@@ -24,7 +28,7 @@
 
 ### 2.1.4
 
-- Was used as an insider preview release
+- Was used as an insider preview release.
 
 ### 2.1.3
 

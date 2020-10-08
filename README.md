@@ -10,6 +10,39 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 
 ## Release Notes
 
+This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.MD);
+
+### Version 2.1.10
+
+The approval flow to allow the execution of a ESLint library got reworked. It initial expierence is now as follows:
+
+- no modal dialog is show when the ESLint extension tries to load a ESLint library for the first time and an approval is necessary. Instead the ESLint status bar item changes to ![ESLint status icon](images/2_1_10/eslint-status.png) indicating that the execution is currently block.
+- if the active text editor content would be validated using ESLint a problem at the top of the file is shown in addition.
+
+The execution of the ESLint library can be denied or approved using the following questures:
+- clicking on the status bar icon
+- using the quick fix for the corresponding ESLint problem
+- executing the command `ESLint: Manage Library Execution` from the command palette
+
+All gestures will open the following dialog:
+
+![ESLint Dialog](images/2_1_10/eslint-dialog.png)
+
+The choosen action is then reflected in the ESLint status bar item in the following way:
+
+- `Allow` will prefix the status bar item with a check mark.
+- `Allow Everywhere` will prefix the status bar item with a double check mark.
+- `Deny` and `Disable` will prefix the status bar item with a blocked sign.
+
+You can manage our decisions using the following commands:
+
+- `ESLint: Manage Library Execution` will reopen aboves dialog
+- `ESLint: Reset Library Decisions` lets you reset previous decisions who have made.
+
+
+
+### Version 2.0.4
+
 The 2.0.4 version of the extension contains the following major improvements:
 
 * Improved TypeScript detection - As soon as TypeScript is correctly configured inside ESLint, you no longer need additional configuration through VS Code's `eslint.validate` setting. The same is true for HTML and Vue.js files.
@@ -145,6 +178,7 @@ This extension contributes the following commands to the Command palette.
 - `Disable ESLint for this Workspace`: disables ESLint extension for this workspace.
 - `Enable ESLint for this Workspace`: enable ESLint extension for this workspace.
 - `Reset Library Decisions`: Resets the ESLint library validation confirmations.
+- `Manage Library Execution`: Opens the library execution confirmation dialog.
 
 ## Using the extension with VS Code's task running
 
