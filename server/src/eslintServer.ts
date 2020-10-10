@@ -870,6 +870,30 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 						connection.sendRequest(ProbeFailedRequest.type, params);
 					}
 				}
+				if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
+					const Uri = URI.parse(uri);
+					const isFile = Uri.scheme === 'file';
+					let pattern: string = isFile
+						? Uri.path.replace(/\\/g, '/')
+						: Uri.path;
+					pattern = pattern.replace('[', '\\[');
+					pattern = pattern.replace(']', '\\]');
+					pattern = pattern.replace('{', '\\{');
+					pattern = pattern.replace('}', '\\}');
+
+					const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
+					const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
+					if (!isFile) {
+						formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+					} else {
+						const filePath = getFilePath(uri)!;
+						withCLIEngine((cli) => {
+							if (!cli.isPathIgnored(filePath)) {
+								formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+							}
+						}, settings);
+					}
+				}
 				return settings;
 			});
 		}, () => {
@@ -1050,30 +1074,6 @@ function setupDocumentsListeners() {
 			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 				return;
 			}
-			if (settings.format) {
-				const uri = URI.parse(event.document.uri);
-				const isFile = uri.scheme === 'file';
-				let pattern: string = isFile
-					? uri.path.replace(/\\/g, '/')
-					: uri.path;
-				pattern = pattern.replace('[', '\\[');
-				pattern = pattern.replace(']', '\\]');
-				pattern = pattern.replace('{', '\\{');
-				pattern = pattern.replace('}', '\\}');
-
-				const filter: DocumentFilter = { scheme: uri.scheme, pattern: pattern };
-				const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
-				if (!isFile) {
-					formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
-				} else {
-					const filePath = getFilePath(uri)!;
-					withCLIEngine((cli) => {
-						if (!cli.isPathIgnored(filePath)) {
-							formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
-						}
-					}, settings);
-				}
-			}
 			if (settings.run === 'onSave') {
 				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
 			}
@@ -1125,6 +1125,10 @@ function environmentChanged() {
 	for (let document of documents.all()) {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}
+	for (const unregistration of formatterRegistrations.values()) {
+		unregistration.then(disposable => disposable.dispose());
+	}
+	formatterRegistrations.clear();
 }
 
 function trace(message: string, verbose?: string): void {
