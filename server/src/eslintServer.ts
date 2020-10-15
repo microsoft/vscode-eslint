@@ -874,8 +874,8 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					const Uri = URI.parse(uri);
 					const isFile = Uri.scheme === 'file';
 					let pattern: string = isFile
-						? Uri.path.replace(/\\/g, '/')
-						: Uri.path;
+						? Uri.fsPath.replace(/\\/g, '/')
+						: Uri.fsPath;
 					pattern = pattern.replace('[', '\\[');
 					pattern = pattern.replace(']', '\\]');
 					pattern = pattern.replace('{', '\\{');
