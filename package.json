@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.9",
+	"version": "2.1.12",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,10 +22,13 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.43.0"
+		"vscode": "^1.50.0"
 	},
 	"activationEvents": [
-		"*"
+		"onStartupFinished"
+	],
+	"extensionKind": [
+		"workspace"
 	],
 	"main": "./client/out/extension",
 	"contributes": {
@@ -37,7 +40,8 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether eslint is enabled for JavaScript files or not."
+					"description": "Controls whether eslint is enabled or not.",
+					"deprecationMessage": "This setting is deprecated. Disable ESLint using the extensions viewlet."
 				},
 				"eslint.packageManager": {
 					"scope": "resource",
@@ -386,16 +390,6 @@
 				"command": "eslint.createConfig"
 			},
 			{
-				"title": "Enable ESLint",
-				"category": "ESLint",
-				"command": "eslint.enable"
-			},
-			{
-				"title": "Disable ESLint",
-				"category": "ESLint",
-				"command": "eslint.disable"
-			},
-			{
 				"title": "Show Output Channel",
 				"category": "ESLint",
 				"command": "eslint.showOutputChannel"
@@ -406,9 +400,14 @@
 				"command": "eslint.migrateSettings"
 			},
 			{
-				"title": "Reset Library Decisions",
+				"title": "Reset Library Execution Decisions",
 				"category": "ESLint",
-				"command": "eslint.manageLibraryConfirmations"
+				"command": "eslint.resetLibraryExecution"
+			},
+			{
+				"title": "Manage Library Execution",
+				"category": "ESLint",
+				"command": "eslint.manageLibraryExecution"
 			}
 		],
 		"taskDefinitions": [
