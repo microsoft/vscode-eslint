@@ -1549,7 +1549,7 @@ function realActivate(context: ExtensionContext): void {
 			if (computeValidate(textDocument) === Validate.off) {
 				try {
 					const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
-					provider.send(textDocument);
+					provider?.send(textDocument);
 				} catch (err) {
 					// A feature currently throws if no provider can be found. So for now we catch the exception.
 				}
@@ -1559,7 +1559,7 @@ function realActivate(context: ExtensionContext): void {
 			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
 				try {
 					const provider = client.getFeature(DidOpenTextDocumentNotification.method).getProvider(textDocument);
-					provider.send(textDocument);
+					provider?.send(textDocument);
 				} catch (err) {
 					// A feature currently throws if no provider can be found. So for now we catch the exception.
 				}
@@ -1706,7 +1706,7 @@ function realActivate(context: ExtensionContext): void {
 			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
 			for (const document of Workspace.textDocuments) {
 				if (document.uri.toString() === params.textDocument.uri) {
-					closeFeature.getProvider(document).send(document);
+					closeFeature.getProvider(document)?.send(document);
 				}
 			}
 		});

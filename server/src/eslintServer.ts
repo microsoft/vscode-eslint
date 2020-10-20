@@ -6,7 +6,7 @@
 
 import {
 	createConnection, Connection,
-	ResponseError, RequestType, NotificationType, ErrorCodes,
+	ResponseError, RequestType, NotificationType,
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier,
@@ -14,7 +14,8 @@ import {
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
-	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit
+	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit,
+	LSPErrorCodes
 } from 'vscode-languageserver/node';
 
 import {
@@ -385,13 +386,11 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	};
 	if (problem.ruleId) {
 		const url = ruleDocData.urls.get(problem.ruleId);
+		result.code = problem.ruleId;
 		if (url !== undefined) {
-			result.code = {
-				value: problem.ruleId,
-				target: url
+			result.codeDescription = {
+				href: url
 			};
-		} else {
-			result.code = problem.ruleId;
 		}
 	}
 	return result;
@@ -1017,7 +1016,7 @@ class BufferedMessageQueue {
 		if (Request.is(message)) {
 			const requestMessage = message;
 			if (requestMessage.token.isCancellationRequested) {
-				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
 			const elem = this.requestHandlers.get(requestMessage.method);
@@ -1025,7 +1024,7 @@ class BufferedMessageQueue {
 				throw new Error(`No handler registered`);
 			}
 			if (elem.versionProvider && requestMessage.documentVersion !== undefined && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
-				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
 			const result = elem.handler(requestMessage.params, requestMessage.token);
