@@ -20,7 +20,7 @@
 		"@types/vscode": "1.50.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "7.0.0-next.10"
+		"vscode-languageclient": "7.0.0-next.12"
 	},
 	"scripts": {
 		"test": "node ../node_modules/mocha/bin/_mocha"
