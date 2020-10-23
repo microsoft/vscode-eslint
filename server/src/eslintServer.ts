@@ -6,7 +6,7 @@
 
 import {
 	createConnection, Connection,
-	ResponseError, RequestType, NotificationType, ErrorCodes,
+	ResponseError, RequestType, NotificationType,
 	RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
 	TextDocuments, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier,
@@ -14,7 +14,8 @@ import {
 	CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
-	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit
+	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit,
+	LSPErrorCodes
 } from 'vscode-languageserver/node';
 
 import {
@@ -76,7 +77,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type = new NotificationType<StatusParams, void>('eslint/status');
+	export const type = new NotificationType<StatusParams>('eslint/status');
 }
 
 interface NoConfigParams {
@@ -88,7 +89,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type = new RequestType<NoConfigParams, NoConfigResult, void, void>('eslint/noConfig');
+	export const type = new RequestType<NoConfigParams, NoConfigResult, void>('eslint/noConfig');
 }
 
 interface NoESLintLibraryParams {
@@ -99,7 +100,7 @@ interface NoESLintLibraryResult {
 }
 
 namespace NoESLintLibraryRequest {
-	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
+	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void>('eslint/noLibrary');
 }
 
 interface OpenESLintDocParams {
@@ -110,7 +111,7 @@ interface OpenESLintDocResult {
 }
 
 namespace OpenESLintDocRequest {
-	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void, void>('eslint/openDoc');
+	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void>('eslint/openDoc');
 }
 
 interface ProbeFailedParams {
@@ -118,7 +119,7 @@ interface ProbeFailedParams {
 }
 
 namespace ProbeFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
+	export const type = new RequestType<ProbeFailedParams, void, void>('eslint/probeFailed');
 }
 
 interface ConfirmExecutionParams {
@@ -150,7 +151,7 @@ namespace ConfirmExecutionResult {
 }
 
 namespace ConfirmExecution {
-	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void, void>('eslint/confirmESLintExecution');
+	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void>('eslint/confirmESLintExecution');
 }
 
 type RunValues = 'onType' | 'onSave';
@@ -385,13 +386,11 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	};
 	if (problem.ruleId) {
 		const url = ruleDocData.urls.get(problem.ruleId);
+		result.code = problem.ruleId;
 		if (url !== undefined) {
-			result.code = {
-				value: problem.ruleId,
-				target: url
+			result.codeDescription = {
+				href: url
 			};
-		} else {
-			result.code = problem.ruleId;
 		}
 	}
 	return result;
@@ -546,7 +545,7 @@ function getFilePath(documentOrUri: string | TextDocument | URI | undefined): st
 	return getFileSystemPath(uri);
 }
 
-const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
+const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 
 const nodeExit = process.exit;
 process.exit = ((code?: number): void => {
@@ -870,6 +869,30 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 						connection.sendRequest(ProbeFailedRequest.type, params);
 					}
 				}
+				if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
+					const Uri = URI.parse(uri);
+					const isFile = Uri.scheme === 'file';
+					let pattern: string = isFile
+						? Uri.fsPath.replace(/\\/g, '/')
+						: Uri.fsPath;
+					pattern = pattern.replace('[', '\\[');
+					pattern = pattern.replace(']', '\\]');
+					pattern = pattern.replace('{', '\\{');
+					pattern = pattern.replace('}', '\\}');
+
+					const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
+					const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
+					if (!isFile) {
+						formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+					} else {
+						const filePath = getFilePath(uri)!;
+						withCLIEngine((cli) => {
+							if (!cli.isPathIgnored(filePath)) {
+								formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+							}
+						}, settings);
+					}
+				}
 				return settings;
 			});
 		}, () => {
@@ -932,7 +955,7 @@ class BufferedMessageQueue {
 		this.notificationHandlers = new Map();
 	}
 
-	public registerRequest<P, R, E, RO>(type: RequestType<P, R, E, RO>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
+	public registerRequest<P, R, E>(type: RequestType<P, R, E>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
 		this.connection.onRequest(type, (params, token) => {
 			return new Promise<R>((resolve, reject) => {
 				this.queue.push({
@@ -949,7 +972,7 @@ class BufferedMessageQueue {
 		this.requestHandlers.set(type.method, { handler, versionProvider });
 	}
 
-	public registerNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
+	public registerNotification<P>(type: NotificationType<P>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
 		connection.onNotification(type, (params) => {
 			this.queue.push({
 				method: type.method,
@@ -961,7 +984,7 @@ class BufferedMessageQueue {
 		this.notificationHandlers.set(type.method, { handler, versionProvider });
 	}
 
-	public addNotificationMessage<P, RO>(type: NotificationType<P, RO>, params: P, version: number) {
+	public addNotificationMessage<P>(type: NotificationType<P>, params: P, version: number) {
 		this.queue.push({
 			method: type.method,
 			params,
@@ -970,7 +993,7 @@ class BufferedMessageQueue {
 		this.trigger();
 	}
 
-	public onNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
+	public onNotification<P>(type: NotificationType<P>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
 		this.notificationHandlers.set(type.method, { handler, versionProvider });
 	}
 
@@ -993,7 +1016,7 @@ class BufferedMessageQueue {
 		if (Request.is(message)) {
 			const requestMessage = message;
 			if (requestMessage.token.isCancellationRequested) {
-				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
 			const elem = this.requestHandlers.get(requestMessage.method);
@@ -1001,7 +1024,7 @@ class BufferedMessageQueue {
 				throw new Error(`No handler registered`);
 			}
 			if (elem.versionProvider && requestMessage.documentVersion !== undefined && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
-				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
 			const result = elem.handler(requestMessage.params, requestMessage.token);
@@ -1032,7 +1055,7 @@ const messageQueue: BufferedMessageQueue = new BufferedMessageQueue(connection);
 const formatterRegistrations: Map<string, Promise<Disposable>> = new Map();
 
 namespace ValidateNotification {
-	export const type: NotificationType<TextDocument, void> = new NotificationType<TextDocument, void>('eslint/validate');
+	export const type: NotificationType<TextDocument> = new NotificationType<TextDocument>('eslint/validate');
 }
 
 messageQueue.onNotification(ValidateNotification.type, (document) => {
@@ -1049,30 +1072,6 @@ function setupDocumentsListeners() {
 		resolveSettings(event.document).then((settings) => {
 			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 				return;
-			}
-			if (settings.format) {
-				const uri = URI.parse(event.document.uri);
-				const isFile = uri.scheme === 'file';
-				let pattern: string = isFile
-					? uri.path.replace(/\\/g, '/')
-					: uri.path;
-				pattern = pattern.replace('[', '\\[');
-				pattern = pattern.replace(']', '\\]');
-				pattern = pattern.replace('{', '\\{');
-				pattern = pattern.replace('}', '\\}');
-
-				const filter: DocumentFilter = { scheme: uri.scheme, pattern: pattern };
-				const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
-				if (!isFile) {
-					formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
-				} else {
-					const filePath = getFilePath(uri)!;
-					withCLIEngine((cli) => {
-						if (!cli.isPathIgnored(filePath)) {
-							formatterRegistrations.set(event.document.uri, connection.client.register(DocumentFormattingRequest.type, options));
-						}
-					}, settings);
-				}
 			}
 			if (settings.run === 'onSave') {
 				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
@@ -1125,6 +1124,10 @@ function environmentChanged() {
 	for (let document of documents.all()) {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}
+	for (const unregistration of formatterRegistrations.values()) {
+		unregistration.then(disposable => disposable.dispose());
+	}
+	formatterRegistrations.clear();
 }
 
 function trace(message: string, verbose?: string): void {

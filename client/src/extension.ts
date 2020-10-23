@@ -216,7 +216,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type = new NotificationType<StatusParams, void>('eslint/status');
+	export const type = new NotificationType<StatusParams>('eslint/status');
 }
 
 interface NoConfigParams {
@@ -228,7 +228,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type = new RequestType<NoConfigParams, NoConfigResult, void, void>('eslint/noConfig');
+	export const type = new RequestType<NoConfigParams, NoConfigResult, void>('eslint/noConfig');
 }
 
 
@@ -240,7 +240,7 @@ interface NoESLintLibraryResult {
 }
 
 namespace NoESLintLibraryRequest {
-	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
+	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void>('eslint/noLibrary');
 }
 
 interface OpenESLintDocParams {
@@ -252,7 +252,7 @@ interface OpenESLintDocResult {
 }
 
 namespace OpenESLintDocRequest {
-	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void, void>('eslint/openDoc');
+	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void>('eslint/openDoc');
 }
 
 interface ProbeFailedParams {
@@ -260,7 +260,7 @@ interface ProbeFailedParams {
 }
 
 namespace ProbeFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
+	export const type = new RequestType<ProbeFailedParams, void, void>('eslint/probeFailed');
 }
 
 interface ESLintExecutionState {
@@ -299,10 +299,10 @@ namespace ConfirmExecutionResult {
 }
 
 namespace ConfirmExecution {
-	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void, void>('eslint/confirmESLintExecution');
+	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void>('eslint/confirmESLintExecution');
 }
 
-const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
+const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 
 
 interface WorkspaceFolderItem extends QuickPickItem {
@@ -1555,7 +1555,7 @@ function realActivate(context: ExtensionContext): void {
 			if (computeValidate(textDocument) === Validate.off) {
 				try {
 					const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
-					provider.send(textDocument);
+					provider?.send(textDocument);
 				} catch (err) {
 					// A feature currently throws if no provider can be found. So for now we catch the exception.
 				}
@@ -1565,7 +1565,7 @@ function realActivate(context: ExtensionContext): void {
 			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
 				try {
 					const provider = client.getFeature(DidOpenTextDocumentNotification.method).getProvider(textDocument);
-					provider.send(textDocument);
+					provider?.send(textDocument);
 				} catch (err) {
 					// A feature currently throws if no provider can be found. So for now we catch the exception.
 				}
@@ -1712,7 +1712,7 @@ function realActivate(context: ExtensionContext): void {
 			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
 			for (const document of Workspace.textDocuments) {
 				if (document.uri.toString() === params.textDocument.uri) {
-					closeFeature.getProvider(document).send(document);
+					closeFeature.getProvider(document)?.send(document);
 				}
 			}
 		});

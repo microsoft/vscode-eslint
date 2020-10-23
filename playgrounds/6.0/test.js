@@ -1,9 +1,10 @@
 function bar() {
 	if (foo) {
-		let s = 'ho\a';
+		let str = 'hallo';
+		foo(str);
 	}
 }
 
-function foo(x) {
-	console.log(x);
+function foo(str) {
+	return str;
 }
