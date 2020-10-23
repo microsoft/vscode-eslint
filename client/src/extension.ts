@@ -126,7 +126,10 @@ enum CodeActionsOnSaveMode {
 }
 
 namespace CodeActionsOnSaveMode {
-	export function from(value: string): CodeActionsOnSaveMode {
+	export function from(value: string | undefined | null): CodeActionsOnSaveMode {
+		if (value === undefined || value === null) {
+			return CodeActionsOnSaveMode.all;
+		}
 		switch(value.toLowerCase()) {
 			case CodeActionsOnSaveMode.problems:
 				return CodeActionsOnSaveMode.problems;
@@ -154,7 +157,10 @@ enum ESLintSeverity {
 }
 
 namespace ESLintSeverity {
-	export function from(value: string): ESLintSeverity {
+	export function from(value: string | undefined | null): ESLintSeverity {
+		if (value === undefined || value === null) {
+			return ESLintSeverity.off;
+		}
 		switch (value.toLowerCase()) {
 			case ESLintSeverity.off:
 				return ESLintSeverity.off;
