@@ -408,6 +408,11 @@
 				"title": "Manage Library Execution",
 				"category": "ESLint",
 				"command": "eslint.manageLibraryExecution"
+			},
+			{
+			  "title": "Restart ESLint Server",
+			  "category": "ESLint",
+			  "command": "eslint.restartServer"
 			}
 		],
 		"taskDefinitions": [

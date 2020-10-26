@@ -643,6 +643,7 @@ export function activate(context: ExtensionContext) {
 		Commands.registerCommand('eslint.showOutputChannel', notValidating),
 		Commands.registerCommand('eslint.migrateSettings', notValidating),
 		Commands.registerCommand('eslint.manageLibraryExecution', notValidating),
+		Commands.registerCommand('eslint.restartServer', notValidating),
 		Commands.registerCommand('eslint.resetLibraryExecution', () => {
 			resetLibraryConfirmations(undefined, context, undefined);
 		})
@@ -1883,6 +1884,13 @@ function realActivate(context: ExtensionContext): void {
 							: 'No ESLint library execution information found.');
 				}
 			}
+		}),
+		Commands.registerCommand('eslint.restartServer', async () => {
+			if (client === undefined) {
+				return;
+			}
+			await client.stop();
+			await client.start();
 		})
 	);
 }
