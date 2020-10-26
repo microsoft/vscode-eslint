@@ -401,8 +401,9 @@ interface Problem {
 	documentVersion: number;
 	ruleId: string;
 	line: number;
+	diagnostic: Diagnostic;
 	edit?: ESLintAutoFixEdit;
-	suggestions?: ESLintSuggestionResult[]
+	suggestions?: ESLintSuggestionResult[];
 }
 
 namespace Problem {
@@ -451,7 +452,15 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 		edits = new Map<string, Problem>();
 		codeActions.set(uri, edits);
 	}
-	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix, suggestions: problem.suggestions, line: problem.line });
+	edits.set(computeKey(diagnostic), {
+		label: `Fix this ${problem.ruleId} problem`,
+		documentVersion: document.version,
+		ruleId: problem.ruleId,
+		line: problem.line,
+		diagnostic: diagnostic,
+		edit: problem.fix,
+		suggestions: problem.suggestions
+	 });
 }
 
 function convertSeverity(severity: number): DiagnosticSeverity {
@@ -1687,13 +1696,16 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return result.all();
 	}
 
-	function createCodeAction(title: string, kind: string, commandId: string, arg: CommandParams): CodeAction {
+	function createCodeAction(title: string, kind: string, commandId: string, arg: CommandParams, diagnostic?: Diagnostic): CodeAction {
 		const command = Command.create(title, commandId, arg);
 		const action = CodeAction.create(
 			title,
 			command,
 			kind
 		);
+		if (diagnostic !== undefined) {
+			action.diagnostics = [diagnostic];
+		}
 		return action;
 	}
 
@@ -1779,7 +1791,8 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					editInfo.label,
 					kind,
 					CommandIds.applySingleFix,
-					CommandParams.create(textDocument, ruleId)
+					CommandParams.create(textDocument, ruleId),
+					editInfo.diagnostic
 				);
 				action.isPreferred = true;
 				result.get(ruleId).fixes.push(action);
@@ -1793,7 +1806,8 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 						`${suggestion.desc} (${editInfo.ruleId})`,
 						CodeActionKind.QuickFix,
 						CommandIds.applySuggestion,
-						CommandParams.create(textDocument, ruleId, suggestionSequence)
+						CommandParams.create(textDocument, ruleId, suggestionSequence),
+						editInfo.diagnostic
 					);
 					result.get(ruleId).suggestions.push(action);
 				});
