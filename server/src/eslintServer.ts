@@ -5,18 +5,12 @@
 'use strict';
 
 import {
-	createConnection, Connection,
-	ResponseError, RequestType, NotificationType,
-	RequestHandler, NotificationHandler,
-	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
-	TextDocuments, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier,
-	Command, WorkspaceChange,
-	CodeActionRequest, VersionedTextDocumentIdentifier,
-	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
-	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit,
-	LSPErrorCodes,
-	DiagnosticTag
+	createConnection, Connection, ResponseError, RequestType, NotificationType, RequestHandler, NotificationHandler,
+	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken, TextDocuments, TextDocumentSyncKind, TextEdit,
+	TextDocumentIdentifier, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier,
+	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
+	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
+	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag
 } from 'vscode-languageserver/node';
 
 import {
