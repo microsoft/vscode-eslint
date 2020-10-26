@@ -880,10 +880,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					let pattern: string = isFile
 						? Uri.fsPath.replace(/\\/g, '/')
 						: Uri.fsPath;
-					pattern = pattern.replace('[', '\\[');
-					pattern = pattern.replace(']', '\\]');
-					pattern = pattern.replace('{', '\\{');
-					pattern = pattern.replace('}', '\\}');
+					pattern = pattern.replace(/[\[\]\{\}]/g, '?');
 
 					const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
 					const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
