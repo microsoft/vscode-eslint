@@ -1861,7 +1861,7 @@ function realActivate(context: ExtensionContext): void {
 					return;
 				}
 			}
-			await resetLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
+			client.outputChannel.show();
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			migrateSettings();
