@@ -15,7 +15,8 @@ import {
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
 	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
 	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit,
-	LSPErrorCodes
+	LSPErrorCodes,
+	DiagnosticTag
 } from 'vscode-languageserver/node';
 
 import {
@@ -391,6 +392,9 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 			result.codeDescription = {
 				href: url
 			};
+		}
+		if (problem.ruleId === 'no-unused-vars') {
+			result.tags = [DiagnosticTag.Unnecessary];
 		}
 	}
 	return result;
