@@ -70,7 +70,7 @@
 					"description": "The value of NODE_ENV to use when running eslint tasks."
 				},
 				"eslint.nodePath": {
-					"scope": "resource",
+					"scope": "machine-overridable",
 					"type": [
 						"string",
 						"null"
