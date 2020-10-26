@@ -10,7 +10,7 @@ import {
 	TextDocumentIdentifier, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
-	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag
+	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0
 } from 'vscode-languageserver/node';
 
 import {
@@ -147,6 +147,10 @@ namespace ConfirmExecutionResult {
 
 namespace ConfirmExecution {
 	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void>('eslint/confirmESLintExecution');
+}
+
+namespace ShowOutputChannel {
+	export const type = new NotificationType0('eslint/showOutputChannel');
 }
 
 type RunValues = 'onType' | 'onSave';
@@ -1452,7 +1456,11 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 }
 
 function showErrorMessage(error: any, document: TextDocument): Status {
-	connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`);
+	connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+		if (value !== undefined && value.id === 1) {
+			connection.sendNotification(ShowOutputChannel.type);
+		}
+	});
 	if (Is.string(error.stack)) {
 		connection.console.error('ESLint stack trace:');
 		connection.console.error(error.stack);

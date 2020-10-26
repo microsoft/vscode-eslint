@@ -16,7 +16,7 @@ import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest,
 	ExecuteCommandParams, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder, DidChangeConfigurationNotification
+	WorkspaceFolder, DidChangeConfigurationNotification, NotificationType0
 } from 'vscode-languageclient/node';
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
@@ -302,8 +302,11 @@ namespace ConfirmExecution {
 	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void>('eslint/confirmESLintExecution');
 }
 
-const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
+namespace ShowOutputChannel {
+	export const type = new NotificationType0('eslint/showOutputChannel');
+}
 
+const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 
 interface WorkspaceFolderItem extends QuickPickItem {
 	folder: VWorkspaceFolder;
@@ -1588,6 +1591,10 @@ function realActivate(context: ExtensionContext): void {
 		updateStatusBar(globalStatus ?? serverRunning === false ? Status.error : Status.ok, true);
 	});
 	client.onReady().then(() => {
+		client.onNotification(ShowOutputChannel.type, () => {
+			client.outputChannel.show();
+		});
+
 		client.onNotification(StatusNotification.type, (params) => {
 			updateStatusInfo(params);
 			updateStatusBarAndDiagnostics();
@@ -1596,7 +1603,11 @@ function realActivate(context: ExtensionContext): void {
 		client.onNotification(exitCalled, (params) => {
 			serverCalledProcessExit = true;
 			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
-			Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`);
+			Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+				if (value !== undefined && value.id === 1) {
+					client.outputChannel.show();
+				}
+			});
 		});
 
 		client.onRequest(NoConfigRequest.type, (params) => {
