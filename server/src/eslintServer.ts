@@ -823,9 +823,13 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 							settings.validate = Validate.on;
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
 							const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
-								if (typeof cli.getConfigForFile === 'function') {
-									return cli.getConfigForFile(filePath!);
-								} else {
+								try {
+									if (typeof cli.getConfigForFile === 'function') {
+										return cli.getConfigForFile(filePath!);
+									} else {
+										return undefined;
+									}
+								} catch (err) {
 									return undefined;
 								}
 							}, settings);
