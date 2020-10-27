@@ -1223,10 +1223,7 @@ function realActivate(context: ExtensionContext): void {
 		}
 	}
 
-	// We need to go one level up since an extension compile the js code into
-	// the output folder.
-	// serverModule
-	const serverModule = context.asAbsolutePath(path.join('server', 'out', 'eslintServer.js'));
+	const serverModule = Uri.joinPath(context.extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 	const eslintConfig = Workspace.getConfiguration('eslint');
 	const runtime = eslintConfig.get('runtime', undefined);
 	const debug = eslintConfig.get('debug');
