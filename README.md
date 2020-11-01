@@ -14,12 +14,12 @@ This section describes major releases and their improvements. For a detailed lis
 
 ### Version 2.1.10
 
-The approval flow to allow the execution of a ESLint library got reworked. It initial expierence is now as follows:
+The approval flow to allow the execution of a ESLint library got reworked. Its initial experience is now as follows:
 
-- no modal dialog is show when the ESLint extension tries to load a ESLint library for the first time and an approval is necessary. Instead the ESLint status bar item changes to ![ESLint status icon](images/2_1_10/eslint-status.png) indicating that the execution is currently block.
-- if the active text editor content would be validated using ESLint a problem at the top of the file is shown in addition.
+- no modal dialog is shown when the ESLint extension tries to load an ESLint library for the first time and an approval is necessary. Instead the ESLint status bar item changes to ![ESLint status icon](images/2_1_10/eslint-status.png) indicating that the execution is currently block.
+- if the active text editor content would be validated using ESLint, a problem at the top of the file is shown in addition.
 
-The execution of the ESLint library can be denied or approved using the following questures:
+The execution of the ESLint library can be denied or approved using the following gestures:
 - clicking on the status bar icon
 - using the quick fix for the corresponding ESLint problem
 - executing the command `ESLint: Manage Library Execution` from the command palette
