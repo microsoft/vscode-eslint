@@ -28,7 +28,7 @@ All gestures will open the following dialog:
 
 ![ESLint Dialog](images/2_1_10/eslint-dialog.png)
 
-The choosen action is then reflected in the ESLint status bar item in the following way:
+The chosen action is then reflected in the ESLint status bar item in the following way:
 
 - `Allow` will prefix the status bar item with a check mark.
 - `Allow Everywhere` will prefix the status bar item with a double check mark.
@@ -147,7 +147,7 @@ This extension contributes the following variables to the [settings](https://cod
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
 - `eslint.format.enable` (@since 2.0.0): uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
-- `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
+- `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warnings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
 - `editor.codeActionsOnSave` (@since 2.0.0): this setting now supports an entry `source.fixAll.eslint`. If set to true all auto-fixable ESLint errors from all plugins will be fixed on save. You can also selectively enable and disabled specific languages using VS Code's language scoped settings. To disable `codeActionsOnSave` for HTML files use the following setting:
 
 ```json
