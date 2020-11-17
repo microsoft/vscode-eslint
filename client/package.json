@@ -14,13 +14,13 @@
 		"url": "https://github.com/Microsoft/vscode-eslint/issues"
 	},
 	"engines": {
-		"vscode": "^1.50.0"
+		"vscode": "^1.51.0"
 	},
 	"devDependencies": {
-		"@types/vscode": "1.50.0"
+		"@types/vscode": "1.51.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "7.0.0-next.12"
+		"vscode-languageclient": "7.0.0-next.14"
 	},
 	"scripts": {
 		"test": "node ../node_modules/mocha/bin/_mocha"
