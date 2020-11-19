@@ -529,15 +529,21 @@ function isUNC(path: string): boolean {
 }
 
 function getFileSystemPath(uri: URI): string {
-	const result = uri.fsPath;
+	let result = uri.fsPath;
 	if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
 		// Node by default uses an upper case drive letter and ESLint uses
 		// === to compare paths which results in the equal check failing
 		// if the drive letter is lower case in th URI. Ensure upper case.
-		return result[0].toUpperCase() + result.substr(1);
-	} else {
-		return result;
+		result = result[0].toUpperCase() + result.substr(1);
 	}
+	if (process.platform === 'win32' || process.platform === 'darwin') {
+		const realpath = fs.realpathSync.native(result);
+		// Only use the real path if only the casing has changed.
+		if (realpath.toLowerCase() === result.toLowerCase()) {
+			result = realpath;
+		}
+	}
+	return result;
 }
 
 
