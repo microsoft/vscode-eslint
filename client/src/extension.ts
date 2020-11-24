@@ -606,6 +606,9 @@ async function resetLibraryConfirmations(client: LanguageClient | undefined, con
 }
 
 export function activate(context: ExtensionContext) {
+	context.globalState.setKeysForSync([
+		eslintAlwaysAllowExecutionKey
+	]);
 	eslintExecutionState =  context.globalState.get<ESLintExecutionState>(eslintExecutionKey, { libs: {} });
 	eslintAlwaysAllowExecutionState = context.globalState.get<boolean>(eslintAlwaysAllowExecutionKey, false);
 
