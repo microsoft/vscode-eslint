@@ -501,7 +501,7 @@ function clearAllDiagnosticState(): void {
 async function askForLibraryConfirmation(client: LanguageClient | undefined, context: ExtensionContext, params: ExecutionParams, update: undefined | (()=> void)): Promise<void> {
 	sessionState.set(params.libraryPath, params);
 
-	// Reevaluate state and cancel since the information meessage is async
+	// Reevaluate state and cancel since the information message is async
 	const libraryUri = Uri.file(params.libraryPath);
 	const folder = Workspace.getWorkspaceFolder(libraryUri);
 
@@ -1812,7 +1812,7 @@ function realActivate(context: ExtensionContext): void {
 					'ESLint is disabled since its execution has not been approved or rejected yet.',
 					'',
 					'When validating a file using ESLint, the ESLint NPM library will load customization files and code from your workspace',
-					'and will exexute it. If you do not trust the content in your workspace you should answer accordingly on the corresponding',
+					'and will execute it. If you do not trust the content in your workspace you should answer accordingly on the corresponding',
 					'approval dialog.'
 				].join('\n');
 			}
