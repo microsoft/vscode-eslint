@@ -1747,6 +1747,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	return resolveSettings(textDocument).then(async (settings): Promise<CodeAction[]> => {
+		// The file is not validated at all or we couldn't load an eslint library for it.
+		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
+			return result.all();
+		}
+
 		const problems = codeActions.get(uri);
 		// We validate on type and have no problems ==> nothing to fix.
 		if (problems === undefined && settings.run === 'onType') {
