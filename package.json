@@ -461,15 +461,15 @@
 	"devDependencies": {
 		"@types/node": "^12.12.6",
 		"typescript": "^4.1.2",
-		"eslint": "^6.8.0",
-		"@typescript-eslint/parser": "^2.31.0",
-		"@typescript-eslint/eslint-plugin": "^3.6.0",
-		"webpack": "^4.44.1",
-		"webpack-cli": "^3.3.12",
-		"ts-loader": "^6.2.1",
-		"merge-options": "^2.0.0",
+		"eslint": "^7.15.0",
+		"@typescript-eslint/parser": "^4.9.1",
+		"@typescript-eslint/eslint-plugin": "^4.9.1",
+		"webpack": "^5.10.0",
+		"webpack-cli": "^4.2.0",
+		"ts-loader": "^8.0.11",
+		"merge-options": "^3.0.4",
 		"rimraf": "^3.0.2",
-		"@types/mocha": "^7.0.2",
-		"mocha": "^7.1.2"
+		"@types/mocha": "^8.0.4",
+		"mocha": "^8.2.1"
 	}
 }
