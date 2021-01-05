@@ -1550,13 +1550,15 @@ class Fixes {
 			if (d !== 0) {
 				return d;
 			}
-			if (a.edit.range[1] === 0) {
+			const al = a.edit.range[1] - a.edit.range[0];
+			if (al === 0) {
 				return -1;
 			}
-			if (b.edit.range[1] === 0) {
+			const bl = b.edit.range[1] - b.edit.range[0];
+			if (bl === 0) {
 				return 1;
 			}
-			return a.edit.range[1] - b.edit.range[1];
+			return al - bl;
 		});
 	}
 
