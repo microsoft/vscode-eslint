@@ -181,6 +181,23 @@ enum ConfirmationSelection {
 	alwaysAllow = 4
 }
 
+enum RuleSeverity {
+	info = 'info',
+	warn = 'warn',
+	error = 'error'
+}
+
+type RuleCustomization = RuleIgnore | RuleOverride;
+
+interface RuleIgnore {
+	ignore: string;
+}
+
+interface RuleOverride {
+	override: string;
+	severity: RuleSeverity;
+}
+
 interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -190,6 +207,7 @@ interface ConfigurationSettings {
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
 	options: any | undefined;
+	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -1441,6 +1459,7 @@ function realActivate(context: ExtensionContext): void {
 							quiet: config.get('quiet', false),
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
+							rulesCustomizations: config.get('rules.customizations', []),
 							run: config.get('run', 'onType'),
 							nodePath: config.get('nodePath', null),
 							workingDirectory: undefined,

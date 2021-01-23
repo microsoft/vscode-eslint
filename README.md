@@ -146,6 +146,29 @@ This extension contributes the following variables to the [settings](https://cod
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
+- `eslint.rules.customizations`: force rules to report a different severity within VS Code compared to the project's true ESLint configuration. This is an array that allows two kinds of glob patterns:
+  - `"override`": Overrides for rules with names that match, factoring in asterisks: `{ "override": "no-*", "severity": "warn" }`
+  - `"ignore"`: Excludes rules matching a glob from previous overrides: `{ "ignore": "*jsx*" }`
+
+  In this example, all rules are overridden to warnings:
+
+  ```json
+  "eslint.rules.customizations": [
+    { "override": "*", "severity": "warn" }
+  ]
+  ```
+
+  In this example, with the exception of `semi` rules and `radix`, all all `no-` rules are warnings and other rules are info:
+
+  ```json
+  "eslint.rules.customizations": [
+    { "override": "*", "severity": "warn" },
+    { "override": "no-*", "severity": "info" },
+    { "ignore": "*semi*" },
+    { "ignore": "radix" }
+  ]
+  ```
+
 - `eslint.format.enable` (@since 2.0.0): uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
 - `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warnings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
 - `editor.codeActionsOnSave` (@since 2.0.0): this setting now supports an entry `source.fixAll.eslint`. If set to true all auto-fixable ESLint errors from all plugins will be fixed on save. You can also selectively enable and disabled specific languages using VS Code's language scoped settings. To disable `codeActionsOnSave` for HTML files use the following setting:

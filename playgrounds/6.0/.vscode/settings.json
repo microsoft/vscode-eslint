@@ -39,6 +39,13 @@
 		"location": "separateLine"
 	},
 	"eslint.quiet": false,
+	"eslint.rules.customizations": [
+		{ "override": "*", "severity": "info" },
+		{ "override": "no-*", "severity": "warn" },
+		{ "ignore": "*console*" },
+		{ "ignore": "*semi*" },
+		{ "ignore": "radix" }
+	],
 	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.format.enable": true,
 	"eslint.onIgnoredFiles": "off",

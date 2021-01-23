@@ -375,6 +375,50 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enables ESLint as a formatter."
+				},
+				"eslint.rules.customizations": {
+					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules.",
+					"items": {
+						"properties": {
+							"anyOf": [
+								{
+									"properties": {
+										"ignore": {
+											"type": "string"
+										}
+									},
+									"type": "object"
+								},
+								{
+									"properties": {
+										"severity": {
+											"type": "string",
+											"enum": [
+												"off",
+												"messages",
+												"verbose"
+											]
+										},
+										"rule": {
+											"type": "string"
+										}
+									},
+									"type": "object"
+								}
+							]
+						},
+						"type": "object"
+					},
+					"scope": "resource",
+					"type": "array",
+					"additionalProperties": {
+						"type": "string",
+						"enum": [
+							"info",
+							"warn",
+							"error"
+						]
+					}
 				}
 			}
 		},

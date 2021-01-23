@@ -224,6 +224,23 @@ interface CodeActionsOnSaveSettings {
 	mode: CodeActionsOnSaveMode
 }
 
+enum RuleSeverity {
+	info = 'info',
+	warn = 'warn',
+	error = 'error'
+}
+
+type RuleCustomization = RuleIgnore | RuleOverride;
+
+interface RuleIgnore {
+	ignore: string;
+}
+
+interface RuleOverride {
+	override: string;
+	severity: RuleSeverity;
+}
+
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -233,6 +250,7 @@ interface CommonSettings {
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
 	options: ESLintOptions | undefined;
+	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -368,7 +386,27 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
-function makeDiagnostic(problem: ESLintProblem): Diagnostic {
+function asteriskMatches(matcher: string, ruleId: string) {
+	return new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
+}
+
+function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]) {
+	let result: RuleSeverity | undefined;
+
+	for (const customization of customizations) {
+		if ('ignore' in customization) {
+			if (asteriskMatches(customization.ignore, ruleId)) {
+				result = undefined;
+			}
+		} else if (asteriskMatches(customization.override, ruleId)) {
+			result = customization.severity;
+		}
+	}
+
+	return result;
+}
+
+function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): Diagnostic {
 	const message = problem.message;
 	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
 	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
@@ -395,6 +433,12 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 			result.tags = [DiagnosticTag.Unnecessary];
 		}
 	}
+
+	const severityOverride = getSeverityOverride(problem.ruleId, settings.rulesCustomizations);
+	if (severityOverride) {
+		result.severity = convertSeverity(severityOverride);
+	}
+
 	return result;
 }
 
@@ -465,13 +509,18 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	 });
 }
 
-function convertSeverity(severity: number): DiagnosticSeverity {
+function convertSeverity(severity: number | RuleSeverity): DiagnosticSeverity {
+	// RuleSeverity concerns an overridden rule. A number is direct from ESLint.
 	switch (severity) {
 		// Eslint 1 is warning
 		case 1:
+		case RuleSeverity.warn:
 			return DiagnosticSeverity.Warning;
 		case 2:
+		case RuleSeverity.error:
 			return DiagnosticSeverity.Error;
+		case RuleSeverity.info:
+			return DiagnosticSeverity.Information;
 		default:
 			return DiagnosticSeverity.Error;
 	}
