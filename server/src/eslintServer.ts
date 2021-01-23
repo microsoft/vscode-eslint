@@ -230,10 +230,10 @@ enum RuleSeverity {
 	error = 'error'
 }
 
-type RuleCustomization = RuleIgnore | RuleOverride;
+type RuleCustomization = RuleOverride | RuleReset;
 
-interface RuleIgnore {
-	ignore: string;
+interface RuleReset {
+	reset: string;
 }
 
 interface RuleOverride {
@@ -394,12 +394,12 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 	let result: RuleSeverity | undefined;
 
 	for (const customization of customizations) {
-		if ('ignore' in customization) {
-			if (asteriskMatches(customization.ignore, ruleId)) {
-				result = undefined;
+		if ('override' in customization) {
+			if (asteriskMatches(customization.override, ruleId)) {
+				result = customization.severity;
 			}
-		} else if (asteriskMatches(customization.override, ruleId)) {
-			result = customization.severity;
+		} else if (asteriskMatches(customization.reset, ruleId)) {
+			result = undefined;
 		}
 	}
 
@@ -1365,7 +1365,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 							// Filter out warnings when quiet mode is enabled
 							return;
 						}
-						const diagnostic = makeDiagnostic(problem);
+						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const rule = cli.getRules().get(problem.ruleId);

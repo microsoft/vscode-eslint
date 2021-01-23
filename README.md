@@ -148,7 +148,7 @@ This extension contributes the following variables to the [settings](https://cod
 
 - `eslint.rules.customizations`: force rules to report a different severity within VS Code compared to the project's true ESLint configuration. This is an array that allows two kinds of glob patterns:
   - `"override`": Overrides for rules with names that match, factoring in asterisks: `{ "override": "no-*", "severity": "warn" }`
-  - `"ignore"`: Excludes rules matching a glob from previous overrides: `{ "ignore": "*jsx*" }`
+  - `"reset"`: Excludes rules matching a glob from previous overrides: `{ "reset": "*jsx*" }`
 
   In this example, all rules are overridden to warnings:
 
@@ -164,8 +164,8 @@ This extension contributes the following variables to the [settings](https://cod
   "eslint.rules.customizations": [
     { "override": "*", "severity": "warn" },
     { "override": "no-*", "severity": "info" },
-    { "ignore": "*semi*" },
-    { "ignore": "radix" }
+    { "reset": "*semi*" },
+    { "reset": "radix" }
   ]
   ```
 

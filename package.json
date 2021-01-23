@@ -383,14 +383,6 @@
 							"anyOf": [
 								{
 									"properties": {
-										"ignore": {
-											"type": "string"
-										}
-									},
-									"type": "object"
-								},
-								{
-									"properties": {
 										"severity": {
 											"type": "string",
 											"enum": [
@@ -399,12 +391,20 @@
 												"verbose"
 											]
 										},
-										"rule": {
+										"override": {
 											"type": "string"
 										}
 									},
 									"type": "object"
-								}
+								},
+								{
+									"properties": {
+										"reset": {
+											"type": "string"
+										}
+									},
+									"type": "object"
+								},
 							]
 						},
 						"type": "object"

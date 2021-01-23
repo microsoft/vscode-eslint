@@ -187,10 +187,10 @@ enum RuleSeverity {
 	error = 'error'
 }
 
-type RuleCustomization = RuleIgnore | RuleOverride;
+type RuleCustomization = RuleOverride | RuleReset;
 
-interface RuleIgnore {
-	ignore: string;
+interface RuleReset {
+	reset: string;
 }
 
 interface RuleOverride {
