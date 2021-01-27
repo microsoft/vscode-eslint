@@ -23,6 +23,7 @@ import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { EOL } from 'os';
 import { stringDiff } from './diff';
+import { LinkedMap } from './linkedMap';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -386,7 +387,7 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
-type RuleSeverityCache = Map<string, RuleSeverity | undefined>;
+type RuleSeverityCache = LinkedMap<string, RuleSeverity | undefined>;
 
 function asteriskMatches(matcher: string, ruleId: string) {
 	return new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
@@ -1330,7 +1331,7 @@ const ruleDocData: {
 	urls: new Map<string, string>()
 };
 
-const ruleSeverityCache: RuleSeverityCache = new Map();
+const ruleSeverityCache: RuleSeverityCache = new LinkedMap();
 let ruleCustomizationsKey: string | undefined;
 
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
