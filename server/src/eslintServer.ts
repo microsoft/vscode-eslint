@@ -1330,6 +1330,8 @@ const ruleDocData: {
 	urls: new Map<string, string>()
 };
 
+const ruleSeverityCache: RuleSeverityCache = new Map();
+let ruleCustomizationsKey: string | undefined;
 
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
 function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): void {
@@ -1347,10 +1349,15 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 		}
 	}
 
+	const newRuleCustomizationsKey = JSON.stringify(settings.rulesCustomizations);
+	if (ruleCustomizationsKey !== newRuleCustomizationsKey) {
+		ruleCustomizationsKey = newRuleCustomizationsKey;
+		ruleSeverityCache.clear();
+	}
+
 	const content = document.getText();
 	const uri = document.uri;
 	const file = getFilePath(document);
-	const ruleSeverityCache: RuleSeverityCache = new Map();
 
 	withCLIEngine((cli) => {
 		codeActions.delete(uri);
