@@ -386,11 +386,17 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
+type RuleSeverityCache = Map<string, RuleSeverity | undefined>;
+
 function asteriskMatches(matcher: string, ruleId: string) {
 	return new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
 }
 
-function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]) {
+function getSeverityOverride(ruleId: string, customizations: RuleCustomization[], ruleSeverityCache: RuleSeverityCache) {
+	if (ruleSeverityCache.has(ruleId)) {
+		return ruleSeverityCache.get(ruleId);
+	}
+
 	let result: RuleSeverity | undefined;
 
 	for (const customization of customizations) {
@@ -403,10 +409,12 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 		}
 	}
 
+	ruleSeverityCache.set(ruleId, result);
+
 	return result;
 }
 
-function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): Diagnostic {
+function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem, ruleSeverityCache: RuleSeverityCache): Diagnostic {
 	const message = problem.message;
 	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
 	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
@@ -434,7 +442,7 @@ function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem):
 		}
 	}
 
-	const severityOverride = getSeverityOverride(problem.ruleId, settings.rulesCustomizations);
+	const severityOverride = getSeverityOverride(problem.ruleId, settings.rulesCustomizations, ruleSeverityCache);
 	if (severityOverride) {
 		result.severity = convertSeverity(severityOverride);
 	}
@@ -1342,6 +1350,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	const content = document.getText();
 	const uri = document.uri;
 	const file = getFilePath(document);
+	const ruleSeverityCache: RuleSeverityCache = new Map();
 
 	withCLIEngine((cli) => {
 		codeActions.delete(uri);
@@ -1365,7 +1374,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 							// Filter out warnings when quiet mode is enabled
 							return;
 						}
-						const diagnostic = makeDiagnostic(settings, problem);
+						const diagnostic = makeDiagnostic(settings, problem, ruleSeverityCache);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const rule = cli.getRules().get(problem.ruleId);
