@@ -23,7 +23,7 @@ import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { EOL } from 'os';
 import { stringDiff } from './diff';
-import { LinkedMap } from './linkedMap';
+import { LRUCache } from './linkedMap';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -387,13 +387,14 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
-type RuleSeverityCache = LinkedMap<string, RuleSeverity | undefined>;
+const ruleSeverityCache = new LRUCache<string, RuleSeverity | undefined>(1024);
+let ruleCustomizationsKey: string | undefined;
 
 function asteriskMatches(matcher: string, ruleId: string) {
 	return new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
 }
 
-function getSeverityOverride(ruleId: string, customizations: RuleCustomization[], ruleSeverityCache: RuleSeverityCache) {
+function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]) {
 	if (ruleSeverityCache.has(ruleId)) {
 		return ruleSeverityCache.get(ruleId);
 	}
@@ -415,7 +416,7 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 	return result;
 }
 
-function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem, ruleSeverityCache: RuleSeverityCache): Diagnostic {
+function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): Diagnostic {
 	const message = problem.message;
 	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
 	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
@@ -443,7 +444,7 @@ function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem, 
 		}
 	}
 
-	const severityOverride = getSeverityOverride(problem.ruleId, settings.rulesCustomizations, ruleSeverityCache);
+	const severityOverride = getSeverityOverride(problem.ruleId, settings.rulesCustomizations);
 	if (severityOverride) {
 		result.severity = convertSeverity(severityOverride);
 	}
@@ -1331,9 +1332,6 @@ const ruleDocData: {
 	urls: new Map<string, string>()
 };
 
-const ruleSeverityCache: RuleSeverityCache = new LinkedMap();
-let ruleCustomizationsKey: string | undefined;
-
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
 function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): void {
 	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
@@ -1382,7 +1380,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 							// Filter out warnings when quiet mode is enabled
 							return;
 						}
-						const diagnostic = makeDiagnostic(settings, problem, ruleSeverityCache);
+						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const rule = cli.getRules().get(problem.ruleId);
