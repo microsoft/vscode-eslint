@@ -754,7 +754,7 @@ export class LcsDiff {
 				} else {
 					// We didn't actually remember enough of the history.
 
-					//Since we are quiting the diff early, we need to shift back the originalStart and modified start
+					//Since we are quitting the diff early, we need to shift back the originalStart and modified start
 					//back into the boundary limits since we decremented their value above beyond the boundary limit.
 					originalStart++;
 					modifiedStart++;
