@@ -85,7 +85,7 @@ If you are using an ESLint extension version < 2.x then please refer to the sett
 
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
-- `eslint.enable`: enable/disable ESLint. Is enabled by default.
+- `eslint.enable`: enable/disable ESLint. Is enabled by default. This setting got deprecated in favour of enabling / disabling the extension in the Extension's viewlet.
 - `eslint.debug`: enables ESLint's debug mode (same as --debug  command line option). Please see the ESLint output channel for the debug output. This options is very helpful to track down configuration and installation problems with ESLint since it provides verbose information about how ESLint is validating a file.
 - `eslint.lintTask.enable`: whether the extension contributes a lint task to lint a whole workspace folder.
 - `eslint.lintTask.options`: Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
@@ -175,8 +175,6 @@ This extension contributes the following commands to the Command palette.
 
 - `Create '.eslintrc.json' file`: creates a new `.eslintrc.json` file.
 - `Fix all auto-fixable problems`: applies ESLint auto-fix resolutions to all fixable problems.
-- `Disable ESLint for this Workspace`: disables ESLint extension for this workspace.
-- `Enable ESLint for this Workspace`: enable ESLint extension for this workspace.
 - `Reset Library Decisions`: Resets the ESLint library validation confirmations.
 - `Manage Library Execution`: Opens the library execution confirmation dialog.
 
