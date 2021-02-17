@@ -2,15 +2,14 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-'use strict';
-
 import {
 	createConnection, Connection, ResponseError, RequestType, NotificationType, RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken, TextDocuments, TextDocumentSyncKind, TextEdit,
 	TextDocumentIdentifier, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
-	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0
+	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
+	ProposedFeatures, Proposed, ServerCapabilities
 } from 'vscode-languageserver/node';
 
 import {
@@ -224,6 +223,12 @@ interface CodeActionsOnSaveSettings {
 	mode: CodeActionsOnSaveMode
 }
 
+namespace DiagnosticMode {
+	export const push = 'push';
+	export const pull = 'pull';
+}
+type DiagnosticMode = 'push' | 'pull';
+
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -236,6 +241,7 @@ interface CommonSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
+	diagnositicMode: DiagnosticMode
 }
 
 interface ConfigurationSettings extends CommonSettings {
@@ -598,7 +604,7 @@ process.on('uncaughtException', (error: any) => {
 	}
 });
 
-const connection = createConnection();
+const connection = createConnection(ProposedFeatures.all);
 connection.console.info(`ESLint server running in node ${process.version}`);
 // Is instantiated in the initialize handle;
 let documents!: TextDocuments<TextDocument>;
@@ -1077,10 +1083,31 @@ namespace ValidateNotification {
 	export const type: NotificationType<TextDocument> = new NotificationType<TextDocument>('eslint/validate');
 }
 
-messageQueue.onNotification(ValidateNotification.type, (document) => {
-	validateSingle(document, true);
+messageQueue.onNotification(ValidateNotification.type, (_document) => {
+	return;
+	// validateSingle(document).then(diagnostics => {
+	// 	connection.sendDiagnostics({ uri: document.uri, diagnostics: diagnostics ?? [] });
+	// }, () => {
+	// 	connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+	// });
 }, (document): number => {
 	return document.version;
+});
+
+messageQueue.registerRequest(Proposed.DiagnosticRequest.type, async (params, _token) => {
+	const document = documents.get(params.textDocument.uri);
+	if (document === undefined) {
+		return { items: [] };
+	}
+	try {
+		const diagnostics = await validateSingle(document);
+		return { items: diagnostics ?? [] };
+	} catch (err) {
+		return { items: [] };
+	}
+}, (params) => {
+	const document = documents.get(params.textDocument.uri);
+	return document !== undefined ? document.version : undefined;
 });
 
 function setupDocumentsListeners() {
@@ -1092,7 +1119,7 @@ function setupDocumentsListeners() {
 			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 				return;
 			}
-			if (settings.run === 'onSave') {
+			if (settings.run === 'onSave' && settings.diagnositicMode === DiagnosticMode.push) {
 				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
 			}
 		});
@@ -1103,7 +1130,7 @@ function setupDocumentsListeners() {
 		const uri = event.document.uri;
 		codeActions.delete(uri);
 		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on|| settings.run !== 'onType') {
+			if (settings.validate !== Validate.on || settings.run !== 'onType' || settings.diagnositicMode !== DiagnosticMode.push) {
 				return;
 			}
 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
@@ -1113,7 +1140,7 @@ function setupDocumentsListeners() {
 	// A text document has been saved. Validate the document according the run setting.
 	documents.onDidSave((event) => {
 		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on || settings.run !== 'onSave') {
+			if (settings.validate !== Validate.on || settings.run !== 'onSave' || settings.diagnositicMode !== DiagnosticMode.push) {
 				return;
 			}
 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
@@ -1159,35 +1186,38 @@ connection.onInitialize((_params, _cancel, progress) => {
 	documents = new TextDocuments(TextDocument);
 	setupDocumentsListeners();
 	progress.done();
-	return {
-		capabilities: {
-			textDocumentSync: {
-				openClose: true,
-				change: syncKind,
-				willSaveWaitUntil: false,
-				save: {
-					includeText: false
-				}
-			},
-			workspace: {
-				workspaceFolders: {
-					supported: true
-				}
-			},
-			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
-			executeCommandProvider: {
-				commands: [
-					CommandIds.applySingleFix,
-					CommandIds.applySuggestion,
-					CommandIds.applySameFixes,
-					CommandIds.applyAllFixes,
-					CommandIds.applyDisableLine,
-					CommandIds.applyDisableFile,
-					CommandIds.openRuleDoc,
-				]
+	const capabilities: ServerCapabilities & Proposed.$DiagnosticServerCapabilities = {
+		textDocumentSync: {
+			openClose: true,
+			change: syncKind,
+			willSaveWaitUntil: false,
+			save: {
+				includeText: false
 			}
+		},
+		diagnosticProvider: {
+			identifier: 'eslint2',
+			mode: Proposed.DiagnosticPullModeFlags.onOpen | Proposed.DiagnosticPullModeFlags.onType | Proposed.DiagnosticPullModeFlags.onSave
+		},
+		workspace: {
+			workspaceFolders: {
+				supported: true
+			}
+		},
+		codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
+		executeCommandProvider: {
+			commands: [
+				CommandIds.applySingleFix,
+				CommandIds.applySuggestion,
+				CommandIds.applySameFixes,
+				CommandIds.applyAllFixes,
+				CommandIds.applyDisableLine,
+				CommandIds.applyDisableFile,
+				CommandIds.openRuleDoc,
+			]
 		}
 	};
+	return { capabilities };
 });
 
 connection.onInitialized(() => {
@@ -1210,7 +1240,7 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 	showErrorMessage
 ];
 
-function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
+function validateSingle(document: TextDocument): Promise<Diagnostic[] | undefined> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
 	if (!documents.get(document.uri)) {
@@ -1218,15 +1248,15 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 	}
 	return resolveSettings(document).then((settings) => {
 		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-			return;
+			return undefined;
 		}
+		let result: Diagnostic[] | undefined;
 		try {
-			validate(document, settings, publishDiagnostics);
+			result = validate(document, settings);
 			connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		} catch (err) {
 			// if an exception has occurred while validating clear all errors to ensure
 			// we are not showing any stale once
-			connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 			if (!settings.silent) {
 				let status: Status | undefined = undefined;
 				for (let handler of singleErrorHandlers) {
@@ -1242,6 +1272,7 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 			}
 		}
+		return result;
 	});
 }
 
@@ -1275,7 +1306,7 @@ const ruleDocData: {
 
 
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
-function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): void {
+function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Diagnostic[] | undefined {
 	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let fixTypes: Set<string> | undefined = undefined;
 	if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
@@ -1294,7 +1325,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	const uri = document.uri;
 	const file = getFilePath(document);
 
-	withCLIEngine((cli) => {
+	return withCLIEngine((cli) => {
 		codeActions.delete(uri);
 		const report: ESLintReport = cli.executeOnText(content, file, settings.onIgnoredFiles !== ESLintSeverity.off);
 		if (CLIEngine.hasRule(cli) && !ruleDocData.handled.has(uri)) {
@@ -1330,9 +1361,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 				});
 			}
 		}
-		if (publishDiagnostics) {
-			connection.sendDiagnostics({ uri, diagnostics });
-		}
+		return diagnostics;
 	}, settings);
 }
 

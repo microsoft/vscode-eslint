@@ -16,8 +16,10 @@ import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorAction, CloseAction, State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest,
 	ExecuteCommandParams, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder, DidChangeConfigurationNotification, NotificationType0
+	WorkspaceFolder, DidChangeConfigurationNotification, NotificationType0, Middleware, Proposed
 } from 'vscode-languageclient/node';
+
+import { DiagnosticProviderMiddleware, VDiagnosticResult } from 'vscode-languageclient/lib/common/proposed.diagnostic';
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
 import { TaskProvider } from './tasks';
@@ -109,6 +111,40 @@ namespace PatternItem {
 }
 
 type RunValues = 'onType' | 'onSave';
+namespace RunValues {
+	export function from(value: unknown): RunValues {
+		if (!Is.string(value)) {
+			return 'onType';
+		}
+		switch (value.toLowerCase()) {
+			case 'ontype':
+				return 'onType';
+			case 'onsave':
+				return 'onSave';
+			default:
+				return 'onType';
+		}
+	}
+}
+
+type DiagnosticMode = 'push' | 'pull';
+namespace DiagnosticMode {
+	export const push = 'push';
+	export const pull = 'pull';
+	export function from(value: unknown): DiagnosticMode {
+		if (!Is.string(value)) {
+			return 'push';
+		}
+		switch(value.toLowerCase()) {
+			case 'push':
+				return push;
+			case 'pull':
+				return pull;
+			default:
+				return push;
+		}
+	}
+}
 
 interface CodeActionSettings {
 	disableRuleComment: {
@@ -193,6 +229,7 @@ interface ConfigurationSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
+	diagnosticMode: DiagnosticMode;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
 }
 
@@ -1355,6 +1392,21 @@ function realActivate(context: ExtensionContext): void {
 				const newContext: CodeActionContext = Object.assign({}, context, { diagnostics: eslintDiagnostics } as CodeActionContext);
 				return next(document, range, newContext, token);
 			},
+			provideDiagnostics: (document, context, token, next): ProviderResult<VDiagnosticResult> => {
+				// If the document is not sync return early
+				if (!syncedDocuments.has(document.uri.toString())) {
+					return { unmodified: true };
+				}
+				if (context.triggerKind === Proposed.DiagnosticTriggerKind.Opened || context.triggerKind === Proposed.DiagnosticTriggerKind.Invoked) {
+					return next(document, context, token);
+				}
+				const config = Workspace.getConfiguration('eslint', document.uri);
+				const runMode = RunValues.from(config.get<RunValues>('run', 'onType'));
+				if (runMode === 'onType' && context.triggerKind === Proposed.DiagnosticTriggerKind.Saved || runMode === 'onSave' && context.triggerKind === Proposed.DiagnosticTriggerKind.Typed) {
+					return { unmodified: true };
+				}
+				return next(document, context, token);
+			},
 			workspace: {
 				didChangeWatchedFile: (event, next) => {
 					probeFailed.clear();
@@ -1441,10 +1493,11 @@ function realActivate(context: ExtensionContext): void {
 							quiet: config.get('quiet', false),
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
-							run: config.get('run', 'onType'),
+							run: RunValues.from(config.get('run', 'onType')),
 							nodePath: config.get('nodePath', null),
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
+							diagnosticMode: DiagnosticMode.from(config.get<DiagnosticMode>('experimental.diagnosticMode', 'push')),
 							codeAction: {
 								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
@@ -1547,7 +1600,7 @@ function realActivate(context: ExtensionContext): void {
 					return result;
 				}
 			}
-		}
+		} as Middleware & DiagnosticProviderMiddleware
 	};
 
 	let client: LanguageClient;

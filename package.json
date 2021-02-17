@@ -30,6 +30,7 @@
 	"extensionKind": [
 		"workspace"
 	],
+	"enableProposedApi": true,
 	"main": "./client/out/extension",
 	"contributes": {
 		"configuration": {

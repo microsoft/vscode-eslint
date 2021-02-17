@@ -36,6 +36,8 @@
 		"eslintignore",
 		"eslintr",
 		"mydirectory",
+		"onsave",
+		"ontype",
 		"pnpm"
 	]
 }
