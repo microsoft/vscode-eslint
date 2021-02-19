@@ -223,12 +223,6 @@ interface CodeActionsOnSaveSettings {
 	mode: CodeActionsOnSaveMode
 }
 
-namespace DiagnosticMode {
-	export const push = 'push';
-	export const pull = 'pull';
-}
-type DiagnosticMode = 'push' | 'pull';
-
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -241,7 +235,6 @@ interface CommonSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
-	diagnositicMode: DiagnosticMode
 }
 
 interface ConfigurationSettings extends CommonSettings {
@@ -1083,13 +1076,12 @@ namespace ValidateNotification {
 	export const type: NotificationType<TextDocument> = new NotificationType<TextDocument>('eslint/validate');
 }
 
-messageQueue.onNotification(ValidateNotification.type, (_document) => {
-	return;
-	// validateSingle(document).then(diagnostics => {
-	// 	connection.sendDiagnostics({ uri: document.uri, diagnostics: diagnostics ?? [] });
-	// }, () => {
-	// 	connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-	// });
+messageQueue.onNotification(ValidateNotification.type, (document) => {
+	validateSingle(document).then(diagnostics => {
+		connection.sendDiagnostics({ uri: document.uri, diagnostics: diagnostics ?? [] });
+	}, () => {
+		connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+	});
 }, (document): number => {
 	return document.version;
 });
@@ -1099,6 +1091,7 @@ messageQueue.registerRequest(Proposed.DiagnosticRequest.type, async (params, _to
 	if (document === undefined) {
 		return { items: [] };
 	}
+	codeActions.delete(document.uri);
 	try {
 		const diagnostics = await validateSingle(document);
 		return { items: diagnostics ?? [] };
@@ -1114,66 +1107,77 @@ function setupDocumentsListeners() {
 	// The documents manager listen for text document create, change
 	// and close on the connection
 	documents.listen(connection);
-	documents.onDidOpen((event) => {
-		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-				return;
-			}
-			if (settings.run === 'onSave' && settings.diagnositicMode === DiagnosticMode.push) {
-				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-			}
-		});
-	});
+	// documents.onDidOpen((event) => {
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
+	// 			return;
+	// 		}
+	// 		if (settings.run === 'onSave') {
+	// 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	// 		}
+	// 	});
+	// });
 
 	// A text document has changed. Validate the document according the run setting.
-	documents.onDidChangeContent((event) => {
-		const uri = event.document.uri;
-		codeActions.delete(uri);
-		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on || settings.run !== 'onType' || settings.diagnositicMode !== DiagnosticMode.push) {
-				return;
-			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-		});
-	});
+	// documents.onDidChangeContent((event) => {
+	// 	const uri = event.document.uri;
+	// 	codeActions.delete(uri);
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		if (settings.validate !== Validate.on || settings.run !== 'onType') {
+	// 			return;
+	// 		}
+	// 		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	// 	});
+	// });
 
 	// A text document has been saved. Validate the document according the run setting.
-	documents.onDidSave((event) => {
-		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on || settings.run !== 'onSave' || settings.diagnositicMode !== DiagnosticMode.push) {
-				return;
-			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-		});
-	});
+	// documents.onDidSave((event) => {
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		if (settings.validate !== Validate.on || settings.run !== 'onSave') {
+	// 			return;
+	// 		}
+	// 		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	// 	});
+	// });
 
+	// documents.onDidClose((event) => {
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		const uri = event.document.uri;
+	// 		document2Settings.delete(uri);
+	// 		codeActions.delete(uri);
+	// 		const unregister = formatterRegistrations.get(event.document.uri);
+	// 		if (unregister !== undefined) {
+	// 			unregister.then(disposable => disposable.dispose());
+	// 			formatterRegistrations.delete(event.document.uri);
+	// 		}
+	// 		if (settings.validate === Validate.on) {
+	// 			connection.sendDiagnostics({ uri: uri, diagnostics: [] });
+	// 		}
+	// 	});
+	// });
 	documents.onDidClose((event) => {
-		resolveSettings(event.document).then((settings) => {
-			const uri = event.document.uri;
-			document2Settings.delete(uri);
-			codeActions.delete(uri);
-			const unregister = formatterRegistrations.get(event.document.uri);
-			if (unregister !== undefined) {
-				unregister.then(disposable => disposable.dispose());
-				formatterRegistrations.delete(event.document.uri);
-			}
-			if (settings.validate === Validate.on) {
-				connection.sendDiagnostics({ uri: uri, diagnostics: [] });
-			}
-		});
+		const uri = event.document.uri;
+		document2Settings.delete(uri);
+		codeActions.delete(uri);
+		const unregister = formatterRegistrations.get(event.document.uri);
+		if (unregister !== undefined) {
+			unregister.then(disposable => disposable.dispose());
+			formatterRegistrations.delete(event.document.uri);
+		}
 	});
 }
 
 function environmentChanged() {
 	document2Settings.clear();
 	executionConfirmations.clear();
-	for (let document of documents.all()) {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	}
+	// for (let document of documents.all()) {
+	// 	messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	// }
 	for (const unregistration of formatterRegistrations.values()) {
 		unregistration.then(disposable => disposable.dispose());
 	}
 	formatterRegistrations.clear();
+	connection.languages.diagnostics.refresh();
 }
 
 function trace(message: string, verbose?: string): void {
@@ -1276,11 +1280,11 @@ function validateSingle(document: TextDocument): Promise<Diagnostic[] | undefine
 	});
 }
 
-function validateMany(documents: TextDocument[]): void {
-	documents.forEach(document => {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	});
-}
+// function validateMany(documents: TextDocument[]): void {
+// 	documents.forEach(document => {
+// 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+// 	});
+// }
 
 function getMessage(err: any, document: TextDocument): string {
 	let result: string | undefined = undefined;
@@ -1423,6 +1427,9 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 	function handleFileName(filename: string): Status {
 		if (!configErrorReported.has(filename)) {
 			connection.console.error(getMessage(error, document));
+			// Check if the config file is open (this is why we syn package.json & eslintrc file).
+			// If it is the case don't show a message dialog since the user will very likely see
+			// an error message in the editor about a misconfiguration.
 			if (!documents.get(URI.file(filename).toString())) {
 				connection.window.showInformationMessage(getMessage(error, document));
 			}
@@ -1529,7 +1536,8 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 			}
 		}
 	});
-	validateMany(documents.all());
+	// validateMany(documents.all());
+	connection.languages.diagnostics.refresh();
 });
 
 class Fixes {

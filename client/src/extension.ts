@@ -2,6 +2,7 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
+/// <reference path="../typings/vscode-proposed.d.ts" />
 'use strict';
 
 import * as path from 'path';
@@ -127,25 +128,6 @@ namespace RunValues {
 	}
 }
 
-type DiagnosticMode = 'push' | 'pull';
-namespace DiagnosticMode {
-	export const push = 'push';
-	export const pull = 'pull';
-	export function from(value: unknown): DiagnosticMode {
-		if (!Is.string(value)) {
-			return 'push';
-		}
-		switch(value.toLowerCase()) {
-			case 'push':
-				return push;
-			case 'pull':
-				return pull;
-			default:
-				return push;
-		}
-	}
-}
-
 interface CodeActionSettings {
 	disableRuleComment: {
 		enable: boolean;
@@ -229,7 +211,6 @@ interface ConfigurationSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
-	diagnosticMode: DiagnosticMode;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
 }
 
@@ -1336,8 +1317,8 @@ function realActivate(context: ExtensionContext): void {
 		middleware: {
 			didOpen: (document, next) => {
 				if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
-					next(document);
 					syncedDocuments.set(document.uri.toString(), document);
+					next(document);
 					return;
 				}
 			},
@@ -1497,7 +1478,6 @@ function realActivate(context: ExtensionContext): void {
 							nodePath: config.get('nodePath', null),
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
-							diagnosticMode: DiagnosticMode.from(config.get<DiagnosticMode>('experimental.diagnosticMode', 'push')),
 							codeAction: {
 								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
