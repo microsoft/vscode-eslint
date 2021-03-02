@@ -1013,7 +1013,7 @@ function realActivate(context: ExtensionContext): void {
 		let icon: string| undefined;
 		let tooltip: string | undefined;
 		let text: string = 'ESLint';
-		let color: ThemeColor | undefined;
+		let backgroundColor: ThemeColor | undefined;
 		switch (status) {
 			case Status.ok:
 				icon = eslintAlwaysAllowExecutionState ? '$(check-all)' : '$(check)';
@@ -1034,7 +1034,7 @@ function realActivate(context: ExtensionContext): void {
 				break;
 			case Status.confirmationPending:
 				icon = '$(circle-slash)';
-				color = new ThemeColor('errorForeground');
+				backgroundColor = new ThemeColor('errorBackground');
 				text = 'ESLINT';
 				tooltip = 'ESLint execution is not approved or denied yet.\nClick to open approval dialog.';
 				break;
@@ -1042,7 +1042,7 @@ function realActivate(context: ExtensionContext): void {
 				icon = eslintAlwaysAllowExecutionState ? '$(check-all)' : '$(check)';
 		}
 		statusBarItem.text = icon ? `${icon} ${text}` : text;
-		statusBarItem.color = color;
+		statusBarItem.backgroundColor = backgroundColor;
 		statusBarItem.tooltip = tooltip ? tooltip : serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
 		const alwaysShow = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
 		if (alwaysShow || eslintAlwaysAllowExecutionState === true || status !== Status.ok || (status === Status.ok && isValidated)) {
