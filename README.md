@@ -39,7 +39,7 @@ You can manage our decisions using the following commands:
 - `ESLint: Manage Library Execution` will reopen aboves dialog
 - `ESLint: Reset Library Decisions` lets you reset previous decisions who have made.
 
-
+This release also addresses the vulnerability described in [CVE-2021-27081](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-27081).
 
 ### Version 2.0.4
 
