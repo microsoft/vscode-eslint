@@ -408,11 +408,12 @@ const eslintAlwaysAllowExecutionKey = 'eslintAlwaysAllowExecution';
 let eslintAlwaysAllowExecutionState: boolean = false;
 
 const confirmedSettingsStateKey = 'eslintConfirmedSettings';
+interface ConfirmedSettingsEntry {
+	runtime: boolean;
+	nodePath: boolean;
+}
 interface ConfirmedSettings {
-	[key: string]: {
-		runtime: boolean;
-		nodePath: boolean;
-	};
+	[key: string]: ConfirmedSettingsEntry;
 }
 let confirmedSettingsState: ConfirmedSettings;
 
@@ -1276,41 +1277,50 @@ function realActivate(context: ExtensionContext): void {
 	const debug = eslintConfig.get('debug');
 
 	const confirmationKey = getConfirmationKey();
-	const confirmedSettings = confirmationKey !== undefined ? confirmedSettingsState[confirmationKey] : undefined;
+	let confirmedSettings = confirmationKey !== undefined ? confirmedSettingsState[confirmationKey] : undefined;
 
-	const getRuntime = (eslintConfig?: WorkspaceConfiguration): string | undefined => {
+	const getLocalSettingsValue = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): T | undefined => {
 		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
-		const result = confirmedSettings === undefined || confirmedSettings.runtime ? eslintConfig.get('runtime', null) : undefined;
-		return result ? result : undefined;
+		const inspect = eslintConfig.inspect(section);
+		if (inspect === undefined) {
+			return undefined;
+		}
+		return (inspect.workspaceFolderValue ?? inspect.workspaceValue ?? inspect.defaultValue ?? undefined) as (T | undefined);
 	};
+
+	const getSettingsValue = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): [T | undefined, boolean] => {
+		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
+		const inspect = eslintConfig.inspect(section);
+		if (inspect === undefined) {
+			return [undefined, false];
+		}
+		let value: T | undefined | null;
+		let confirm: boolean = false;
+		if (confirmedSettings !== undefined && confirmedSettings[section] === true) {
+			// The setting is confirmed. So simply use the get of the setting since we don't
+			// care where it is coming from.
+			value = eslintConfig.get(section);
+		} else {
+			// The setting is not confirmed. So always take the global value.
+			value = (inspect.globalValue ?? inspect.defaultValue ?? undefined) as (T | undefined);
+			// If confirmedSettings is undefined we need to check whether there was a value local that is different from the
+			// global value. If so still take the global value but let the user know that he can confirm a local value.
+			if (confirmedSettings === undefined && (inspect.workspaceValue !== value || inspect.workspaceFolderValue !== value)) {
+				confirm = true;
+			}
+		}
+		return [value ? value : undefined, confirm];
+	};
+
 	// Runtime value can change via the picker.
-	let runtime = getRuntime(eslintConfig);
-	let runtimeNeedsConfirmation: boolean = false;
+	let [runtime, runtimeNeedsConfirmation] = getSettingsValue<string>('runtime', eslintConfig);
 
-	const getNodePath = (eslintConfig?: WorkspaceConfiguration): string | undefined => {
-		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
-		const result = confirmedSettings === undefined || confirmedSettings.runtime ? eslintConfig.get('nodePath', null) : undefined;
-		return result ? result : undefined;
-	};
 	// nodePath value can change using the picker.
-	let nodePath = getNodePath(eslintConfig);
-	let nodePathNeedsConfirmation: boolean = false;
+	let [nodePath, nodePathNeedsConfirmation] = getSettingsValue<string>('nodePath', eslintConfig);
 
-	if (runtime !== undefined && confirmationKey !== undefined && confirmedSettings === undefined) {
-		const runtimeInspect = eslintConfig.inspect('runtime');
-		if (runtime === runtimeInspect?.workspaceValue || runtime === runtimeInspect?.workspaceFolderValue) {
-			runtimeNeedsConfirmation = true;
-		}
-	}
-	if (nodePath !== undefined && confirmationKey !== undefined && confirmedSettings === undefined) {
-		const nodePathInspect = eslintConfig.inspect('nodePath');
-		if (nodePath === nodePathInspect?.workspaceValue || nodePath === nodePathInspect?.workspaceFolderValue) {
-			nodePathNeedsConfirmation = true;
-		}
-	}
 	if (runtimeNeedsConfirmation || nodePathNeedsConfirmation) {
 		const message = runtimeNeedsConfirmation && nodePathNeedsConfirmation
-			? `Both the eslint.runtime and the eslint.nodePath setting requires user confirmation. To do so execute the [Select Node Version](command:eslint.selectNodeRuntime) and the [Select Node Path](command:eslint.selectNodePath) command.`
+			? `Both the eslint.runtime and the eslint.nodePath setting require user confirmation. To do so execute the [Select Node Version](command:eslint.selectNodeRuntime) and the [Select Node Path](command:eslint.selectNodePath) command.`
 			: runtimeNeedsConfirmation
 				? `The eslint.runtime setting requires user confirmation. To do so execute the [Select Node Version](command:eslint.selectNodeRuntime) command.`
 				: `The eslint.nodePath setting requires user confirmation. To do so execute the [Select Node Path](command:eslint.selectNodePath) command.`;
@@ -1987,14 +1997,14 @@ function realActivate(context: ExtensionContext): void {
 				kind: 'default' | 'setting';
 			}
 			const eslintConfig = Workspace.getConfiguration('eslint');
+			const localValue = getLocalSettingsValue<string | undefined>('runtime', eslintConfig);
 			const currentRuntime = runtime;
 			const values: MyQuickPickItem[] = [{ label: `Use VS Code's built-in Node Version`, kind: 'default' }];
-			let confirmedSettings = confirmationKey !== undefined ? confirmedSettingsState[confirmationKey] : undefined;
-			const runtimeSetting = eslintConfig.get('runtime', null);
-			if (runtimeSetting !== null && confirmationKey !== undefined) {
-				values.push({ label: `Use Node Version defined via setting`, detail: runtimeSetting, kind: 'setting' });
+			let current = 0;
+			if (localValue !== undefined && confirmationKey !== undefined) {
+				values.push({ label: `Use Node Version defined via setting`, detail: localValue, kind: 'setting' });
+				current = confirmedSettings !== undefined && confirmedSettings.runtime === true ? 1 : current;
 			}
-			const current = confirmedSettings !== undefined && confirmedSettings.runtime === true ? 1 : 0;
 			values[current].label = `• ${values[current].label}`;
 			const selection = await Window.showQuickPick(values, { placeHolder: 'Select the Node version used to run ESLint'});
 			if (selection === undefined) {
@@ -2008,7 +2018,7 @@ function realActivate(context: ExtensionContext): void {
 			}
 			confirmedSettings.runtime = selection.kind === 'setting';
 			context.globalState.update(confirmedSettingsStateKey, confirmedSettingsState);
-			runtime = getRuntime(eslintConfig);
+			[runtime,] = getSettingsValue<string>('runtime', eslintConfig);
 			if (runtime !== currentRuntime) {
 				serverOptions.run.runtime = runtime;
 				serverOptions.debug.runtime = runtime;
@@ -2020,14 +2030,14 @@ function realActivate(context: ExtensionContext): void {
 				kind: 'default' | 'setting';
 			}
 			const eslintConfig = Workspace.getConfiguration('eslint');
+			const localValue = getLocalSettingsValue<string | undefined>('nodePath', eslintConfig);
 			const currentNodePath = nodePath;
 			const values: MyQuickPickItem[] = [{ label: `Use Node's default NODE_PATH value`, kind: 'default' }];
-			let confirmedSettings = confirmationKey !== undefined ? confirmedSettingsState[confirmationKey] : undefined;
-			const nodePathSetting = eslintConfig.get('nodePath', null);
-			if (nodePathSetting !== null && confirmationKey !== undefined) {
-				values.push({ label: `Use NODE_PATH value defined via setting`, detail: nodePathSetting, kind: 'setting' });
+			let current = 0;
+			if (localValue !== undefined && confirmationKey !== undefined) {
+				values.push({ label: `Use NODE_PATH value defined via setting`, detail: localValue, kind: 'setting' });
+				current = confirmedSettings !== undefined && confirmedSettings.runtime === true ? 1 : current;
 			}
-			const current = confirmedSettings !== undefined && confirmedSettings.nodePath === true ? 1 : 0;
 			values[current].label = `• ${values[current].label}`;
 			const selection = await Window.showQuickPick(values, { placeHolder: 'Select the NODE_PATH value used to resolve modules'});
 			if (selection === undefined) {
@@ -2041,13 +2051,10 @@ function realActivate(context: ExtensionContext): void {
 			}
 			confirmedSettings.nodePath = selection.kind === 'setting';
 			context.globalState.update(confirmedSettingsStateKey, confirmedSettingsState);
-			nodePath = getNodePath(eslintConfig);
+			[nodePath,] = getSettingsValue<string>('nodePath', eslintConfig);
 			if (nodePath !== currentNodePath) {
 				Commands.executeCommand('eslint.restart');
 			}
-		}),
-		Commands.registerCommand('eslint.selectNodePath', () => {
-
 		}),
 		Commands.registerCommand('eslint.manageLibraryExecution', async (params: ConfirmExecutionParams | undefined) => {
 			if (params !== undefined) {

@@ -1,3 +1,8 @@
+### 2.1.17
+
+- add user confirmation for the `eslint.runtime` and the `eslint.nodePath` setting
+- fixed [command to restart server or plugins without quitting vscode](https://github.com/microsoft/vscode-eslint/issues/164)
+
 ### 2.1.16
 
 - Updated Readme document.
