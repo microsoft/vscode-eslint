@@ -14,7 +14,7 @@ This section describes major releases and their improvements. For a detailed lis
 
 ### Version 2.1.17
 
-To follow VS Code model to confirm workspace local settings that impact code execution the two settings `eslint.runtime` and `eslint.nodePath` now need user confirmation if defined locally in a workspace folder or a workspace file. Users using these settings in those local scopes will see a notification reminding them of the confirmation need.
+To follow VS Code's model to confirm workspace local settings that impact code execution the two settings `eslint.runtime` and `eslint.nodePath` now need user confirmation if defined locally in a workspace folder or a workspace file. Users using these settings in those local scopes will see a notification reminding them of the confirmation need.
 
 The version also adds a command to restart the ESLint server.
 
