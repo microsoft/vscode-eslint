@@ -181,12 +181,6 @@ enum ConfirmationSelection {
 	alwaysAllow = 4
 }
 
-enum RuleSeverity {
-	info = 'info',
-	warn = 'warn',
-	error = 'error'
-}
-
 type RuleCustomization = RuleOverride | RuleReset;
 
 interface RuleReset {
@@ -195,7 +189,7 @@ interface RuleReset {
 
 interface RuleOverride {
 	override: string;
-	severity: RuleSeverity;
+	severity: ESLintSeverity;
 }
 
 interface ConfigurationSettings {
@@ -415,6 +409,27 @@ function computeValidate(textDocument: TextDocument): Validate {
 		}
 	}
 	return Validate.off;
+}
+
+function parseRulesCustomizations(rawConfig: Partial<RuleCustomization>[] | unknown): RuleCustomization[] {
+	if (!rawConfig || !Array.isArray(rawConfig)) {
+		return [];
+	}
+
+	return rawConfig.map(rawValue => {
+		if ('reset' in rawValue && typeof rawValue.reset === 'string') {
+			return { reset: rawValue.reset };
+		}
+
+		if ('override' in rawValue && typeof rawValue.override === 'string' && 'severity' in rawValue && typeof rawValue.severity === 'string') {
+			return {
+				override: rawValue.override,
+				severity: rawValue.severity,
+			};
+		}
+
+		return undefined;
+	}).filter((value): value is RuleCustomization => !!value);
 }
 
 let taskProvider: TaskProvider;
@@ -1459,7 +1474,7 @@ function realActivate(context: ExtensionContext): void {
 							quiet: config.get('quiet', false),
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
-							rulesCustomizations: config.get('rules.customizations', []),
+							rulesCustomizations: parseRulesCustomizations(config.get('rules.customizations')),
 							run: config.get('run', 'onType'),
 							nodePath: config.get('nodePath', null),
 							workingDirectory: undefined,
