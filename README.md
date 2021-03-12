@@ -146,9 +146,10 @@ This extension contributes the following variables to the [settings](https://cod
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
-- `eslint.rules.customizations`: force rules to report a different severity within VS Code compared to the project's true ESLint configuration. This is an array that allows two kinds of glob patterns:
-  - `"override`": Overrides for rules with names that match, factoring in asterisks: `{ "override": "no-*", "severity": "warn" }`
-  - `"reset"`: Excludes rules matching a glob from previous overrides: `{ "reset": "*jsx*" }`
+- `eslint.rules.customizations`: force rules to report a different severity within VS Code compared to the project's true ESLint configuration. contain two properties:
+  - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "override": "no-*", "severity": "warn" }`
+    - Prefix the query with a `"!"` to target all rules that _don't_ match the query: `{ "override": "!no-*", "severity": "info" }`
+  - `"override"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"reset"`s them to their original severity
 
   In this example, all rules are overridden to warnings:
 
@@ -158,14 +159,13 @@ This extension contributes the following variables to the [settings](https://cod
   ]
   ```
 
-  In this example, with the exception of `semi` rules and `radix`, all all `no-` rules are warnings and other rules are info:
+  In this example, `no-` rules are informative, other rules are downgraded, and `"radix"` is reset:
 
   ```json
   "eslint.rules.customizations": [
-    { "override": "*", "severity": "warn" },
     { "override": "no-*", "severity": "info" },
-    { "reset": "*semi*" },
-    { "reset": "radix" }
+    { "override": "!no-*", "severity": "downgrade" },
+    { "reset": "radix", "severity": "reset" }
   ]
   ```
 

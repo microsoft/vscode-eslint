@@ -226,20 +226,21 @@ interface CodeActionsOnSaveSettings {
 }
 
 enum RuleSeverity {
+	// Original ESLint values
 	info = 'info',
 	warn = 'warn',
-	error = 'error'
+	error = 'error',
+
+	// Added override changes
+	off = 'off',
+	reset = 'reset',
+	downgrade = 'downgrade',
+	upgrade = 'upgrade'
 }
 
-type RuleCustomization = RuleOverride | RuleReset;
-
-interface RuleReset {
-	reset: string;
-}
-
-interface RuleOverride {
-	override: string;
-	severity: RuleSeverity;
+interface RuleCustomization  {
+	rule: string;
+	override: RuleSeverity;
 }
 
 interface CommonSettings {
@@ -391,7 +392,9 @@ const ruleSeverityCache = new LRUCache<string, RuleSeverity | undefined>(1024);
 let ruleCustomizationsKey: string | undefined;
 
 function asteriskMatches(matcher: string, ruleId: string) {
-	return new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
+	return matcher.startsWith('!')
+		? !(new RegExp(`^${matcher.slice(1).replace(/\*/g, '.*')}$`, 'g').test(ruleId))
+		: new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
 }
 
 function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]) {
@@ -402,12 +405,8 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 	let result: RuleSeverity | undefined;
 
 	for (const customization of customizations) {
-		if ('override' in customization) {
-			if (asteriskMatches(customization.override, ruleId)) {
-				result = customization.severity;
-			}
-		} else if (asteriskMatches(customization.reset, ruleId)) {
-			result = undefined;
+		if (asteriskMatches(customization.rule, ruleId)) {
+			result = customization.override;
 		}
 	}
 
@@ -424,7 +423,7 @@ function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem):
 	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
 	const result: Diagnostic = {
 		message: message,
-		severity: convertSeverity(problem.severity),
+		severity: convertSeverityToDiagnosticWithOverride(problem.severity, getSeverityOverride(problem.ruleId, settings.rulesCustomizations)),
 		source: 'eslint',
 		range: {
 			start: { line: startLine, character: startChar },
@@ -442,11 +441,6 @@ function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem):
 		if (problem.ruleId === 'no-unused-vars') {
 			result.tags = [DiagnosticTag.Unnecessary];
 		}
-	}
-
-	const severityOverride = getSeverityOverride(problem.ruleId, settings.rulesCustomizations);
-	if (severityOverride) {
-		result.severity = convertSeverity(severityOverride);
 	}
 
 	return result;
@@ -519,7 +513,37 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	 });
 }
 
-function convertSeverity(severity: number | RuleSeverity): DiagnosticSeverity {
+function adjustSeverityForOverride(severity: number | RuleSeverity, severityOverride?: RuleSeverity) {
+	switch (severityOverride) {
+		case RuleSeverity.info:
+		case RuleSeverity.warn:
+		case RuleSeverity.error:
+			return severityOverride;
+
+		case RuleSeverity.downgrade:
+			switch (convertSeverityToDiagnostic(severity)) {
+				case DiagnosticSeverity.Error:
+					return RuleSeverity.warn;
+				case DiagnosticSeverity.Warning:
+				case DiagnosticSeverity.Information:
+					return RuleSeverity.info;
+			}
+
+		case RuleSeverity.upgrade:
+			switch (convertSeverityToDiagnostic(severity)) {
+				case DiagnosticSeverity.Information:
+					return RuleSeverity.warn;
+				case DiagnosticSeverity.Warning:
+				case DiagnosticSeverity.Error:
+					return RuleSeverity.error;
+			}
+
+		default:
+			return severity;
+	}
+}
+
+function convertSeverityToDiagnostic(severity: number | RuleSeverity) {
 	// RuleSeverity concerns an overridden rule. A number is direct from ESLint.
 	switch (severity) {
 		// Eslint 1 is warning
@@ -534,6 +558,11 @@ function convertSeverity(severity: number | RuleSeverity): DiagnosticSeverity {
 		default:
 			return DiagnosticSeverity.Error;
 	}
+}
+
+function convertSeverityToDiagnosticWithOverride(severity: number | RuleSeverity, severityOverride: RuleSeverity | undefined): DiagnosticSeverity {
+	return convertSeverityToDiagnostic(adjustSeverityForOverride(severity, severityOverride));
+
 }
 
 const enum CharCode {
@@ -1375,7 +1404,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
-						const isWarning = convertSeverity(problem.severity) === DiagnosticSeverity.Warning;
+						const isWarning = convertSeverityToDiagnostic(problem.severity) === DiagnosticSeverity.Warning;
 						if (settings.quiet && isWarning) {
 							// Filter out warnings when quiet mode is enabled
 							return;

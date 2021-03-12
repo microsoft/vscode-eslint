@@ -380,45 +380,25 @@
 					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules.",
 					"items": {
 						"properties": {
-							"anyOf": [
-								{
-									"properties": {
-										"severity": {
-											"type": "string",
-											"enum": [
-												"off",
-												"messages",
-												"verbose"
-											]
-										},
-										"override": {
-											"type": "string"
-										}
-									},
-									"type": "object"
-								},
-								{
-									"properties": {
-										"reset": {
-											"type": "string"
-										}
-									},
-									"type": "object"
-								}
-							]
+							"override": {
+								"enum": [
+									"downgrade",
+									"error",
+									"info",
+									"reset",
+									"upgrade",
+									"warn"
+								],
+								"type": "string"
+							},
+							"rule": {
+								"type": "string"
+							}
 						},
 						"type": "object"
 					},
 					"scope": "resource",
-					"type": "array",
-					"additionalProperties": {
-						"type": "string",
-						"enum": [
-							"info",
-							"warn",
-							"error"
-						]
-					}
+					"type": "array"
 				}
 			}
 		},

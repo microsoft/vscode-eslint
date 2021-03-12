@@ -181,15 +181,21 @@ enum ConfirmationSelection {
 	alwaysAllow = 4
 }
 
-type RuleCustomization = RuleOverride | RuleReset;
+enum RuleSeverity {
+	// Original ESLint values
+	info = 'info',
+	warn = 'warn',
+	error = 'error',
 
-interface RuleReset {
-	reset: string;
+	// Added override changes
+	reset = 'reset',
+	downgrade = 'downgrade',
+	upgrade = 'upgrade'
 }
 
-interface RuleOverride {
-	override: string;
-	severity: ESLintSeverity;
+interface RuleCustomization  {
+	rule: string;
+	override: RuleSeverity;
 }
 
 interface ConfigurationSettings {
@@ -411,20 +417,16 @@ function computeValidate(textDocument: TextDocument): Validate {
 	return Validate.off;
 }
 
-function parseRulesCustomizations(rawConfig: Partial<RuleCustomization>[] | unknown): RuleCustomization[] {
+function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
 	if (!rawConfig || !Array.isArray(rawConfig)) {
 		return [];
 	}
 
 	return rawConfig.map(rawValue => {
-		if ('reset' in rawValue && typeof rawValue.reset === 'string') {
-			return { reset: rawValue.reset };
-		}
-
-		if ('override' in rawValue && typeof rawValue.override === 'string' && 'severity' in rawValue && typeof rawValue.severity === 'string') {
+		if ('override' in rawValue && typeof rawValue.override === 'string' && 'rule' in rawValue && typeof rawValue.rule === 'string') {
 			return {
 				override: rawValue.override,
-				severity: rawValue.severity,
+				rule: rawValue.rule,
 			};
 		}
 
