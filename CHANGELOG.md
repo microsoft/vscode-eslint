@@ -1,3 +1,7 @@
+### 2.1.19
+
+- fixe [Using `eslint.nodePath` globally rather than locally, yet on every new window: `The eslint.nodePath setting requires user confirmation. To do so execute the Select Node Path command.`](https://github.com/microsoft/vscode-eslint/issues/1203)
+
 ### 2.1.18
 
 - warn about nodePath values being defined separately in the workspace folder although a multi workspace folder setup is open.
