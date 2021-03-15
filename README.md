@@ -12,6 +12,26 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md);
 
+### Version 2.1.18
+
+Asking for confirmation of the `eslint.nodePath` value revealed a setup where that value is defined separately on a workspace folder level although a multi workspace folder setup is open (e.g. a code-workspace file). These setups need to define the `eslint.nodePath` value in the corresponding `code-workspace` file and the extension now warns the user about it. Below an example of such a `code-workspace` file
+
+```json
+{
+        "folders": [
+                {
+                        "path": "project-a"
+                },
+                {
+                        "path": "project-b"
+                }
+        ],
+        "settings": {
+                "eslint.nodePath": "myCustomNodePath"
+        }
+}
+```
+
 ### Version 2.1.17
 
 To follow VS Code's model to confirm workspace local settings that impact code execution the two settings `eslint.runtime` and `eslint.nodePath` now need user confirmation if defined locally in a workspace folder or a workspace file. Users using these settings in those local scopes will see a notification reminding them of the confirmation need.

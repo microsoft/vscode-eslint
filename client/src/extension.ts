@@ -1279,13 +1279,22 @@ function realActivate(context: ExtensionContext): void {
 	const confirmationKey = getConfirmationKey();
 	let confirmedSettings = confirmationKey !== undefined ? confirmedSettingsState[confirmationKey] : undefined;
 
-	const getLocalSettingsValue = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): T | undefined => {
+	const getSettingValueToConfirm = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): T | undefined => {
 		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
 		const inspect = eslintConfig.inspect(section);
 		if (inspect === undefined) {
 			return undefined;
 		}
 		return (inspect.workspaceFolderValue ?? inspect.workspaceValue ?? inspect.defaultValue ?? undefined) as (T | undefined);
+	};
+
+	const getWorkspaceSettingValue = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): T | undefined  => {
+		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
+		const inspect = eslintConfig.inspect(section);
+		if (inspect === undefined) {
+			return undefined;
+		}
+		return (inspect.workspaceValue ?? inspect.globalValue ?? inspect.defaultValue ?? undefined) as (T | undefined);
 	};
 
 	const getSettingsValue = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): [T | undefined, boolean] => {
@@ -1302,7 +1311,7 @@ function realActivate(context: ExtensionContext): void {
 			value = eslintConfig.get(section);
 		} else {
 			// The setting is not confirmed. So always take the global value.
-			value = (inspect.globalValue ?? inspect.defaultValue ?? undefined) as (T | undefined);
+			value = (inspect.globalValue ?? inspect.defaultValue ?? undefined) as (T | undefined | null);
 			// If confirmedSettings is undefined we need to check whether there was a value local that is different from the
 			// global value. If so still take the global value but let the user know that he can confirm a local value.
 			if (confirmedSettings === undefined && (inspect.workspaceValue !== value || inspect.workspaceFolderValue !== value)) {
@@ -1317,6 +1326,27 @@ function realActivate(context: ExtensionContext): void {
 
 	// nodePath value can change using the picker.
 	let [nodePath, nodePathNeedsConfirmation] = getSettingsValue<string>('nodePath', eslintConfig);
+
+	// Check that we don't have a nodePath
+	if (getWorkspaceSettingValue('nodePath', eslintConfig) === undefined && Workspace.workspaceFolders !== undefined && Workspace.workspaceFolders.length > 1) {
+		const foldersWithValue: string[] = [];
+		for (const folder of Workspace.workspaceFolders) {
+			const folderConfig = Workspace.getConfiguration('eslint', folder);
+			const inspect = folderConfig.inspect('nodePath');
+			if (inspect !== undefined && typeof inspect.workspaceFolderValue === 'string') {
+				foldersWithValue.push(folder.name);
+			}
+		}
+		let message: string | undefined;
+		if (foldersWithValue.length === 1) {
+			message = `The workspace folder ${foldersWithValue[0]} defines a nodePath value. In a multi workspace folder setup the value needs to be defined in the 'code-workspace' file.`;
+		} else if (foldersWithValue.length > 1) {
+			message = `The workspace folders ${foldersWithValue.slice(0, foldersWithValue.length - 1).join(', ')} and ${foldersWithValue[foldersWithValue.length -1]} define a nodePath value. In a multi workspace folder setup only one nodePath can be defined and its value must be specified in the 'code-workspace' file.`;
+		}
+		if (message !== undefined) {
+			Window.showInformationMessage(message);
+		}
+	}
 
 	if (runtimeNeedsConfirmation || nodePathNeedsConfirmation) {
 		const message = runtimeNeedsConfirmation && nodePathNeedsConfirmation
@@ -1997,7 +2027,7 @@ function realActivate(context: ExtensionContext): void {
 				kind: 'default' | 'setting';
 			}
 			const eslintConfig = Workspace.getConfiguration('eslint');
-			const localValue = getLocalSettingsValue<string | undefined>('runtime', eslintConfig);
+			const localValue = getSettingValueToConfirm<string | undefined>('runtime', eslintConfig);
 			const currentRuntime = runtime;
 			const values: MyQuickPickItem[] = [{ label: `Use VS Code's built-in Node Version`, kind: 'default' }];
 			let current = 0;
@@ -2030,7 +2060,7 @@ function realActivate(context: ExtensionContext): void {
 				kind: 'default' | 'setting';
 			}
 			const eslintConfig = Workspace.getConfiguration('eslint');
-			const localValue = getLocalSettingsValue<string | undefined>('nodePath', eslintConfig);
+			const localValue = getSettingValueToConfirm<string | undefined>('nodePath', eslintConfig);
 			const currentNodePath = nodePath;
 			const values: MyQuickPickItem[] = [{ label: `Use Node's default NODE_PATH value`, kind: 'default' }];
 			let current = 0;

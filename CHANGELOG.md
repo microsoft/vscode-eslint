@@ -1,3 +1,7 @@
+### 2.1.18
+
+- warn about nodePath values being defined separately in the workspace folder although a multi workspace folder setup is open.
+
 ### 2.1.17
 
 - add user confirmation for the `eslint.runtime` and the `eslint.nodePath` setting
