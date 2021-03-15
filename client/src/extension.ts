@@ -1312,9 +1312,10 @@ function realActivate(context: ExtensionContext): void {
 		} else {
 			// The setting is not confirmed. So always take the global value.
 			value = (inspect.globalValue ?? inspect.defaultValue ?? undefined) as (T | undefined | null);
-			// If confirmedSettings is undefined we need to check whether there was a value local that is different from the
-			// global value. If so still take the global value but let the user know that he can confirm a local value.
-			if (confirmedSettings === undefined && (inspect.workspaceValue !== value || inspect.workspaceFolderValue !== value)) {
+			// If confirmedSettings is undefined we need to check whether there was a value local either as a workspace or
+			// workspace folder value. It is enough to check for undefined since values not in scope default to undefined (e.g.
+			// the folder value is undefined if a workspace is open).
+			if (confirmedSettings === undefined && (inspect.workspaceValue !== undefined || inspect.workspaceFolderValue !== undefined)) {
 				confirm = true;
 			}
 		}
