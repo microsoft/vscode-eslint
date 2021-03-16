@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "1.9.2",
+	"version": "2.1.19",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,10 +22,13 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.38.0"
+		"vscode": "^1.53.0"
 	},
 	"activationEvents": [
-		"*"
+		"onStartupFinished"
+	],
+	"extensionKind": [
+		"workspace"
 	],
 	"main": "./client/out/extension",
 	"contributes": {
@@ -37,7 +40,8 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether eslint is enabled for JavaScript files or not."
+					"description": "Controls whether eslint is enabled or not.",
+					"deprecationMessage": "This setting is deprecated. Disable ESLint using the extensions viewlet."
 				},
 				"eslint.packageManager": {
 					"scope": "resource",
@@ -56,8 +60,17 @@
 					"description": "Always show the ESlint status bar item.",
 					"scope": "window"
 				},
-				"eslint.nodePath": {
+				"eslint.nodeEnv": {
 					"scope": "resource",
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "The value of NODE_ENV to use when running eslint tasks."
+				},
+				"eslint.nodePath": {
+					"scope": "machine-overridable",
 					"type": [
 						"string",
 						"null"
@@ -123,14 +136,34 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
-					"deprecationMessage": "The setting is deprecated. Use editor.codeActionsOnSave instead with a source.fixAll.eslint member",
-					"description": "Turns auto fix on save on or off."
+					"description": "Turns auto fix on save on or off.",
+					"deprecationMessage": "The setting is deprecated. Use editor.codeActionsOnSave instead with a source.fixAll.eslint member."
 				},
 				"eslint.quiet": {
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
 					"description": "Turns on quiet mode, which ignores warnings."
+				},
+				"eslint.onIgnoredFiles": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"warn",
+						"off"
+					],
+					"default": "off",
+					"description": "Whether ESLint should issue a warning on ignored files."
+				},
+				"eslint.migration.2_x": {
+					"scope": "application",
+					"type": "string",
+					"enum": [
+						"off",
+						"on"
+					],
+					"default": "on",
+					"description": "Whether ESlint should migrate auto fix on save settings."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
@@ -143,15 +176,67 @@
 							{
 								"type": "object",
 								"properties": {
+									"mode": {
+										"type": "string",
+										"enum": [
+											"auto",
+											"location"
+										]
+									},
+									"default": "location"
+								},
+								"required": [
+									"mode"
+								]
+							},
+							{
+								"type": "object",
+								"properties": {
 									"directory": {
 										"type": "string",
-										"description": "The working directory to use if a file's path start with this directory."
+										"description": "The working directory to use if a file's path starts with this directory."
 									},
 									"changeProcessCWD": {
 										"type": "boolean",
 										"description": "Whether the process's cwd should be changed as well."
 									}
-								}
+								},
+								"deprecationMessage": "Use the new !cwd form.",
+								"required": [
+									"directory"
+								]
+							},
+							{
+								"type": "object",
+								"properties": {
+									"directory": {
+										"type": "string",
+										"description": "The working directory to use if a file's path starts with this directory."
+									},
+									"!cwd": {
+										"type": "boolean",
+										"description": "Set to true if ESLint shouldn't change the working directory."
+									}
+								},
+								"required": [
+									"directory"
+								]
+							},
+							{
+								"type": "object",
+								"properties": {
+									"pattern": {
+										"type": "string",
+										"description": "A glob pattern to match a working directory."
+									},
+									"!cwd": {
+										"type": "boolean",
+										"description": "Set to true if ESLint shouldn't change the working directory."
+									}
+								},
+								"required": [
+									"pattern"
+								]
 							}
 						]
 					}
@@ -169,21 +254,35 @@
 								"properties": {
 									"language": {
 										"type": "string",
-										"description": "The language id to be validated by ESLint"
+										"description": "The language id to be validated by ESLint."
 									},
 									"autoFix": {
 										"type": "boolean",
-										"description": "Whether auto fixes are provided for the language"
+										"description": "Whether auto fixes are provided for the language."
 									}
-								}
+								},
+								"deprecationMessage": "Auto Fix is enabled by default. Use the single string form."
 							}
 						]
 					},
+					"description": "An array of language ids which should be validated by ESLint. If not installed ESLint will show an error."
+				},
+				"eslint.probe": {
+					"scope": "resource",
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
 					"default": [
 						"javascript",
-						"javascriptreact"
+						"javascriptreact",
+						"typescript",
+						"typescriptreact",
+						"html",
+						"vue",
+						"markdown"
 					],
-					"description": "An array of language ids which should be validated by ESLint"
+					"description": "An array of language ids for which the extension should probe if support is installed."
 				},
 				"eslint.provideLintTask": {
 					"scope": "resource",
@@ -205,13 +304,19 @@
 					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
 				},
 				"eslint.runtime": {
-					"scope": "machine",
+					"scope": "machine-overridable",
 					"type": [
 						"string",
 						"null"
 					],
 					"default": null,
-					"description": "The location of the node binary to run ESLint under."
+					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
+				},
+				"eslint.debug": {
+					"scope": "window",
+					"type": "boolean",
+					"default": false,
+					"description": "Enables ESLint debug mode (same as --debug on the command line)"
 				},
 				"eslint.codeAction.disableRuleComment": {
 					"scope": "resource",
@@ -251,17 +356,25 @@
 						}
 					}
 				},
+				"eslint.codeActionsOnSave.mode": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"all",
+						"problems"
+					],
+					"enumDescriptions": [
+						"Fixes all possible problems in the file. This option might take some time.",
+						"Only fixes reported problems that have non overlapping textual edits. This options runs a lot faster."
+					],
+					"default": "all",
+					"description": "Specifies the code action mode. Possible values are 'all' and 'problems'."
+				},
 				"eslint.format.enable": {
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
 					"description": "Enables ESLint as a formatter."
-				},
-				"eslint.experimental.incrementalSync": {
-					"scope": "machine",
-					"type": "boolean",
-					"default": false,
-					"description": "Controls whether the new incremental text document synchronization should be used."
 				}
 			}
 		},
@@ -277,19 +390,39 @@
 				"command": "eslint.createConfig"
 			},
 			{
-				"title": "Enable ESLint",
-				"category": "ESLint",
-				"command": "eslint.enable"
-			},
-			{
-				"title": "Disable ESLint",
-				"category": "ESLint",
-				"command": "eslint.disable"
-			},
-			{
 				"title": "Show Output Channel",
 				"category": "ESLint",
 				"command": "eslint.showOutputChannel"
+			},
+			{
+				"title": "Migrate Settings",
+				"category": "ESLint",
+				"command": "eslint.migrateSettings"
+			},
+			{
+				"title": "Reset Library Execution Decisions",
+				"category": "ESLint",
+				"command": "eslint.resetLibraryExecution"
+			},
+			{
+				"title": "Manage Library Execution",
+				"category": "ESLint",
+				"command": "eslint.manageLibraryExecution"
+			},
+			{
+				"title": "Select Node Runtime",
+				"category": "ESLint",
+				"command": "eslint.selectNodeRuntime"
+			},
+			{
+				"title": "Select Node Path",
+				"category": "ESLint",
+				"command": "eslint.selectNodePath"
+			},
+			{
+				"title": "Restart ESLint Server",
+				"category": "ESLint",
+				"command": "eslint.restart"
 			}
 		],
 		"taskDefinitions": [
@@ -300,17 +433,21 @@
 		"jsonValidation": [
 			{
 				"fileMatch": ".eslintrc",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
 			},
 			{
 				"fileMatch": ".eslintrc.json",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
+			},
+			{
+				"fileMatch": "package.json",
+				"url": "./package-json-schema.json"
 			}
 		],
 		"languages": [
 			{
 				"id": "ignore",
-				"filenames": [
+				"extensions": [
 					".eslintignore"
 				]
 			},
@@ -337,14 +474,17 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
+		"@types/mocha": "^8.0.4",
 		"@types/node": "^12.12.6",
-		"typescript": "^3.7.2",
-		"eslint": "^6.6.0",
-		"@typescript-eslint/parser": "^2.6.1",
-		"webpack": "^4.39.2",
-		"webpack-cli": "^3.3.7",
-		"ts-loader": "^5.4.5",
-		"merge-options": "^1.0.1",
-		"rimraf": "^3.0.0"
+		"@typescript-eslint/eslint-plugin": "^4.9.1",
+		"@typescript-eslint/parser": "^4.9.1",
+		"eslint": "^7.15.0",
+		"merge-options": "^3.0.4",
+		"mocha": "^8.2.1",
+		"rimraf": "^3.0.2",
+		"ts-loader": "^8.0.11",
+		"typescript": "^4.1.2",
+		"webpack": "^5.10.0",
+		"webpack-cli": "^4.2.0"
 	}
 }

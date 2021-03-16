@@ -12,15 +12,30 @@
 	"editor.tabSize": 4,
 	"typescript.tsdk": "./node_modules/typescript/lib",
 	"typescript.tsc.autoDetect": "off",
+	"typescript.tsserver.trace": "off",
+	"typescript.tsserver.log": "off",
 	"tslint.enable": false,
 	"eslint.enable": true,
-	"eslint.validate": [
-		{ "language": "typescript", "autoFix": true }
-	],
+	"editor.codeActionsOnSave": {
+		"source.fixAll.eslint": true
+	},
+	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.workingDirectories": [
-		{ "directory": "./client", "changeProcessCWD": true },
-		{ "directory": "./server", "changeProcessCWD": true }
+		"./client",
+		"./server"
 	],
 	"eslint.trace.server": "off",
+	"eslint.debug": false,
 	"eslint.lintTask.enable": false,
+	"eslint.format.enable": true,
+	"cSpell.words": [
+		"Affordance",
+		"Autofix",
+		"configurability",
+		"dbaeumer",
+		"eslintignore",
+		"eslintr",
+		"mydirectory",
+		"pnpm"
+	]
 }

@@ -1,3 +1,114 @@
+### 2.1.19
+
+- fixe [Using `eslint.nodePath` globally rather than locally, yet on every new window: `The eslint.nodePath setting requires user confirmation. To do so execute the Select Node Path command.`](https://github.com/microsoft/vscode-eslint/issues/1203)
+
+### 2.1.18
+
+- warn about nodePath values being defined separately in the workspace folder although a multi workspace folder setup is open.
+
+### 2.1.17
+
+- add user confirmation for the `eslint.runtime` and the `eslint.nodePath` setting
+- fixed [command to restart server or plugins without quitting vscode](https://github.com/microsoft/vscode-eslint/issues/164)
+
+### 2.1.16
+
+- Updated Readme document.
+
+### 2.1.15
+
+- Internal insider release.
+
+### 2.1.14
+
+- Update to version 7.0.0 of the LSP libraries
+- Various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue+is%3Aclosed+milestone%3A2.1.14).
+
+### 2.1.13
+
+- [v2.1.10 - Extension 'ESlint' cannot format file](https://github.com/microsoft/vscode-eslint/issues/1086)
+
+### 2.1.11 & 2.1.12
+
+- Internal insider release.
+
+### 2.1.10
+
+- Add an 'Always Allow' to the library confirmation dialog added in 2.1.7. Also added a status indication show the ESLint library decision mode.
+- Fixed vulnerability described in [CVE-2021-27081](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-27081)
+
+### 2.1.9
+
+- Internal insider release.
+
+### 2.1.8
+
+- Polish the message of the confirmation dialog that was introduced in 2.1.7
+- Fix bug that caused the confirmation dialog to pop up for all open editors when not trusting the local version of VS Code
+
+### 2.1.7
+
+- Ask the user for confirmation before executing the code from an installed ESLint library. Also added commands to manage the decisions made for the ESLint libraries.
+
+### 2.1.6
+
+- Update LSP libraries
+
+### 2.1.5
+
+- [UnhandledPromiseRejectionWarning: Error: Request workspace/configuration failed with message: Cannot read property 'source.fixAll.eslint' of null](https://github.com/microsoft/vscode-eslint/issues/950)
+- ["Do you want Code to open the external website?" on eslint errors](https://github.com/microsoft/vscode-eslint/issues/949)
+- [all suggestions being applied on save](https://github.com/microsoft/vscode-eslint/issues/947)
+- [Error: "Cannot read property 'source.fixAll.eslint' of null"](https://github.com/microsoft/vscode-eslint/issues/945)
+
+### 2.1.4
+
+- Was used as an insider preview release.
+
+### 2.1.3
+
+- [FixAll on save doesn't pick up file change from organize imports](https://github.com/microsoft/vscode-eslint/issues/939)
+
+### 2.1.2
+
+- [Adopt new link support in diagnostics](https://github.com/microsoft/vscode-eslint/issues/911)
+
+### 2.1.1
+
+- [Support for ESLint suggest API](https://github.com/microsoft/vscode-eslint/pull/814)
+
+### 2.0.15
+
+- Update to latest LSP libraries
+
+### 2.0.14
+
+- Bug Fixes:
+  - [Auto fix made double comma to fix trailing comma](https://github.com/microsoft/vscode-eslint/issues/871)
+
+### 2.0.13
+
+- Fixes [no validation of .vue files (2.0.12)](https://github.com/microsoft/vscode-eslint/issues/870)
+
+### 2.0.12
+
+- Improved performance for code actions on save by reusing fixes for already known problems.
+- Added a setting `eslint.codeActionsOnSave.mode` to revive the 1.9.x version behavior of only fixing already known problems on save.
+- Bug fixes:
+  - [Can't lint .ts files when use vue-eslint-parser](https://github.com/microsoft/vscode-eslint/issues/864)
+
+### 2.0.11
+
+- Fixes [Eslint not working when open above level directory](https://github.com/microsoft/vscode-eslint/issues/854)
+
+### 2.0.10
+
+- Various bug fixes especially around settings migration.
+
+### 2.0.4
+
+A new major version of the extension. Major improvements are around code actions on save, formatting, working directory setup and validating of TypeScript files.
+
 ### 1.9.2
 
 - Moved to latest LSP libraries
