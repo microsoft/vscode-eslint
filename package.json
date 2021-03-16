@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.5",
+	"version": "2.1.19",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,10 +22,13 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.43.0"
+		"vscode": "^1.53.0"
 	},
 	"activationEvents": [
-		"*"
+		"onStartupFinished"
+	],
+	"extensionKind": [
+		"workspace"
 	],
 	"main": "./client/out/extension",
 	"contributes": {
@@ -37,7 +40,8 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether eslint is enabled for JavaScript files or not."
+					"description": "Controls whether eslint is enabled or not.",
+					"deprecationMessage": "This setting is deprecated. Disable ESLint using the extensions viewlet."
 				},
 				"eslint.packageManager": {
 					"scope": "resource",
@@ -56,8 +60,17 @@
 					"description": "Always show the ESlint status bar item.",
 					"scope": "window"
 				},
-				"eslint.nodePath": {
+				"eslint.nodeEnv": {
 					"scope": "resource",
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "The value of NODE_ENV to use when running eslint tasks."
+				},
+				"eslint.nodePath": {
+					"scope": "machine-overridable",
 					"type": [
 						"string",
 						"null"
@@ -291,13 +304,13 @@
 					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
 				},
 				"eslint.runtime": {
-					"scope": "machine",
+					"scope": "machine-overridable",
 					"type": [
 						"string",
 						"null"
 					],
 					"default": null,
-					"description": "The location of the node binary to run ESLint under."
+					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
 				},
 				"eslint.debug": {
 					"scope": "window",
@@ -395,16 +408,6 @@
 				"command": "eslint.createConfig"
 			},
 			{
-				"title": "Enable ESLint",
-				"category": "ESLint",
-				"command": "eslint.enable"
-			},
-			{
-				"title": "Disable ESLint",
-				"category": "ESLint",
-				"command": "eslint.disable"
-			},
-			{
 				"title": "Show Output Channel",
 				"category": "ESLint",
 				"command": "eslint.showOutputChannel"
@@ -413,6 +416,31 @@
 				"title": "Migrate Settings",
 				"category": "ESLint",
 				"command": "eslint.migrateSettings"
+			},
+			{
+				"title": "Reset Library Execution Decisions",
+				"category": "ESLint",
+				"command": "eslint.resetLibraryExecution"
+			},
+			{
+				"title": "Manage Library Execution",
+				"category": "ESLint",
+				"command": "eslint.manageLibraryExecution"
+			},
+			{
+				"title": "Select Node Runtime",
+				"category": "ESLint",
+				"command": "eslint.selectNodeRuntime"
+			},
+			{
+				"title": "Select Node Path",
+				"category": "ESLint",
+				"command": "eslint.selectNodePath"
+			},
+			{
+				"title": "Restart ESLint Server",
+				"category": "ESLint",
+				"command": "eslint.restart"
 			}
 		],
 		"taskDefinitions": [
@@ -423,11 +451,11 @@
 		"jsonValidation": [
 			{
 				"fileMatch": ".eslintrc",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
 			},
 			{
 				"fileMatch": ".eslintrc.json",
-				"url": "http://json.schemastore.org/eslintrc"
+				"url": "https://json.schemastore.org/eslintrc"
 			},
 			{
 				"fileMatch": "package.json",
@@ -437,7 +465,7 @@
 		"languages": [
 			{
 				"id": "ignore",
-				"filenames": [
+				"extensions": [
 					".eslintignore"
 				]
 			},
@@ -464,16 +492,17 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
+		"@types/mocha": "^8.0.4",
 		"@types/node": "^12.12.6",
-		"typescript": "^3.8.3",
-		"eslint": "^6.8.0",
-		"@typescript-eslint/parser": "^2.31.0",
-		"webpack": "^4.43.0",
-		"webpack-cli": "^3.3.11",
-		"ts-loader": "^6.2.1",
-		"merge-options": "^2.0.0",
+		"@typescript-eslint/eslint-plugin": "^4.9.1",
+		"@typescript-eslint/parser": "^4.9.1",
+		"eslint": "^7.15.0",
+		"merge-options": "^3.0.4",
+		"mocha": "^8.2.1",
 		"rimraf": "^3.0.2",
-		"@types/mocha": "^7.0.2",
-		"mocha": "^7.1.2"
+		"ts-loader": "^8.0.11",
+		"typescript": "^4.1.2",
+		"webpack": "^5.10.0",
+		"webpack-cli": "^4.2.0"
 	}
 }

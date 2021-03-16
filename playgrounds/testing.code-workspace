@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "6.0"
+		},
+		{
+			"path": "ts"
+		}
+	],
+	"settings": {
+		"eslint.trace.server": {
+			"verbosity": "messages",
+			"format": "text"
+		},
+		"files.autoSave": "off",
+		"eslint.alwaysShowStatus": true,
+		"typescript.surveys.enabled": false
+	}
+}

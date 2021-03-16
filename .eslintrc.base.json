@@ -4,11 +4,15 @@
 		"ecmaVersion": 6,
 		"sourceType": "module"
 	},
+    "plugins": [
+        "@typescript-eslint"
+    ],
 	"env": {
 		"node": true
 	},
 	"rules": {
-		"semi": "error",
+        "semi": "off",
+        "@typescript-eslint/semi": "error",
 		"no-extra-semi": "warn",
 		"curly": "warn",
 		"quotes": ["error", "single", { "allowTemplateLiterals": true } ],

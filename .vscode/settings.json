@@ -27,5 +27,15 @@
 	"eslint.trace.server": "off",
 	"eslint.debug": false,
 	"eslint.lintTask.enable": false,
-	"eslint.format.enable": true
+	"eslint.format.enable": true,
+	"cSpell.words": [
+		"Affordance",
+		"Autofix",
+		"configurability",
+		"dbaeumer",
+		"eslintignore",
+		"eslintr",
+		"mydirectory",
+		"pnpm"
+	]
 }
