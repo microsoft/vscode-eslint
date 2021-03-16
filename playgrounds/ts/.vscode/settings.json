@@ -1,0 +1,8 @@
+{
+	"eslint.enable": true,
+	"editor.codeActionsOnSave": {
+		"source.fixAll.eslint": true
+	},
+	"eslint.format.enable": true,
+	"eslint.trace.server": "off"
+}

@@ -1,13 +1,13 @@
 {
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
-		"target": "es6",
+		"target": "es2017",
 		"module": "commonjs",
 		"moduleResolution": "node",
 		"sourceMap": true,
 		"outDir": "out",
 		"rootDir": "src",
-		"lib": [ "es6" ]
+		"lib": [ "es2017" ]
 	},
 	"include": [
 		"src"

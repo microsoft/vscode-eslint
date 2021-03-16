@@ -13,3 +13,5 @@ client/**
 !client/out/extension.js
 server/**
 !server/out/eslintServer.js
+playgrounds/**
+history/**

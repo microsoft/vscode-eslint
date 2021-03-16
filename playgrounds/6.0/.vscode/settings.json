@@ -1,0 +1,70 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+	"eslint.enable": true,
+	// "eslint.options": {
+	// 	"fixTypes": [
+	// 		"suggestion"
+	// 	]
+	// },
+	"eslint.run": "onType",
+	"eslint.workingDirectories": [
+		"./build"
+	],
+	"eslint.packageManager": "yarn",
+	"eslint.trace.server": {
+		"verbosity": "messages",
+		"format": "text"
+	},
+	"files.autoSave": "off",
+	"editor.formatOnSave": false,
+	// , "languageServerExample.trace.server": "messages"
+	"languageServerExample.maxNumberOfProblems": 1,
+	"testbed.trace.server": "off",
+	"eslint.alwaysShowStatus": false,
+	"[javascript]": {
+		"editor.formatOnSave": false,
+		"editor.defaultFormatter": "dbaeumer.vscode-eslint"
+	},
+	"eslint.lintTask.enable": true,
+	"tslint.enable": false,
+	"lspMultiRootSample.maxNumberOfProblems": 2,
+	"typescript.surveys.enabled": false
+	//, "eslint.runtime": "node.exe"
+	,
+	"eslint.codeAction.showDocumentation": {
+		"enable": true
+	},
+	"eslint.codeAction.disableRuleComment": {
+		"enable": true,
+		"location": "separateLine"
+	},
+	"eslint.quiet": false,
+	"editor.codeActionsOnSaveTimeout": 2000,
+	"eslint.format.enable": true,
+	"eslint.onIgnoredFiles": "off",
+	"editor.codeActionsOnSave": {
+		"source.fixAll": true,
+		"source.fixAll.eslint": true
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -3,12 +3,11 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"type": "extensionHost",
+			"type": "pwa-extensionHost",
 			"request": "launch",
 			"name": "Launch Client",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}" ],
-			"stopOnEntry": false,
 			"sourceMaps": true,
 			"outFiles": ["${workspaceFolder}/client/out/**/*.js"],
 			"preLaunchTask": "npm: watch"
@@ -19,7 +18,7 @@
 			"name": "Attach to Server",
 			"address": "localhost",
 			"protocol": "inspector",
-			"port": 6010,
+			"port": 6011,
 			"sourceMaps": true,
 			"outFiles": ["${workspaceFolder}/server/out/**/*.js"]
 		}

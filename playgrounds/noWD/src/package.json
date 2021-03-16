@@ -1,0 +1,12 @@
+{
+  "name": "eslint6_0",
+  "private": true,
+  "version": "1.0.0",
+  "devDependencies": {
+    "eslint": "^6.7.1",
+    "@typescript-eslint/parser": "^2.8.0",
+    "eslint-plugin-html": "^6.0.0",
+    "eslint-plugin-vue": "^6.0.1",
+    "vue-eslint-parser": "^7.0.0"
+  }
+}
