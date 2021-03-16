@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.19",
+	"version": "2.1.9",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,13 +22,10 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.53.0"
+		"vscode": "^1.43.0"
 	},
 	"activationEvents": [
-		"onStartupFinished"
-	],
-	"extensionKind": [
-		"workspace"
+		"*"
 	],
 	"main": "./client/out/extension",
 	"contributes": {
@@ -40,8 +37,7 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether eslint is enabled or not.",
-					"deprecationMessage": "This setting is deprecated. Disable ESLint using the extensions viewlet."
+					"description": "Controls whether eslint is enabled for JavaScript files or not."
 				},
 				"eslint.packageManager": {
 					"scope": "resource",
@@ -60,17 +56,8 @@
 					"description": "Always show the ESlint status bar item.",
 					"scope": "window"
 				},
-				"eslint.nodeEnv": {
-					"scope": "resource",
-					"type": [
-						"string",
-						"null"
-					],
-					"default": null,
-					"description": "The value of NODE_ENV to use when running eslint tasks."
-				},
 				"eslint.nodePath": {
-					"scope": "machine-overridable",
+					"scope": "resource",
 					"type": [
 						"string",
 						"null"
@@ -138,12 +125,6 @@
 					"default": false,
 					"description": "Turns auto fix on save on or off.",
 					"deprecationMessage": "The setting is deprecated. Use editor.codeActionsOnSave instead with a source.fixAll.eslint member."
-				},
-				"eslint.hideAutoFixedIssues": {
-					"scope": "resource",
-					"type": "boolean",
-					"default": false,
-					"description": "Don't show issues that will be autofixed on the next save."
 				},
 				"eslint.quiet": {
 					"scope": "resource",
@@ -310,13 +291,13 @@
 					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
 				},
 				"eslint.runtime": {
-					"scope": "machine-overridable",
+					"scope": "machine",
 					"type": [
 						"string",
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
+					"description": "The location of the node binary to run ESLint under."
 				},
 				"eslint.debug": {
 					"scope": "window",
@@ -396,6 +377,16 @@
 				"command": "eslint.createConfig"
 			},
 			{
+				"title": "Enable ESLint",
+				"category": "ESLint",
+				"command": "eslint.enable"
+			},
+			{
+				"title": "Disable ESLint",
+				"category": "ESLint",
+				"command": "eslint.disable"
+			},
+			{
 				"title": "Show Output Channel",
 				"category": "ESLint",
 				"command": "eslint.showOutputChannel"
@@ -406,29 +397,9 @@
 				"command": "eslint.migrateSettings"
 			},
 			{
-				"title": "Reset Library Execution Decisions",
+				"title": "Reset Library Decisions",
 				"category": "ESLint",
-				"command": "eslint.resetLibraryExecution"
-			},
-			{
-				"title": "Manage Library Execution",
-				"category": "ESLint",
-				"command": "eslint.manageLibraryExecution"
-			},
-			{
-				"title": "Select Node Runtime",
-				"category": "ESLint",
-				"command": "eslint.selectNodeRuntime"
-			},
-			{
-				"title": "Select Node Path",
-				"category": "ESLint",
-				"command": "eslint.selectNodePath"
-			},
-			{
-				"title": "Restart ESLint Server",
-				"category": "ESLint",
-				"command": "eslint.restart"
+				"command": "eslint.manageLibraryConfirmations"
 			}
 		],
 		"taskDefinitions": [
@@ -453,7 +424,7 @@
 		"languages": [
 			{
 				"id": "ignore",
-				"extensions": [
+				"filenames": [
 					".eslintignore"
 				]
 			},
@@ -480,17 +451,17 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"@types/mocha": "^8.0.4",
 		"@types/node": "^12.12.6",
-		"@typescript-eslint/eslint-plugin": "^4.9.1",
-		"@typescript-eslint/parser": "^4.9.1",
-		"eslint": "^7.15.0",
-		"merge-options": "^3.0.4",
-		"mocha": "^8.2.1",
-		"rimraf": "^3.0.2",
-		"ts-loader": "^8.0.11",
-		"typescript": "^4.1.2",
-		"webpack": "^5.10.0",
-		"webpack-cli": "^4.2.0"
+		"typescript": "^3.7.4",
+		"eslint": "^6.6.0",
+		"@typescript-eslint/parser": "^2.6.1",
+		"@typescript-eslint/eslint-plugin": "^3.6.0",
+		"webpack": "^4.41.2",
+		"webpack-cli": "^3.3.10",
+		"ts-loader": "^6.2.1",
+		"merge-options": "^2.0.0",
+		"rimraf": "^3.0.0",
+		"@types/mocha": "^5.2.7",
+		"mocha": "^6.2.2"
 	}
 }
