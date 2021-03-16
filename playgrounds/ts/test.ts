@@ -1,4 +1,4 @@
 export function main(): number {
 	let s = '';
-	return -1;;
+	return -1;
 }
