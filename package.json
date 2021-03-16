@@ -381,6 +381,24 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enables ESLint as a formatter."
+				},
+				"eslint.rules.customizations": {
+					"scope": "resource",
+					"anyOf": [
+						{
+							"type": "object",
+							"properties": {
+								"!": {
+									"type": "string",
+									"enum": [
+										"info",
+										"warn",
+										"error"
+									]
+								}
+							}
+						}
+					]
 				}
 			}
 		},
