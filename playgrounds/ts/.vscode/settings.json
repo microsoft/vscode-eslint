@@ -4,5 +4,8 @@
 		"source.fixAll.eslint": true
 	},
 	"eslint.format.enable": true,
-	"eslint.trace.server": "off"
+	"eslint.trace.server": "off",
+	"eslint.rules.customizations": {
+		"*": "info"
+	}
 }
