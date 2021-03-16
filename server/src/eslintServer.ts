@@ -2,15 +2,14 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-'use strict';
-
 import {
 	createConnection, Connection, ResponseError, RequestType, NotificationType, RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken, TextDocuments, TextDocumentSyncKind, TextEdit,
 	TextDocumentIdentifier, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
-	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0
+	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
+	ProposedFeatures, Proposed, ServerCapabilities
 } from 'vscode-languageserver/node';
 
 import {
@@ -598,7 +597,7 @@ process.on('uncaughtException', (error: any) => {
 	}
 });
 
-const connection = createConnection();
+const connection = createConnection(ProposedFeatures.all);
 connection.console.info(`ESLint server running in node ${process.version}`);
 // Is instantiated in the initialize handle;
 let documents!: TextDocuments<TextDocument>;
@@ -1078,75 +1077,107 @@ namespace ValidateNotification {
 }
 
 messageQueue.onNotification(ValidateNotification.type, (document) => {
-	validateSingle(document, true);
+	validateSingle(document).then(diagnostics => {
+		connection.sendDiagnostics({ uri: document.uri, diagnostics: diagnostics ?? [] });
+	}, () => {
+		connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+	});
 }, (document): number => {
 	return document.version;
+});
+
+messageQueue.registerRequest(Proposed.DiagnosticRequest.type, async (params, _token) => {
+	const document = documents.get(params.textDocument.uri);
+	if (document === undefined) {
+		return { items: [] };
+	}
+	codeActions.delete(document.uri);
+	try {
+		const diagnostics = await validateSingle(document);
+		return { items: diagnostics ?? [] };
+	} catch (err) {
+		return { items: [] };
+	}
+}, (params) => {
+	const document = documents.get(params.textDocument.uri);
+	return document !== undefined ? document.version : undefined;
 });
 
 function setupDocumentsListeners() {
 	// The documents manager listen for text document create, change
 	// and close on the connection
 	documents.listen(connection);
-	documents.onDidOpen((event) => {
-		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-				return;
-			}
-			if (settings.run === 'onSave') {
-				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-			}
-		});
-	});
+	// documents.onDidOpen((event) => {
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
+	// 			return;
+	// 		}
+	// 		if (settings.run === 'onSave') {
+	// 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	// 		}
+	// 	});
+	// });
 
 	// A text document has changed. Validate the document according the run setting.
-	documents.onDidChangeContent((event) => {
-		const uri = event.document.uri;
-		codeActions.delete(uri);
-		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on|| settings.run !== 'onType') {
-				return;
-			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-		});
-	});
+	// documents.onDidChangeContent((event) => {
+	// 	const uri = event.document.uri;
+	// 	codeActions.delete(uri);
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		if (settings.validate !== Validate.on || settings.run !== 'onType') {
+	// 			return;
+	// 		}
+	// 		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	// 	});
+	// });
 
 	// A text document has been saved. Validate the document according the run setting.
-	documents.onDidSave((event) => {
-		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on || settings.run !== 'onSave') {
-				return;
-			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-		});
-	});
+	// documents.onDidSave((event) => {
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		if (settings.validate !== Validate.on || settings.run !== 'onSave') {
+	// 			return;
+	// 		}
+	// 		messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+	// 	});
+	// });
 
+	// documents.onDidClose((event) => {
+	// 	resolveSettings(event.document).then((settings) => {
+	// 		const uri = event.document.uri;
+	// 		document2Settings.delete(uri);
+	// 		codeActions.delete(uri);
+	// 		const unregister = formatterRegistrations.get(event.document.uri);
+	// 		if (unregister !== undefined) {
+	// 			unregister.then(disposable => disposable.dispose());
+	// 			formatterRegistrations.delete(event.document.uri);
+	// 		}
+	// 		if (settings.validate === Validate.on) {
+	// 			connection.sendDiagnostics({ uri: uri, diagnostics: [] });
+	// 		}
+	// 	});
+	// });
 	documents.onDidClose((event) => {
-		resolveSettings(event.document).then((settings) => {
-			const uri = event.document.uri;
-			document2Settings.delete(uri);
-			codeActions.delete(uri);
-			const unregister = formatterRegistrations.get(event.document.uri);
-			if (unregister !== undefined) {
-				unregister.then(disposable => disposable.dispose());
-				formatterRegistrations.delete(event.document.uri);
-			}
-			if (settings.validate === Validate.on) {
-				connection.sendDiagnostics({ uri: uri, diagnostics: [] });
-			}
-		});
+		const uri = event.document.uri;
+		document2Settings.delete(uri);
+		codeActions.delete(uri);
+		const unregister = formatterRegistrations.get(event.document.uri);
+		if (unregister !== undefined) {
+			unregister.then(disposable => disposable.dispose());
+			formatterRegistrations.delete(event.document.uri);
+		}
 	});
 }
 
 function environmentChanged() {
 	document2Settings.clear();
 	executionConfirmations.clear();
-	for (let document of documents.all()) {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	}
+	// for (let document of documents.all()) {
+	// 	messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	// }
 	for (const unregistration of formatterRegistrations.values()) {
 		unregistration.then(disposable => disposable.dispose());
 	}
 	formatterRegistrations.clear();
+	connection.languages.diagnostics.refresh();
 }
 
 function trace(message: string, verbose?: string): void {
@@ -1159,35 +1190,38 @@ connection.onInitialize((_params, _cancel, progress) => {
 	documents = new TextDocuments(TextDocument);
 	setupDocumentsListeners();
 	progress.done();
-	return {
-		capabilities: {
-			textDocumentSync: {
-				openClose: true,
-				change: syncKind,
-				willSaveWaitUntil: false,
-				save: {
-					includeText: false
-				}
-			},
-			workspace: {
-				workspaceFolders: {
-					supported: true
-				}
-			},
-			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
-			executeCommandProvider: {
-				commands: [
-					CommandIds.applySingleFix,
-					CommandIds.applySuggestion,
-					CommandIds.applySameFixes,
-					CommandIds.applyAllFixes,
-					CommandIds.applyDisableLine,
-					CommandIds.applyDisableFile,
-					CommandIds.openRuleDoc,
-				]
+	const capabilities: ServerCapabilities & Proposed.$DiagnosticServerCapabilities = {
+		textDocumentSync: {
+			openClose: true,
+			change: syncKind,
+			willSaveWaitUntil: false,
+			save: {
+				includeText: false
 			}
+		},
+		diagnosticProvider: {
+			identifier: 'eslint2',
+			mode: Proposed.DiagnosticPullModeFlags.onOpen | Proposed.DiagnosticPullModeFlags.onType | Proposed.DiagnosticPullModeFlags.onSave
+		},
+		workspace: {
+			workspaceFolders: {
+				supported: true
+			}
+		},
+		codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
+		executeCommandProvider: {
+			commands: [
+				CommandIds.applySingleFix,
+				CommandIds.applySuggestion,
+				CommandIds.applySameFixes,
+				CommandIds.applyAllFixes,
+				CommandIds.applyDisableLine,
+				CommandIds.applyDisableFile,
+				CommandIds.openRuleDoc,
+			]
 		}
 	};
+	return { capabilities };
 });
 
 connection.onInitialized(() => {
@@ -1210,7 +1244,7 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 	showErrorMessage
 ];
 
-function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
+function validateSingle(document: TextDocument): Promise<Diagnostic[] | undefined> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
 	if (!documents.get(document.uri)) {
@@ -1218,15 +1252,15 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 	}
 	return resolveSettings(document).then((settings) => {
 		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-			return;
+			return undefined;
 		}
+		let result: Diagnostic[] | undefined;
 		try {
-			validate(document, settings, publishDiagnostics);
+			result = validate(document, settings);
 			connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		} catch (err) {
 			// if an exception has occurred while validating clear all errors to ensure
 			// we are not showing any stale once
-			connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 			if (!settings.silent) {
 				let status: Status | undefined = undefined;
 				for (let handler of singleErrorHandlers) {
@@ -1242,14 +1276,15 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 			}
 		}
+		return result;
 	});
 }
 
-function validateMany(documents: TextDocument[]): void {
-	documents.forEach(document => {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	});
-}
+// function validateMany(documents: TextDocument[]): void {
+// 	documents.forEach(document => {
+// 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+// 	});
+// }
 
 function getMessage(err: any, document: TextDocument): string {
 	let result: string | undefined = undefined;
@@ -1275,7 +1310,7 @@ const ruleDocData: {
 
 
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
-function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): void {
+function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Diagnostic[] | undefined {
 	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let fixTypes: Set<string> | undefined = undefined;
 	if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
@@ -1294,7 +1329,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	const uri = document.uri;
 	const file = getFilePath(document);
 
-	withCLIEngine((cli) => {
+	return withCLIEngine((cli) => {
 		codeActions.delete(uri);
 		const report: ESLintReport = cli.executeOnText(content, file, settings.onIgnoredFiles !== ESLintSeverity.off);
 		if (CLIEngine.hasRule(cli) && !ruleDocData.handled.has(uri)) {
@@ -1330,9 +1365,7 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 				});
 			}
 		}
-		if (publishDiagnostics) {
-			connection.sendDiagnostics({ uri, diagnostics });
-		}
+		return diagnostics;
 	}, settings);
 }
 
@@ -1394,6 +1427,9 @@ function tryHandleConfigError(error: any, document: TextDocument, library: ESLin
 	function handleFileName(filename: string): Status {
 		if (!configErrorReported.has(filename)) {
 			connection.console.error(getMessage(error, document));
+			// Check if the config file is open (this is why we syn package.json & eslintrc file).
+			// If it is the case don't show a message dialog since the user will very likely see
+			// an error message in the editor about a misconfiguration.
 			if (!documents.get(URI.file(filename).toString())) {
 				connection.window.showInformationMessage(getMessage(error, document));
 			}
@@ -1500,7 +1536,8 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 			}
 		}
 	});
-	validateMany(documents.all());
+	// validateMany(documents.all());
+	connection.languages.diagnostics.refresh();
 });
 
 class Fixes {
