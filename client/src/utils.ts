@@ -249,7 +249,7 @@ interface Thunk<T> {
 
 interface Waiting<T> {
 	thunk: Thunk<T | PromiseLike<T>>;
-	resolve: (value: T | PromiseLike<T> | undefined) => void;
+	resolve: (value: T | PromiseLike<T>) => void;
 	reject: (reason?: any) => void;
 }
 

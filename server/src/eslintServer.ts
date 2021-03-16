@@ -5,16 +5,12 @@
 'use strict';
 
 import {
-	createConnection, Connection,
-	ResponseError, RequestType, NotificationType, ErrorCodes,
-	RequestHandler, NotificationHandler,
-	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken,
-	TextDocuments, TextDocumentSyncKind, TextEdit, TextDocumentIdentifier,
-	Command, WorkspaceChange,
-	CodeActionRequest, VersionedTextDocumentIdentifier,
-	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification,
-	WorkspaceFolder, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
-	DocumentFormattingRequest, DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit
+	createConnection, Connection, ResponseError, RequestType, NotificationType, RequestHandler, NotificationHandler,
+	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken, TextDocuments, TextDocumentSyncKind, TextEdit,
+	TextDocumentIdentifier, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier,
+	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
+	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
+	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0
 } from 'vscode-languageserver/node';
 
 import {
@@ -76,7 +72,7 @@ interface StatusParams {
 }
 
 namespace StatusNotification {
-	export const type = new NotificationType<StatusParams, void>('eslint/status');
+	export const type = new NotificationType<StatusParams>('eslint/status');
 }
 
 interface NoConfigParams {
@@ -88,7 +84,7 @@ interface NoConfigResult {
 }
 
 namespace NoConfigRequest {
-	export const type = new RequestType<NoConfigParams, NoConfigResult, void, void>('eslint/noConfig');
+	export const type = new RequestType<NoConfigParams, NoConfigResult, void>('eslint/noConfig');
 }
 
 interface NoESLintLibraryParams {
@@ -99,7 +95,7 @@ interface NoESLintLibraryResult {
 }
 
 namespace NoESLintLibraryRequest {
-	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void, void>('eslint/noLibrary');
+	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void>('eslint/noLibrary');
 }
 
 interface OpenESLintDocParams {
@@ -110,7 +106,7 @@ interface OpenESLintDocResult {
 }
 
 namespace OpenESLintDocRequest {
-	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void, void>('eslint/openDoc');
+	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void>('eslint/openDoc');
 }
 
 interface ProbeFailedParams {
@@ -118,7 +114,7 @@ interface ProbeFailedParams {
 }
 
 namespace ProbeFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void, void>('eslint/probeFailed');
+	export const type = new RequestType<ProbeFailedParams, void, void>('eslint/probeFailed');
 }
 
 interface ConfirmExecutionParams {
@@ -150,7 +146,11 @@ namespace ConfirmExecutionResult {
 }
 
 namespace ConfirmExecution {
-	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void, void>('eslint/confirmESLintExecution');
+	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void>('eslint/confirmESLintExecution');
+}
+
+namespace ShowOutputChannel {
+	export const type = new NotificationType0('eslint/showOutputChannel');
 }
 
 type RunValues = 'onType' | 'onSave';
@@ -385,13 +385,14 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	};
 	if (problem.ruleId) {
 		const url = ruleDocData.urls.get(problem.ruleId);
+		result.code = problem.ruleId;
 		if (url !== undefined) {
-			result.code = {
-				value: problem.ruleId,
-				target: url
+			result.codeDescription = {
+				href: url
 			};
-		} else {
-			result.code = problem.ruleId;
+		}
+		if (problem.ruleId === 'no-unused-vars') {
+			result.tags = [DiagnosticTag.Unnecessary];
 		}
 	}
 	return result;
@@ -402,8 +403,9 @@ interface Problem {
 	documentVersion: number;
 	ruleId: string;
 	line: number;
+	diagnostic: Diagnostic;
 	edit?: ESLintAutoFixEdit;
-	suggestions?: ESLintSuggestionResult[]
+	suggestions?: ESLintSuggestionResult[];
 }
 
 namespace Problem {
@@ -452,7 +454,15 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 		edits = new Map<string, Problem>();
 		codeActions.set(uri, edits);
 	}
-	edits.set(computeKey(diagnostic), { label: `Fix this ${problem.ruleId} problem`, documentVersion: document.version, ruleId: problem.ruleId, edit: problem.fix, suggestions: problem.suggestions, line: problem.line });
+	edits.set(computeKey(diagnostic), {
+		label: `Fix this ${problem.ruleId} problem`,
+		documentVersion: document.version,
+		ruleId: problem.ruleId,
+		line: problem.line,
+		diagnostic: diagnostic,
+		edit: problem.fix,
+		suggestions: problem.suggestions
+	 });
 }
 
 function convertSeverity(severity: number): DiagnosticSeverity {
@@ -519,15 +529,21 @@ function isUNC(path: string): boolean {
 }
 
 function getFileSystemPath(uri: URI): string {
-	const result = uri.fsPath;
+	let result = uri.fsPath;
 	if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
 		// Node by default uses an upper case drive letter and ESLint uses
 		// === to compare paths which results in the equal check failing
 		// if the drive letter is lower case in th URI. Ensure upper case.
-		return result[0].toUpperCase() + result.substr(1);
-	} else {
-		return result;
+		result = result[0].toUpperCase() + result.substr(1);
 	}
+	if (process.platform === 'win32' || process.platform === 'darwin') {
+		const realpath = fs.realpathSync.native(result);
+		// Only use the real path if only the casing has changed.
+		if (realpath.toLowerCase() === result.toLowerCase()) {
+			result = realpath;
+		}
+	}
+	return result;
 }
 
 
@@ -546,7 +562,7 @@ function getFilePath(documentOrUri: string | TextDocument | URI | undefined): st
 	return getFileSystemPath(uri);
 }
 
-const exitCalled = new NotificationType<[number, string], void>('eslint/exitCalled');
+const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 
 const nodeExit = process.exit;
 process.exit = ((code?: number): void => {
@@ -584,7 +600,7 @@ process.on('uncaughtException', (error: any) => {
 
 const connection = createConnection();
 connection.console.info(`ESLint server running in node ${process.version}`);
-// Is instantiated in the initalize handle;
+// Is instantiated in the initialize handle;
 let documents!: TextDocuments<TextDocument>;
 
 const _globalPaths: { [key: string]: { cache: string | undefined; get(): string | undefined; } } = {
@@ -632,8 +648,9 @@ const languageId2DefaultExt: Map<string, string> = new Map([
 const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
 	const result = new Map<string, RegExp[]>();
 	const typescript = /\/@typescript-eslint\/parser\//;
-	result.set('typescript', [typescript]);
-	result.set('typescriptreact', [typescript]);
+	const babelESLint = /\/babel-eslint\/lib\/index.js$/;
+	result.set('typescript', [typescript, babelESLint]);
+	result.set('typescriptreact', [typescript, babelESLint]);
 	return result;
 }();
 
@@ -823,9 +840,13 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 							settings.validate = Validate.on;
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
 							const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
-								if (typeof cli.getConfigForFile === 'function') {
-									return cli.getConfigForFile(filePath!);
-								} else {
+								try {
+									if (typeof cli.getConfigForFile === 'function') {
+										return cli.getConfigForFile(filePath!);
+									} else {
+										return undefined;
+									}
+								} catch (err) {
 									return undefined;
 								}
 							}, settings);
@@ -876,10 +897,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					let pattern: string = isFile
 						? Uri.fsPath.replace(/\\/g, '/')
 						: Uri.fsPath;
-					pattern = pattern.replace('[', '\\[');
-					pattern = pattern.replace(']', '\\]');
-					pattern = pattern.replace('{', '\\{');
-					pattern = pattern.replace('}', '\\}');
+					pattern = pattern.replace(/[\[\]\{\}]/g, '?');
 
 					const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
 					const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
@@ -956,7 +974,7 @@ class BufferedMessageQueue {
 		this.notificationHandlers = new Map();
 	}
 
-	public registerRequest<P, R, E, RO>(type: RequestType<P, R, E, RO>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
+	public registerRequest<P, R, E>(type: RequestType<P, R, E>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
 		this.connection.onRequest(type, (params, token) => {
 			return new Promise<R>((resolve, reject) => {
 				this.queue.push({
@@ -973,7 +991,7 @@ class BufferedMessageQueue {
 		this.requestHandlers.set(type.method, { handler, versionProvider });
 	}
 
-	public registerNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
+	public registerNotification<P>(type: NotificationType<P>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
 		connection.onNotification(type, (params) => {
 			this.queue.push({
 				method: type.method,
@@ -985,7 +1003,7 @@ class BufferedMessageQueue {
 		this.notificationHandlers.set(type.method, { handler, versionProvider });
 	}
 
-	public addNotificationMessage<P, RO>(type: NotificationType<P, RO>, params: P, version: number) {
+	public addNotificationMessage<P>(type: NotificationType<P>, params: P, version: number) {
 		this.queue.push({
 			method: type.method,
 			params,
@@ -994,7 +1012,7 @@ class BufferedMessageQueue {
 		this.trigger();
 	}
 
-	public onNotification<P, RO>(type: NotificationType<P, RO>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
+	public onNotification<P>(type: NotificationType<P>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
 		this.notificationHandlers.set(type.method, { handler, versionProvider });
 	}
 
@@ -1017,7 +1035,7 @@ class BufferedMessageQueue {
 		if (Request.is(message)) {
 			const requestMessage = message;
 			if (requestMessage.token.isCancellationRequested) {
-				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
 			const elem = this.requestHandlers.get(requestMessage.method);
@@ -1025,7 +1043,7 @@ class BufferedMessageQueue {
 				throw new Error(`No handler registered`);
 			}
 			if (elem.versionProvider && requestMessage.documentVersion !== undefined && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
-				requestMessage.reject(new ResponseError(ErrorCodes.RequestCancelled, 'Request got cancelled'));
+				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
 				return;
 			}
 			const result = elem.handler(requestMessage.params, requestMessage.token);
@@ -1056,7 +1074,7 @@ const messageQueue: BufferedMessageQueue = new BufferedMessageQueue(connection);
 const formatterRegistrations: Map<string, Promise<Disposable>> = new Map();
 
 namespace ValidateNotification {
-	export const type: NotificationType<TextDocument, void> = new NotificationType<TextDocument, void>('eslint/validate');
+	export const type: NotificationType<TextDocument> = new NotificationType<TextDocument>('eslint/validate');
 }
 
 messageQueue.onNotification(ValidateNotification.type, (document) => {
@@ -1444,7 +1462,11 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 }
 
 function showErrorMessage(error: any, document: TextDocument): Status {
-	connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`);
+	connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+		if (value !== undefined && value.id === 1) {
+			connection.sendNotification(ShowOutputChannel.type);
+		}
+	});
 	if (Is.string(error.stack)) {
 		connection.console.error('ESLint stack trace:');
 		connection.console.error(error.stack);
@@ -1528,13 +1550,15 @@ class Fixes {
 			if (d !== 0) {
 				return d;
 			}
-			if (a.edit.range[1] === 0) {
+			const al = a.edit.range[1] - a.edit.range[0];
+			if (al === 0) {
 				return -1;
 			}
-			if (b.edit.range[1] === 0) {
+			const bl = b.edit.range[1] - b.edit.range[0];
+			if (bl === 0) {
 				return 1;
 			}
-			return a.edit.range[1] - b.edit.range[1];
+			return al - bl;
 		});
 	}
 
@@ -1686,13 +1710,16 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return result.all();
 	}
 
-	function createCodeAction(title: string, kind: string, commandId: string, arg: CommandParams): CodeAction {
+	function createCodeAction(title: string, kind: string, commandId: string, arg: CommandParams, diagnostic?: Diagnostic): CodeAction {
 		const command = Command.create(title, commandId, arg);
 		const action = CodeAction.create(
 			title,
 			command,
 			kind
 		);
+		if (diagnostic !== undefined) {
+			action.diagnostics = [diagnostic];
+		}
 		return action;
 	}
 
@@ -1701,7 +1728,8 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
-		return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), ` // eslint-disable-line ${editInfo.ruleId}`);
+		// Todo@dbaeumer Use uinteger.MAX_VALUE instead.
+		return TextEdit.insert(Position.create(editInfo.line - 1, 2147483647), ` // eslint-disable-line ${editInfo.ruleId}`);
 	}
 
 	function createDisableFileTextEdit(editInfo: Problem): TextEdit {
@@ -1721,6 +1749,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	return resolveSettings(textDocument).then(async (settings): Promise<CodeAction[]> => {
+		// The file is not validated at all or we couldn't load an eslint library for it.
+		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
+			return result.all();
+		}
+
 		const problems = codeActions.get(uri);
 		// We validate on type and have no problems ==> nothing to fix.
 		if (problems === undefined && settings.run === 'onType') {
@@ -1778,7 +1811,8 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 					editInfo.label,
 					kind,
 					CommandIds.applySingleFix,
-					CommandParams.create(textDocument, ruleId)
+					CommandParams.create(textDocument, ruleId),
+					editInfo.diagnostic
 				);
 				action.isPreferred = true;
 				result.get(ruleId).fixes.push(action);
@@ -1792,7 +1826,8 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 						`${suggestion.desc} (${editInfo.ruleId})`,
 						CodeActionKind.QuickFix,
 						CommandIds.applySuggestion,
-						CommandParams.create(textDocument, ruleId, suggestionSequence)
+						CommandParams.create(textDocument, ruleId, suggestionSequence),
+						editInfo.diagnostic
 					);
 					result.get(ruleId).suggestions.push(action);
 				});
@@ -1803,7 +1838,8 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				if (settings.codeAction.disableRuleComment.location === 'sameLine') {
 					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableSameLineTextEdit(editInfo));
 				} else {
-					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
+					// Todo@dbaeumer Use uinteger.MAX_VALUE instead.
+					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, 2147483647)));
 					const matches = /^([ \t]*)/.exec(lineText);
 					const indentationText = matches !== null && matches.length > 0 ? matches[1] : '';
 					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableLineTextEdit(editInfo, indentationText));

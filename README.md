@@ -12,14 +12,40 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md);
 
+### Version 2.1.18
+
+Asking for confirmation of the `eslint.nodePath` value revealed a setup where that value is defined separately on a workspace folder level although a multi workspace folder setup is open (e.g. a code-workspace file). These setups need to define the `eslint.nodePath` value in the corresponding `code-workspace` file and the extension now warns the user about it. Below an example of such a `code-workspace` file
+
+```json
+{
+        "folders": [
+                {
+                        "path": "project-a"
+                },
+                {
+                        "path": "project-b"
+                }
+        ],
+        "settings": {
+                "eslint.nodePath": "myCustomNodePath"
+        }
+}
+```
+
+### Version 2.1.17
+
+To follow VS Code's model to confirm workspace local settings that impact code execution the two settings `eslint.runtime` and `eslint.nodePath` now need user confirmation if defined locally in a workspace folder or a workspace file. Users using these settings in those local scopes will see a notification reminding them of the confirmation need.
+
+The version also adds a command to restart the ESLint server.
+
 ### Version 2.1.10
 
-The approval flow to allow the execution of a ESLint library got reworked. It initial expierence is now as follows:
+The approval flow to allow the execution of a ESLint library got reworked. Its initial experience is now as follows:
 
-- no modal dialog is show when the ESLint extension tries to load a ESLint library for the first time and an approval is necessary. Instead the ESLint status bar item changes to ![ESLint status icon](images/2_1_10/eslint-status.png) indicating that the execution is currently block.
-- if the active text editor content would be validated using ESLint a problem at the top of the file is shown in addition.
+- no modal dialog is shown when the ESLint extension tries to load an ESLint library for the first time and an approval is necessary. Instead the ESLint status bar item changes to ![ESLint status icon](images/2_1_10/eslint-status.png) indicating that the execution is currently block.
+- if the active text editor content would be validated using ESLint, a problem at the top of the file is shown in addition.
 
-The execution of the ESLint library can be denied or approved using the following questures:
+The execution of the ESLint library can be denied or approved using the following gestures:
 - clicking on the status bar icon
 - using the quick fix for the corresponding ESLint problem
 - executing the command `ESLint: Manage Library Execution` from the command palette
@@ -28,7 +54,7 @@ All gestures will open the following dialog:
 
 ![ESLint Dialog](images/2_1_10/eslint-dialog.png)
 
-The choosen action is then reflected in the ESLint status bar item in the following way:
+The chosen action is then reflected in the ESLint status bar item in the following way:
 
 - `Allow` will prefix the status bar item with a check mark.
 - `Allow Everywhere` will prefix the status bar item with a double check mark.
@@ -39,7 +65,7 @@ You can manage our decisions using the following commands:
 - `ESLint: Manage Library Execution` will reopen aboves dialog
 - `ESLint: Reset Library Decisions` lets you reset previous decisions who have made.
 
-
+This release also addresses the vulnerability described in [CVE-2021-27081](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-27081).
 
 ### Version 2.0.4
 
@@ -85,7 +111,7 @@ If you are using an ESLint extension version < 2.x then please refer to the sett
 
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
-- `eslint.enable`: enable/disable ESLint. Is enabled by default.
+- `eslint.enable`: enable/disable ESLint. Is enabled by default. This setting got deprecated in favour of enabling / disabling the extension in the Extension's viewlet.
 - `eslint.debug`: enables ESLint's debug mode (same as --debug  command line option). Please see the ESLint output channel for the debug output. This options is very helpful to track down configuration and installation problems with ESLint since it provides verbose information about how ESLint is validating a file.
 - `eslint.lintTask.enable`: whether the extension contributes a lint task to lint a whole workspace folder.
 - `eslint.lintTask.options`: Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
@@ -108,7 +134,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under.
 - `eslint.nodeEnv` - use this setting if an ESLint plugin or configuration needs `process.env.NODE_ENV` to be defined.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
-- `eslint.probe` = an array for language identifiers for which the ESLint extension should be activated and should try to validate the file. If validation fails for probed languages the extension says silent. Defaults to `["javascript", "javascriptreact", "typescript", "typescriptreact", "html", "vue"]`.
+- `eslint.probe` = an array for language identifiers for which the ESLint extension should be activated and should try to validate the file. If validation fails for probed languages the extension says silent. Defaults to `["javascript", "javascriptreact", "typescript", "typescriptreact", "html", "vue", "markdown"]`.
 - `eslint.validate` - an array of language identifiers specifying the files for which validation is to be enforced. This is an old legacy setting and should in normal cases not be necessary anymore. Defaults to `["javascript", "javascriptreact"]`.
 - `eslint.format.enable`: enables ESLint as a formatter for validated files. Although you can also use the formatter on save using the setting `editor.formatOnSave` it is recommended to use the `editor.codeActionsOnSave` feature since it allows for better configurability.
 - `eslint.workingDirectories` - specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly. If executing ESLint in the terminal requires you to change the working directory in the terminal into a sub folder then it is usually necessary to tweak this setting. (see also [CLIEngine options#cwd](https://eslint.org/docs/developer-guide/nodejs-api#cliengine)). Please also keep in mind that the `.eslintrc*` file is resolved considering the parent directories whereas the `.eslintignore` file is only honored in the current working directory. The following values can be used:
@@ -131,7 +157,7 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.workingDirectories": [ "./client", "./server" ]
   ```
   will validate files inside the server directory with the server directory as the current eslint working directory. Same for files in the client directory. The ESLint extension will also change the process's working directory to the provided directories. If this is not wanted a literal with the `!cwd` property can be used (e.g. `{ "directory": "./client", "!cwd": true }`). This will use the client directory as the ESLint working directory but will not change the process`s working directory.
-  - `{ "pattern": glob pattern }` (@since 2.0.0): Allows to specify a pattern to detect the working directory. This is basically a short cut for listing every directory. If you have a mono repository with all your projects being below a packages folder you can use `{ "pattern": "./packages/*/" }` to make all these folders working directories.
+  - `[{ "pattern": glob pattern }]` (@since 2.0.0): Allows to specify a pattern to detect the working directory. This is basically a short cut for listing every directory. If you have a mono repository with all your projects being below a packages folder you can use `{ "pattern": "./packages/*/" }` to make all these folders working directories.
 - `eslint.codeAction.disableRuleComment` - object with properties:
   - `enable` - show disable lint rule in the quick fix menu. `true` by default.
   - `location` - choose to either add the `eslint-disable` comment on the `separateLine` or `sameLine`. `separateLine` is the default.
@@ -147,7 +173,7 @@ This extension contributes the following variables to the [settings](https://cod
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
 - `eslint.format.enable` (@since 2.0.0): uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
-- `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
+- `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warnings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
 - `editor.codeActionsOnSave` (@since 2.0.0): this setting now supports an entry `source.fixAll.eslint`. If set to true all auto-fixable ESLint errors from all plugins will be fixed on save. You can also selectively enable and disabled specific languages using VS Code's language scoped settings. To disable `codeActionsOnSave` for HTML files use the following setting:
 
 ```json
@@ -175,8 +201,6 @@ This extension contributes the following commands to the Command palette.
 
 - `Create '.eslintrc.json' file`: creates a new `.eslintrc.json` file.
 - `Fix all auto-fixable problems`: applies ESLint auto-fix resolutions to all fixable problems.
-- `Disable ESLint for this Workspace`: disables ESLint extension for this workspace.
-- `Enable ESLint for this Workspace`: enable ESLint extension for this workspace.
 - `Reset Library Decisions`: Resets the ESLint library validation confirmations.
 - `Manage Library Execution`: Opens the library execution confirmation dialog.
 
