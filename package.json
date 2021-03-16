@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.14",
+	"version": "2.1.19",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -310,7 +310,7 @@
 						"null"
 					],
 					"default": null,
-					"description": "The location of the node binary to run ESLint under."
+					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
 				},
 				"eslint.debug": {
 					"scope": "window",
@@ -408,6 +408,21 @@
 				"title": "Manage Library Execution",
 				"category": "ESLint",
 				"command": "eslint.manageLibraryExecution"
+			},
+			{
+				"title": "Select Node Runtime",
+				"category": "ESLint",
+				"command": "eslint.selectNodeRuntime"
+			},
+			{
+				"title": "Select Node Path",
+				"category": "ESLint",
+				"command": "eslint.selectNodePath"
+			},
+			{
+				"title": "Restart ESLint Server",
+				"category": "ESLint",
+				"command": "eslint.restart"
 			}
 		],
 		"taskDefinitions": [
@@ -459,17 +474,17 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"@types/node": "^12.12.6",
-		"typescript": "^4.1.2",
-		"eslint": "^7.15.0",
-		"@typescript-eslint/parser": "^4.9.1",
-		"@typescript-eslint/eslint-plugin": "^4.9.1",
-		"webpack": "^5.10.0",
-		"webpack-cli": "^4.2.0",
-		"ts-loader": "^8.0.11",
-		"merge-options": "^3.0.4",
-		"rimraf": "^3.0.2",
 		"@types/mocha": "^8.0.4",
-		"mocha": "^8.2.1"
+		"@types/node": "^12.12.6",
+		"@typescript-eslint/eslint-plugin": "^4.9.1",
+		"@typescript-eslint/parser": "^4.9.1",
+		"eslint": "^7.15.0",
+		"merge-options": "^3.0.4",
+		"mocha": "^8.2.1",
+		"rimraf": "^3.0.2",
+		"ts-loader": "^8.0.11",
+		"typescript": "^4.1.2",
+		"webpack": "^5.10.0",
+		"webpack-cli": "^4.2.0"
 	}
 }

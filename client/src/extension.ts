@@ -407,6 +407,16 @@ let eslintExecutionState: ESLintExecutionState;
 const eslintAlwaysAllowExecutionKey = 'eslintAlwaysAllowExecution';
 let eslintAlwaysAllowExecutionState: boolean = false;
 
+const confirmedSettingsStateKey = 'eslintConfirmedSettings';
+interface ConfirmedSettingsEntry {
+	runtime: boolean;
+	nodePath: boolean;
+}
+interface ConfirmedSettings {
+	[key: string]: ConfirmedSettingsEntry;
+}
+let confirmedSettingsState: ConfirmedSettings;
+
 const sessionState: Map<string, ExecutionParams> = new Map();
 const disabledLibraries: Set<string> = new Set();
 
@@ -605,12 +615,28 @@ async function resetLibraryConfirmations(client: LanguageClient | undefined, con
 	client && client.sendNotification(DidChangeConfigurationNotification.type, { settings: {} });
 }
 
+// Copied from LSP libraries. We should have a flag in the client to know whether the
+// client runs in debugger mode.
+function isInDebugMode(): boolean {
+	const debugStartWith: string[] = ['--debug=', '--debug-brk=', '--inspect=', '--inspect-brk='];
+	const debugEquals: string[] = ['--debug', '--debug-brk', '--inspect', '--inspect-brk'];
+	let args: string[] = (process as any).execArgv;
+	if (args) {
+		return args.some((arg) => {
+			return debugStartWith.some(value => arg.startsWith(value)) ||
+					debugEquals.some(value => arg === value);
+		});
+	}
+	return false;
+}
+
 export function activate(context: ExtensionContext) {
 	context.globalState.setKeysForSync([
 		eslintAlwaysAllowExecutionKey
 	]);
 	eslintExecutionState =  context.globalState.get<ESLintExecutionState>(eslintExecutionKey, { libs: {} });
 	eslintAlwaysAllowExecutionState = context.globalState.get<boolean>(eslintAlwaysAllowExecutionKey, false);
+	confirmedSettingsState = context.globalState.get<ConfirmedSettings>(confirmedSettingsStateKey, { });
 
 	function didOpenTextDocument(textDocument: TextDocument) {
 		if (activated) {
@@ -655,7 +681,10 @@ export function activate(context: ExtensionContext) {
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
 		Commands.registerCommand('eslint.showOutputChannel', notValidating),
 		Commands.registerCommand('eslint.migrateSettings', notValidating),
+		Commands.registerCommand('eslint.restart', notValidating),
 		Commands.registerCommand('eslint.manageLibraryExecution', notValidating),
+		Commands.registerCommand('eslint.selectNodeRuntime', notValidating),
+		Commands.registerCommand('eslint.selectNodePath', notValidating),
 		Commands.registerCommand('eslint.resetLibraryExecution', () => {
 			resetLibraryConfirmations(undefined, context, undefined);
 		})
@@ -1233,12 +1262,103 @@ function realActivate(context: ExtensionContext): void {
 		}
 	}
 
+	function getConfirmationKey(): string | undefined {
+		if (Workspace.workspaceFile !== undefined) {
+			return Workspace.workspaceFile.toString();
+		} else if (Workspace.workspaceFolders !== undefined && Workspace.workspaceFolders.length === 1) {
+			return Workspace.workspaceFolders[0].uri.toString();
+		} else {
+			return undefined;
+		}
+	}
+
 	const serverModule = Uri.joinPath(context.extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 	const eslintConfig = Workspace.getConfiguration('eslint');
-	const runtime = eslintConfig.get('runtime', undefined);
 	const debug = eslintConfig.get('debug');
-	const nodeEnv = eslintConfig.get('nodeEnv', null);
 
+	const confirmationKey = getConfirmationKey();
+	let confirmedSettings = confirmationKey !== undefined ? confirmedSettingsState[confirmationKey] : undefined;
+
+	const getSettingValueToConfirm = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): T | undefined => {
+		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
+		const inspect = eslintConfig.inspect(section);
+		if (inspect === undefined) {
+			return undefined;
+		}
+		return (inspect.workspaceFolderValue ?? inspect.workspaceValue ?? inspect.defaultValue ?? undefined) as (T | undefined);
+	};
+
+	const getWorkspaceSettingValue = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): T | undefined  => {
+		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
+		const inspect = eslintConfig.inspect(section);
+		if (inspect === undefined) {
+			return undefined;
+		}
+		return (inspect.workspaceValue ?? inspect.globalValue ?? inspect.defaultValue ?? undefined) as (T | undefined);
+	};
+
+	const getSettingsValue = <T>(section: keyof ConfirmedSettingsEntry, eslintConfig?: WorkspaceConfiguration): [T | undefined, boolean] => {
+		eslintConfig = eslintConfig ?? Workspace.getConfiguration('eslint');
+		const inspect = eslintConfig.inspect(section);
+		if (inspect === undefined) {
+			return [undefined, false];
+		}
+		let value: T | undefined | null;
+		let confirm: boolean = false;
+		if (confirmedSettings !== undefined && confirmedSettings[section] === true) {
+			// The setting is confirmed. So simply use the get of the setting since we don't
+			// care where it is coming from.
+			value = eslintConfig.get(section);
+		} else {
+			// The setting is not confirmed. So always take the global value.
+			value = (inspect.globalValue ?? inspect.defaultValue ?? undefined) as (T | undefined | null);
+			// If confirmedSettings is undefined we need to check whether there was a value local either as a workspace or
+			// workspace folder value. It is enough to check for undefined since values not in scope default to undefined (e.g.
+			// the folder value is undefined if a workspace is open).
+			if (confirmedSettings === undefined && (inspect.workspaceValue !== undefined || inspect.workspaceFolderValue !== undefined)) {
+				confirm = true;
+			}
+		}
+		return [value ? value : undefined, confirm];
+	};
+
+	// Runtime value can change via the picker.
+	let [runtime, runtimeNeedsConfirmation] = getSettingsValue<string>('runtime', eslintConfig);
+
+	// nodePath value can change using the picker.
+	let [nodePath, nodePathNeedsConfirmation] = getSettingsValue<string>('nodePath', eslintConfig);
+
+	// Check that we don't have a nodePath
+	if (getWorkspaceSettingValue('nodePath', eslintConfig) === undefined && Workspace.workspaceFolders !== undefined && Workspace.workspaceFolders.length > 1) {
+		const foldersWithValue: string[] = [];
+		for (const folder of Workspace.workspaceFolders) {
+			const folderConfig = Workspace.getConfiguration('eslint', folder);
+			const inspect = folderConfig.inspect('nodePath');
+			if (inspect !== undefined && typeof inspect.workspaceFolderValue === 'string') {
+				foldersWithValue.push(folder.name);
+			}
+		}
+		let message: string | undefined;
+		if (foldersWithValue.length === 1) {
+			message = `The workspace folder ${foldersWithValue[0]} defines a nodePath value. In a multi workspace folder setup the value needs to be defined in the 'code-workspace' file.`;
+		} else if (foldersWithValue.length > 1) {
+			message = `The workspace folders ${foldersWithValue.slice(0, foldersWithValue.length - 1).join(', ')} and ${foldersWithValue[foldersWithValue.length -1]} define a nodePath value. In a multi workspace folder setup only one nodePath can be defined and its value must be specified in the 'code-workspace' file.`;
+		}
+		if (message !== undefined) {
+			Window.showInformationMessage(message);
+		}
+	}
+
+	if (runtimeNeedsConfirmation || nodePathNeedsConfirmation) {
+		const message = runtimeNeedsConfirmation && nodePathNeedsConfirmation
+			? `Both the eslint.runtime and the eslint.nodePath setting require user confirmation. To do so execute the [Select Node Version](command:eslint.selectNodeRuntime) and the [Select Node Path](command:eslint.selectNodePath) command.`
+			: runtimeNeedsConfirmation
+				? `The eslint.runtime setting requires user confirmation. To do so execute the [Select Node Version](command:eslint.selectNodeRuntime) command.`
+				: `The eslint.nodePath setting requires user confirmation. To do so execute the [Select Node Path](command:eslint.selectNodePath) command.`;
+		Window.showWarningMessage(message);
+	}
+
+	const nodeEnv = eslintConfig.get('nodeEnv', null);
 	let env: { [key: string]: string | number | boolean } | undefined;
 	if (debug) {
 		env = env || {};
@@ -1442,7 +1562,7 @@ function realActivate(context: ExtensionContext): void {
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
 							run: config.get('run', 'onType'),
-							nodePath: config.get('nodePath', null),
+							nodePath: nodePath !== undefined ? nodePath : null,
 							workingDirectory: undefined,
 							workspaceFolder: undefined,
 							codeAction: {
@@ -1597,7 +1717,8 @@ function realActivate(context: ExtensionContext): void {
 		}
 		updateStatusBar(globalStatus ?? serverRunning === false ? Status.error : Status.ok, true);
 	});
-	client.onReady().then(() => {
+
+	const readyHandler = () => {
 		client.onNotification(ShowOutputChannel.type, () => {
 			client.outputChannel.show();
 		});
@@ -1794,7 +1915,8 @@ function realActivate(context: ExtensionContext): void {
 				}
 			});
 		});
-	});
+	};
+	client.onReady().then(readyHandler);
 
 	if (onActivateCommands) {
 		onActivateCommands.forEach(command => command.dispose());
@@ -1884,8 +2006,86 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			migrateSettings();
 		}),
+		Commands.registerCommand('eslint.restart', async () => {
+			await client.stop();
+			// Wait a little to free debugger port. Can not happen in production
+			// So we should add a dev flag.
+			const start = () => {
+				client.start();
+				client.onReady().then(readyHandler);
+			};
+			if (isInDebugMode()) {
+				setTimeout(start, 1000);
+			} else {
+				start();
+			}
+		}),
 		Commands.registerCommand('eslint.resetLibraryExecution', () => {
 			resetLibraryConfirmations(client, context, updateStatusBarAndDiagnostics);
+		}),
+		Commands.registerCommand('eslint.selectNodeRuntime', async () => {
+			interface MyQuickPickItem extends QuickPickItem {
+				kind: 'default' | 'setting';
+			}
+			const eslintConfig = Workspace.getConfiguration('eslint');
+			const localValue = getSettingValueToConfirm<string | undefined>('runtime', eslintConfig);
+			const currentRuntime = runtime;
+			const values: MyQuickPickItem[] = [{ label: `Use VS Code's built-in Node Version`, kind: 'default' }];
+			let current = 0;
+			if (localValue !== undefined && confirmationKey !== undefined) {
+				values.push({ label: `Use Node Version defined via setting`, detail: localValue, kind: 'setting' });
+				current = confirmedSettings !== undefined && confirmedSettings.runtime === true ? 1 : current;
+			}
+			values[current].label = `• ${values[current].label}`;
+			const selection = await Window.showQuickPick(values, { placeHolder: 'Select the Node version used to run ESLint'});
+			if (selection === undefined) {
+				return;
+			}
+			if (confirmedSettings === undefined) {
+				confirmedSettings = { runtime: false, nodePath: false };
+				if (confirmationKey !== undefined) {
+					confirmedSettingsState[confirmationKey] = confirmedSettings;
+				}
+			}
+			confirmedSettings.runtime = selection.kind === 'setting';
+			context.globalState.update(confirmedSettingsStateKey, confirmedSettingsState);
+			[runtime,] = getSettingsValue<string>('runtime', eslintConfig);
+			if (runtime !== currentRuntime) {
+				serverOptions.run.runtime = runtime;
+				serverOptions.debug.runtime = runtime;
+				Commands.executeCommand('eslint.restart');
+			}
+		}),
+		Commands.registerCommand('eslint.selectNodePath', async () => {
+			interface MyQuickPickItem extends QuickPickItem {
+				kind: 'default' | 'setting';
+			}
+			const eslintConfig = Workspace.getConfiguration('eslint');
+			const localValue = getSettingValueToConfirm<string | undefined>('nodePath', eslintConfig);
+			const currentNodePath = nodePath;
+			const values: MyQuickPickItem[] = [{ label: `Use Node's default NODE_PATH value`, kind: 'default' }];
+			let current = 0;
+			if (localValue !== undefined && confirmationKey !== undefined) {
+				values.push({ label: `Use NODE_PATH value defined via setting`, detail: localValue, kind: 'setting' });
+				current = confirmedSettings !== undefined && confirmedSettings.runtime === true ? 1 : current;
+			}
+			values[current].label = `• ${values[current].label}`;
+			const selection = await Window.showQuickPick(values, { placeHolder: 'Select the NODE_PATH value used to resolve modules'});
+			if (selection === undefined) {
+				return;
+			}
+			if (confirmedSettings === undefined) {
+				confirmedSettings = { runtime: false, nodePath: false };
+				if (confirmationKey !== undefined) {
+					confirmedSettingsState[confirmationKey] = confirmedSettings;
+				}
+			}
+			confirmedSettings.nodePath = selection.kind === 'setting';
+			context.globalState.update(confirmedSettingsStateKey, confirmedSettingsState);
+			[nodePath,] = getSettingsValue<string>('nodePath', eslintConfig);
+			if (nodePath !== currentNodePath) {
+				Commands.executeCommand('eslint.restart');
+			}
 		}),
 		Commands.registerCommand('eslint.manageLibraryExecution', async (params: ConfirmExecutionParams | undefined) => {
 			if (params !== undefined) {

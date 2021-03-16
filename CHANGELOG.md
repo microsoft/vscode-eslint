@@ -1,3 +1,24 @@
+### 2.1.19
+
+- fixe [Using `eslint.nodePath` globally rather than locally, yet on every new window: `The eslint.nodePath setting requires user confirmation. To do so execute the Select Node Path command.`](https://github.com/microsoft/vscode-eslint/issues/1203)
+
+### 2.1.18
+
+- warn about nodePath values being defined separately in the workspace folder although a multi workspace folder setup is open.
+
+### 2.1.17
+
+- add user confirmation for the `eslint.runtime` and the `eslint.nodePath` setting
+- fixed [command to restart server or plugins without quitting vscode](https://github.com/microsoft/vscode-eslint/issues/164)
+
+### 2.1.16
+
+- Updated Readme document.
+
+### 2.1.15
+
+- Internal insider release.
+
 ### 2.1.14
 
 - Update to version 7.0.0 of the LSP libraries
@@ -14,6 +35,7 @@
 ### 2.1.10
 
 - Add an 'Always Allow' to the library confirmation dialog added in 2.1.7. Also added a status indication show the ESLint library decision mode.
+- Fixed vulnerability described in [CVE-2021-27081](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-27081)
 
 ### 2.1.9
 
