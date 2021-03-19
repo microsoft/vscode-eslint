@@ -310,7 +310,7 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
+					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user/machine setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
 				},
 				"eslint.debug": {
 					"scope": "window",
