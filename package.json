@@ -181,9 +181,9 @@
 										"enum": [
 											"auto",
 											"location"
-										]
-									},
-									"default": "location"
+										],
+										"default": "location"
+									}
 								},
 								"required": [
 									"mode"
