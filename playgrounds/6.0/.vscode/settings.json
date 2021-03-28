@@ -40,11 +40,11 @@
 	},
 	"eslint.quiet": false,
 	"eslint.rules.customizations": [
-		{ "rule": "*", "override": "info" },
-		{ "rule": "!no-*", "override": "downgrade" },
-		{ "rule": "*console*", "override": "upgrade" },
-		{ "rule": "*semi*", "override": "reset" },
-		{ "rule": "radix", "override": "reset" }
+		{ "rule": "*", "severity": "error" },
+		{ "rule": "!no-*", "severity": "upgrade" },
+		{ "rule": "*console*", "severity": "upgrade" },
+		{ "rule": "*semi*", "severity": "reset" },
+		{ "rule": "radix", "severity": "reset" }
 	],
 	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.format.enable": true,

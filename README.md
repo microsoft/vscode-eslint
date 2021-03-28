@@ -147,15 +147,15 @@ This extension contributes the following variables to the [settings](https://cod
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
 - `eslint.rules.customizations`: force rules to report a different severity within VS Code compared to the project's true ESLint configuration. contain two properties:
-  - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "override": "no-*", "severity": "warn" }`
-    - Prefix the query with a `"!"` to target all rules that _don't_ match the query: `{ "override": "!no-*", "severity": "info" }`
-  - `"override"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"reset"`s them to their original severity
+  - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "rule": "no-*", "severity": "warn" }`
+    - Prefix the query with a `"!"` to target all rules that _don't_ match the query: `{ "rule": "!no-*", "severity": "info" }`
+  - `"severity"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"reset"`s them to their original severity
 
   In this example, all rules are overridden to warnings:
 
   ```json
   "eslint.rules.customizations": [
-    { "override": "*", "severity": "warn" }
+    { "rule": "*", "severity": "warn" }
   ]
   ```
 
@@ -163,9 +163,9 @@ This extension contributes the following variables to the [settings](https://cod
 
   ```json
   "eslint.rules.customizations": [
-    { "override": "no-*", "severity": "info" },
-    { "override": "!no-*", "severity": "downgrade" },
-    { "reset": "radix", "severity": "reset" }
+    { "rule": "no-*", "severity": "info" },
+    { "rule": "!no-*", "severity": "downgrade" },
+    { "rule": "radix", "severity": "reset" }
   ]
   ```
 

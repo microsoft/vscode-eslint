@@ -380,7 +380,7 @@
 					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules.",
 					"items": {
 						"properties": {
-							"override": {
+							"severity": {
 								"enum": [
 									"downgrade",
 									"error",

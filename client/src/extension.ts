@@ -187,7 +187,7 @@ enum RuleSeverity {
 	warn = 'warn',
 	error = 'error',
 
-	// Added override changes
+	// Added severity override changes
 	reset = 'reset',
 	downgrade = 'downgrade',
 	upgrade = 'upgrade'
@@ -195,7 +195,7 @@ enum RuleSeverity {
 
 interface RuleCustomization  {
 	rule: string;
-	override: RuleSeverity;
+	severity: RuleSeverity;
 }
 
 interface ConfigurationSettings {
@@ -423,9 +423,9 @@ function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
 	}
 
 	return rawConfig.map(rawValue => {
-		if ('override' in rawValue && typeof rawValue.override === 'string' && 'rule' in rawValue && typeof rawValue.rule === 'string') {
+		if ('severity' in rawValue && typeof rawValue.severity === 'string' && 'rule' in rawValue && typeof rawValue.rule === 'string') {
 			return {
-				override: rawValue.override,
+				severity: rawValue.severity,
 				rule: rawValue.rule,
 			};
 		}
