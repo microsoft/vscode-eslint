@@ -185,7 +185,7 @@ type NpmPackageManager = 'npm' | 'pnpm' | 'yarn';
 
 interface ConfigurationSettings {
 	validate: Validate;
-	packageManager: NpmPackageManager | undefined;
+	packageManager: NpmPackageManager;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -1555,8 +1555,7 @@ function realActivate(context: ExtensionContext): void {
 						const packageManager = await Commands.executeCommand<NpmPackageManager>('npm.packageManager', workspaceFolder?.uri);
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
-
-							packageManager: !!packageManager ? packageManager : undefined,
+							packageManager: !!packageManager ? packageManager : 'npm',
 							codeActionOnSave: {
 								enable: false,
 								mode: CodeActionsOnSaveMode.all
