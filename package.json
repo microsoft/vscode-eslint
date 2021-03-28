@@ -43,6 +43,18 @@
 					"description": "Controls whether eslint is enabled or not.",
 					"deprecationMessage": "This setting is deprecated. Disable ESLint using the extensions viewlet."
 				},
+				"eslint.packageManager": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"npm",
+						"yarn",
+						"pnpm"
+					],
+					"default": "npm",
+					"description": "The package manager you use to install node modules.",
+					"deprecationMessage": "This setting is deprecated. Package manager is now automatically detected."
+				},
 				"eslint.alwaysShowStatus": {
 					"type": "boolean",
 					"default": false,
