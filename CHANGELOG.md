@@ -1,8 +1,3 @@
-### 2.1.20
-
-- [automatically detect npm package manager](https://github.com/microsoft/vscode-eslint/issues/1141)
-- deprecate `eslint.packageManager` setting
-
 ### 2.1.19
 
 - fixe [Using `eslint.nodePath` globally rather than locally, yet on every new window: `The eslint.nodePath setting requires user confirmation. To do so execute the Select Node Path command.`](https://github.com/microsoft/vscode-eslint/issues/1203)
