@@ -149,7 +149,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.rules.customizations`: force rules to report a different severity within VS Code compared to the project's true ESLint configuration. contain two properties:
   - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "rule": "no-*", "severity": "warn" }`
     - Prefix the query with a `"!"` to target all rules that _don't_ match the query: `{ "rule": "!no-*", "severity": "info" }`
-  - `"severity"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"reset"`s them to their original severity
+  - `"severity"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"default"`s them to their original severity
 
   In this example, all rules are overridden to warnings:
 
@@ -159,13 +159,13 @@ This extension contributes the following variables to the [settings](https://cod
   ]
   ```
 
-  In this example, `no-` rules are informative, other rules are downgraded, and `"radix"` is reset:
+  In this example, `no-` rules are informative, other rules are downgraded, and `"radix"` is reset to default:
 
   ```json
   "eslint.rules.customizations": [
     { "rule": "no-*", "severity": "info" },
     { "rule": "!no-*", "severity": "downgrade" },
-    { "rule": "radix", "severity": "reset" }
+    { "rule": "radix", "severity": "default" }
   ]
   ```
 

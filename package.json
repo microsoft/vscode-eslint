@@ -385,7 +385,7 @@
 									"downgrade",
 									"error",
 									"info",
-									"reset",
+									"default",
 									"upgrade",
 									"warn"
 								],

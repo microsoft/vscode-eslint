@@ -188,7 +188,7 @@ enum RuleSeverity {
 	error = 'error',
 
 	// Added severity override changes
-	reset = 'reset',
+	default = 'default',
 	downgrade = 'downgrade',
 	upgrade = 'upgrade'
 }

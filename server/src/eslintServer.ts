@@ -231,16 +231,16 @@ enum RuleSeverity {
 	warn = 'warn',
 	error = 'error',
 
-	// Added override changes
+	// Added severity override changes
 	off = 'off',
-	reset = 'reset',
+	default = 'default',
 	downgrade = 'downgrade',
 	upgrade = 'upgrade'
 }
 
 interface RuleCustomization  {
 	rule: string;
-	override: RuleSeverity;
+	severity: RuleSeverity;
 }
 
 interface CommonSettings {
@@ -406,7 +406,7 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 
 	for (const customization of customizations) {
 		if (asteriskMatches(customization.rule, ruleId)) {
-			result = customization.override;
+			result = customization.severity;
 		}
 	}
 
