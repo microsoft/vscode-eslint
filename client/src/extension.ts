@@ -1552,7 +1552,12 @@ function realActivate(context: ExtensionContext): void {
 								}
 							}
 						});
-						const packageManager = await Commands.executeCommand<NpmPackageManager>('npm.packageManager', workspaceFolder?.uri);
+						let packageManager: NpmPackageManager | undefined;
+						try {
+							packageManager = await Commands.executeCommand<NpmPackageManager>('npm.packageManager', workspaceFolder?.uri);
+						} catch {
+							// ignore
+						}
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: !!packageManager ? packageManager : 'npm',
