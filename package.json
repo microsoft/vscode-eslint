@@ -51,9 +51,8 @@
 						"yarn",
 						"pnpm"
 					],
-					"default": "npm",
-					"description": "The package manager you use to install node modules.",
-					"deprecationMessage": "This setting is deprecated. Package manager is now automatically detected."
+					"default": null,
+					"description": "The package manager you use to install node modules. This should be set if the ESLint library is not installed locally."
 				},
 				"eslint.alwaysShowStatus": {
 					"type": "boolean",

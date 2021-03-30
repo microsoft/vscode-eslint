@@ -1552,12 +1552,17 @@ function realActivate(context: ExtensionContext): void {
 								}
 							}
 						});
-						let packageManager: NpmPackageManager | undefined;
-						try {
-							packageManager = await Commands.executeCommand<NpmPackageManager>('npm.packageManager', workspaceFolder?.uri);
-						} catch {
-							// ignore
+
+						let packageManager: NpmPackageManager | null | undefined;
+						packageManager = config.get('packageManager');
+						if (!packageManager) {
+							try {
+								packageManager = await Commands.executeCommand<NpmPackageManager>('npm.packageManager', workspaceFolder?.uri);
+							} catch {
+								// ignore
+							}
 						}
+
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: !!packageManager ? packageManager : 'npm',
