@@ -52,7 +52,7 @@
 						"pnpm"
 					],
 					"default": null,
-					"description": "The package manager you use to install node modules. This should be set if the ESLint library is not installed locally."
+					"description": "The package manager you use to install node modules. If this setting is not provided, the package manager defaults to npm.packageManager."
 				},
 				"eslint.alwaysShowStatus": {
 					"type": "boolean",
