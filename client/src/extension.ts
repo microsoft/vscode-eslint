@@ -423,7 +423,7 @@ function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
 	}
 
 	return rawConfig.map(rawValue => {
-		if ('severity' in rawValue && typeof rawValue.severity === 'string' && 'rule' in rawValue && typeof rawValue.rule === 'string') {
+		if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
 			return {
 				severity: rawValue.severity,
 				rule: rawValue.rule,
