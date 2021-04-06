@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.19",
+	"version": "2.1.20",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -377,6 +377,30 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enables ESLint as a formatter."
+				},
+				"eslint.rules.customizations": {
+					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules.",
+					"items": {
+						"properties": {
+							"severity": {
+								"enum": [
+									"downgrade",
+									"error",
+									"info",
+									"default",
+									"upgrade",
+									"warn"
+								],
+								"type": "string"
+							},
+							"rule": {
+								"type": "string"
+							}
+						},
+						"type": "object"
+					},
+					"scope": "resource",
+					"type": "array"
 				}
 			}
 		},

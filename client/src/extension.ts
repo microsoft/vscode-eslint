@@ -181,7 +181,24 @@ enum ConfirmationSelection {
 	alwaysAllow = 4
 }
 
+enum RuleSeverity {
+	// Original ESLint values
+	info = 'info',
+	warn = 'warn',
+	error = 'error',
+
+	// Added severity override changes
+	default = 'default',
+	downgrade = 'downgrade',
+	upgrade = 'upgrade'
+}
+
 type NpmPackageManager = 'npm' | 'pnpm' | 'yarn';
+
+interface RuleCustomization  {
+	rule: string;
+	severity: RuleSeverity;
+}
 
 interface ConfigurationSettings {
 	validate: Validate;
@@ -192,6 +209,7 @@ interface ConfigurationSettings {
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
 	options: any | undefined;
+	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -399,6 +417,23 @@ function computeValidate(textDocument: TextDocument): Validate {
 		}
 	}
 	return Validate.off;
+}
+
+function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
+	if (!rawConfig || !Array.isArray(rawConfig)) {
+		return [];
+	}
+
+	return rawConfig.map(rawValue => {
+		if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
+			return {
+				severity: rawValue.severity,
+				rule: rawValue.rule,
+			};
+		}
+
+		return undefined;
+	}).filter((value): value is RuleCustomization => !!value);
 }
 
 let taskProvider: TaskProvider;
@@ -1574,6 +1609,7 @@ function realActivate(context: ExtensionContext): void {
 							quiet: config.get('quiet', false),
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
+							rulesCustomizations: parseRulesCustomizations(config.get('rules.customizations')),
 							run: config.get('run', 'onType'),
 							nodePath: nodePath !== undefined ? nodePath : null,
 							workingDirectory: undefined,
