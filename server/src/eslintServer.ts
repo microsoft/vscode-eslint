@@ -23,6 +23,7 @@ import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { EOL } from 'os';
 import { stringDiff } from './diff';
+import { LRUCache } from './linkedMap';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -224,6 +225,24 @@ interface CodeActionsOnSaveSettings {
 	mode: CodeActionsOnSaveMode
 }
 
+enum RuleSeverity {
+	// Original ESLint values
+	info = 'info',
+	warn = 'warn',
+	error = 'error',
+
+	// Added severity override changes
+	off = 'off',
+	default = 'default',
+	downgrade = 'downgrade',
+	upgrade = 'upgrade'
+}
+
+interface RuleCustomization  {
+	rule: string;
+	severity: RuleSeverity;
+}
+
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
@@ -233,6 +252,7 @@ interface CommonSettings {
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
 	options: ESLintOptions | undefined;
+	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
@@ -368,7 +388,34 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
-function makeDiagnostic(problem: ESLintProblem): Diagnostic {
+const ruleSeverityCache = new LRUCache<string, RuleSeverity | undefined>(1024);
+let ruleCustomizationsKey: string | undefined;
+
+function asteriskMatches(matcher: string, ruleId: string) {
+	return matcher.startsWith('!')
+		? !(new RegExp(`^${matcher.slice(1).replace(/\*/g, '.*')}$`, 'g').test(ruleId))
+		: new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
+}
+
+function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]) {
+	if (ruleSeverityCache.has(ruleId)) {
+		return ruleSeverityCache.get(ruleId);
+	}
+
+	let result: RuleSeverity | undefined;
+
+	for (const customization of customizations) {
+		if (asteriskMatches(customization.rule, ruleId)) {
+			result = customization.severity;
+		}
+	}
+
+	ruleSeverityCache.set(ruleId, result);
+
+	return result;
+}
+
+function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): Diagnostic {
 	const message = problem.message;
 	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
 	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
@@ -376,7 +423,7 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
 	const result: Diagnostic = {
 		message: message,
-		severity: convertSeverity(problem.severity),
+		severity: convertSeverityToDiagnosticWithOverride(problem.severity, getSeverityOverride(problem.ruleId, settings.rulesCustomizations)),
 		source: 'eslint',
 		range: {
 			start: { line: startLine, character: startChar },
@@ -395,6 +442,7 @@ function makeDiagnostic(problem: ESLintProblem): Diagnostic {
 			result.tags = [DiagnosticTag.Unnecessary];
 		}
 	}
+
 	return result;
 }
 
@@ -465,16 +513,56 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	 });
 }
 
-function convertSeverity(severity: number): DiagnosticSeverity {
+function adjustSeverityForOverride(severity: number | RuleSeverity, severityOverride?: RuleSeverity) {
+	switch (severityOverride) {
+		case RuleSeverity.info:
+		case RuleSeverity.warn:
+		case RuleSeverity.error:
+			return severityOverride;
+
+		case RuleSeverity.downgrade:
+			switch (convertSeverityToDiagnostic(severity)) {
+				case DiagnosticSeverity.Error:
+					return RuleSeverity.warn;
+				case DiagnosticSeverity.Warning:
+				case DiagnosticSeverity.Information:
+					return RuleSeverity.info;
+			}
+
+		case RuleSeverity.upgrade:
+			switch (convertSeverityToDiagnostic(severity)) {
+				case DiagnosticSeverity.Information:
+					return RuleSeverity.warn;
+				case DiagnosticSeverity.Warning:
+				case DiagnosticSeverity.Error:
+					return RuleSeverity.error;
+			}
+
+		default:
+			return severity;
+	}
+}
+
+function convertSeverityToDiagnostic(severity: number | RuleSeverity) {
+	// RuleSeverity concerns an overridden rule. A number is direct from ESLint.
 	switch (severity) {
 		// Eslint 1 is warning
 		case 1:
+		case RuleSeverity.warn:
 			return DiagnosticSeverity.Warning;
 		case 2:
+		case RuleSeverity.error:
 			return DiagnosticSeverity.Error;
+		case RuleSeverity.info:
+			return DiagnosticSeverity.Information;
 		default:
 			return DiagnosticSeverity.Error;
 	}
+}
+
+function convertSeverityToDiagnosticWithOverride(severity: number | RuleSeverity, severityOverride: RuleSeverity | undefined): DiagnosticSeverity {
+	return convertSeverityToDiagnostic(adjustSeverityForOverride(severity, severityOverride));
+
 }
 
 const enum CharCode {
@@ -1273,7 +1361,6 @@ const ruleDocData: {
 	urls: new Map<string, string>()
 };
 
-
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
 function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): void {
 	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
@@ -1288,6 +1375,12 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 		if (fixTypes.size === 0) {
 			fixTypes = undefined;
 		}
+	}
+
+	const newRuleCustomizationsKey = JSON.stringify(settings.rulesCustomizations);
+	if (ruleCustomizationsKey !== newRuleCustomizationsKey) {
+		ruleCustomizationsKey = newRuleCustomizationsKey;
+		ruleSeverityCache.clear();
 	}
 
 	const content = document.getText();
@@ -1311,12 +1404,12 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
-						const isWarning = convertSeverity(problem.severity) === DiagnosticSeverity.Warning;
+						const isWarning = convertSeverityToDiagnostic(problem.severity) === DiagnosticSeverity.Warning;
 						if (settings.quiet && isWarning) {
 							// Filter out warnings when quiet mode is enabled
 							return;
 						}
-						const diagnostic = makeDiagnostic(problem);
+						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const rule = cli.getRules().get(problem.ruleId);

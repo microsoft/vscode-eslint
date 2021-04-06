@@ -3,6 +3,7 @@ function bar() {
 		let str = 'hallo';
 		foo(str);
 	}
+	console.log("aha!");
 }
 
 function foo(str) {
