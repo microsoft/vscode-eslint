@@ -1,3 +1,7 @@
+### 2.1.20
+
+- Merged [Implement eslint.rules.customizations - with overrides](https://github.com/microsoft/vscode-eslint/pull/1164)
+
 ### 2.1.19
 
 - fixe [Using `eslint.nodePath` globally rather than locally, yet on every new window: `The eslint.nodePath setting requires user confirmation. To do so execute the Select Node Path command.`](https://github.com/microsoft/vscode-eslint/issues/1203)
