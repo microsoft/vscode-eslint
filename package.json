@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.20",
+	"version": "2.1.21",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -30,6 +30,10 @@
 	"extensionKind": [
 		"workspace"
 	],
+	"workspaceTrust": {
+		"request": "onStart",
+		"description": "The extension requires workspace trust because it loads configuration files and code from the workspace and executes it."
+  	},
 	"main": "./client/out/extension",
 	"contributes": {
 		"configuration": {
@@ -424,26 +428,6 @@
 				"title": "Migrate Settings",
 				"category": "ESLint",
 				"command": "eslint.migrateSettings"
-			},
-			{
-				"title": "Reset Library Execution Decisions",
-				"category": "ESLint",
-				"command": "eslint.resetLibraryExecution"
-			},
-			{
-				"title": "Manage Library Execution",
-				"category": "ESLint",
-				"command": "eslint.manageLibraryExecution"
-			},
-			{
-				"title": "Select Node Runtime",
-				"category": "ESLint",
-				"command": "eslint.selectNodeRuntime"
-			},
-			{
-				"title": "Select Node Path",
-				"category": "ESLint",
-				"command": "eslint.selectNodePath"
 			},
 			{
 				"title": "Restart ESLint Server",
