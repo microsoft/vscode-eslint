@@ -3,3 +3,5 @@ node_modules
 npm-debug.log
 *.vsix
 scrapbook.js
+*.lsif
+*.db
