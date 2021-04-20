@@ -1,0 +1,14 @@
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '14.16.0'
+  displayName: 'Use Node.js 14.16.0'
+
+- script: |
+    npm ci
+  displayName: 'Install dependencies'
+
+- script: |
+    npm run lint
+    npm run compile
+  displayName: 'Lint & Compile'
