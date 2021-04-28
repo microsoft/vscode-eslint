@@ -389,7 +389,8 @@
 									"info",
 									"default",
 									"upgrade",
-									"warn"
+									"warn",
+									"off"
 								],
 								"type": "string"
 							},
