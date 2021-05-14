@@ -1823,23 +1823,18 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	function createDisableLineTextEdit(editInfo: Problem, indentationText: string): TextEdit {
-		const currentLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
+		// if the concerned line is not the first  line of the file
+		if ( editInfo.line - 1 > 0) {
 
-		// check previous line if there is a eslint-disable-next-line comment already present
-		if ( editInfo.line - 2 >= 0) {
+			// check previous line if there is a eslint-disable-next-line comment already present
 			const prevLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line - 2, Number.MAX_VALUE)));
-
-			const matched = prevLine && prevLine.match(new RegExp(`^\t{${indentationText.length}}\/\/ eslint-disable-next-line`));
-			// eslint-disable-next-line no-console
-			console.log(`Here ${matched}`);
-			// eslint-disable-next-line no-console
-			console.log(`prevLine ${prevLine}`);
+			const matched = prevLine && prevLine.match(/^\s*\/\/\s*eslint-disable-next-line/);
 			if (matched && matched.length) {
-				return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), `, ${editInfo.ruleId}${EOL}`);
+				return TextEdit.insert(Position.create(editInfo.line - 2, Number.MAX_VALUE), `, ${editInfo.ruleId}`);
 			}
 
 		}
-		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText || currentLine}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
+		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
 
 	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
