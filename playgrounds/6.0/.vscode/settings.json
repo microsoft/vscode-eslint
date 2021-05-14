@@ -44,7 +44,8 @@
 		{ "rule": "!no-*", "severity": "upgrade" },
 		{ "rule": "*console*", "severity": "upgrade" },
 		{ "rule": "*semi*", "severity": "default" },
-		{ "rule": "radix", "severity": "default" }
+		{ "rule": "radix", "severity": "default" },
+		{ "rule": "no-use-before-define", "severity": "off" }
 	],
 	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.format.enable": true,

@@ -186,6 +186,7 @@ enum RuleSeverity {
 	info = 'info',
 	warn = 'warn',
 	error = 'error',
+	off = 'off',
 
 	// Added severity override changes
 	default = 'default',
