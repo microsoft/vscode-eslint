@@ -1823,28 +1823,30 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	function createDisableLineTextEdit(editInfo: Problem, indentationText: string): TextEdit {
-		// if(editInfo.line - 2 >= 0) {
-		// 	// if a disable rule comment is alreeady present above,
-		// 	// simple append the  rule behiind the exisiting comment following a comma
-		// 	const  previousLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line -2, Number.MAX_VALUE)));
-		// 	if (previousLine) {
-		// 		const matches = /^\t*\/\/ eslint\-disable\-next\-line/.exec(previousLine);
+		const currentLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
 
-		// 		if (matches !== null && matches.length) {
-		// 			return TextEdit.insert(Position.create(editInfo.line -))
-		// 		}
-		// 	}
+		// check previous line if there is a eslint-disable-next-line comment already present
+		if ( editInfo.line - 2 >= 0) {
+			const prevLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line - 2, Number.MAX_VALUE)));
 
+			const matched = prevLine && prevLine.match(new RegExp(`^\t{${indentationText.length}}\/\/ eslint-disable-next-line`));
+			// eslint-disable-next-line no-console
+			console.log(`Here ${matched}`);
+			// eslint-disable-next-line no-console
+			console.log(`prevLine ${prevLine}`);
+			if (matched && matched.length) {
+				return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), `, ${editInfo.ruleId}${EOL}`);
+			}
 
-		// }
-		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
+		}
+		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText || currentLine}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
 
 	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
 		const currentLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line -1, Number.MAX_VALUE)));
 		const matched = currentLine && /\/\/\s*eslint\-disable\-line/.exec(currentLine);
 
-		const disbaleRuleContent = (matched && matched.length)  ? `, ${editInfo.ruleId}` : ` // eslint-disable0line ${editInfo.ruleId}`;
+		const disbaleRuleContent = (matched && matched.length)  ? `, ${editInfo.ruleId}` : ` // eslint-disable-line ${editInfo.ruleId}`;
 		return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), disbaleRuleContent);
 	}
 
