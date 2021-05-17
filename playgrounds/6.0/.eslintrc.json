@@ -13,6 +13,7 @@
         "sourceType": "module"
     },
     "rules": {
+        "no-use-before-define": "error",
         "no-useless-escape": "error",
         "no-const-assign": "warn",
         "no-this-before-super": "warn",

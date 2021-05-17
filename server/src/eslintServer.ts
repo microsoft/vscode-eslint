@@ -515,6 +515,7 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 
 function adjustSeverityForOverride(severity: number | RuleSeverity, severityOverride?: RuleSeverity) {
 	switch (severityOverride) {
+		case RuleSeverity.off:
 		case RuleSeverity.info:
 		case RuleSeverity.warn:
 		case RuleSeverity.error:
@@ -1404,6 +1405,11 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
+						const isOff = getSeverityOverride(problem.ruleId, settings.rulesCustomizations) === RuleSeverity.off;
+						if (isOff) {
+							// Filter out rules with severity override to off
+							return;
+						}
 						const isWarning = convertSeverityToDiagnostic(problem.severity) === DiagnosticSeverity.Warning;
 						if (settings.quiet && isWarning) {
 							// Filter out warnings when quiet mode is enabled
