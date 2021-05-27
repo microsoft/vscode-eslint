@@ -32,8 +32,11 @@
 	],
 	"main": "./client/out/extension",
 	"capabilities": {
-		"virtualWorkspaces": false
-	},
+		"virtualWorkspaces": {
+			"supported": false,
+			"description": "Using ESLint is not possible in virtual workspaces."
+		}
+  	},
 	"contributes": {
 		"configuration": {
 			"type": "object",
