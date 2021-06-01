@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.57"
+		"vscode": "^1.57.0"
 	},
 	"activationEvents": [
 		"onStartupFinished"
@@ -36,7 +36,7 @@
 			"supported": false,
 			"description": "Using ESLint is not possible in virtual workspaces."
 		}
-  	},
+	},
 	"contributes": {
 		"configuration": {
 			"type": "object",
