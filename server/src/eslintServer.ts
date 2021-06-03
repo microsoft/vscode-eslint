@@ -736,7 +736,7 @@ const languageId2DefaultExt: Map<string, string> = new Map([
 
 const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
 	const result = new Map<string, RegExp[]>();
-	const typescript = /\/@typescript-eslint\/parser\//;
+	const typescript = /@typescript-eslint\/parser/;
 	const babelESLint = /\/babel-eslint\/lib\/index.js$/;
 	result.set('typescript', [typescript, babelESLint]);
 	result.set('typescriptreact', [typescript, babelESLint]);
