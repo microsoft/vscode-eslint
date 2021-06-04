@@ -736,12 +736,15 @@ const languageId2DefaultExt: Map<string, string> = new Map([
 
 const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
 	const result = new Map<string, RegExp[]>();
-	const typescript = /@typescript-eslint\/parser/;
-	const babelESLint = /\/babel-eslint\/lib\/index.js$/;
-	result.set('typescript', [typescript, babelESLint]);
-	result.set('typescriptreact', [typescript, babelESLint]);
 
-	const angular = /\/@angular-eslint\/template-parser\//;
+	const typescript = /@typescript-eslint\/parser\//;
+	const babelESLint = /babel-eslint\/lib\/index.js$/;
+	const newBabelEslint = /@babel\/eslint-parser\/lib\/index.cjs$/;
+
+	result.set('typescript', [typescript, babelESLint, newBabelEslint]);
+	result.set('typescriptreact', [typescript, babelESLint, newBabelEslint]);
+
+	const angular = /@angular-eslint\/template-parser\//;
 	result.set('html', [angular]);
 
 	return result;
