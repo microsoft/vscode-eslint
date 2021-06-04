@@ -201,7 +201,7 @@ interface RuleCustomization  {
 
 interface ConfigurationSettings {
 	validate: Validate;
-	packageManager: 'npm' | 'yarn' | 'pnpm';
+	packageManager: 'npm' | 'yarn' | 'pnpm' | 'cnpm';
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -1818,11 +1818,13 @@ function realActivate(context: ExtensionContext): void {
 			const localInstall = {
 				npm: 'npm install eslint',
 				pnpm: 'pnpm install eslint',
+				cnpm: 'cnpm install eslint',
 				yarn: 'yarn add eslint',
 			};
 			const globalInstall = {
 				npm: 'npm install -g eslint',
 				pnpm: 'pnpm install -g eslint',
+				cnpm: 'cnpm install -g eslint',
 				yarn: 'yarn global add eslint'
 			};
 			const isPackageManagerNpm = packageManager === 'npm';
@@ -1841,7 +1843,7 @@ function realActivate(context: ExtensionContext): void {
 					`To use ESLint please install eslint by running ${localInstall[packageManager]} in the workspace folder ${workspaceFolder.name}`,
 					`or globally using '${globalInstall[packageManager]}'. You need to reopen the workspace after installing eslint.`,
 					'',
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+					isPackageManagerNpm ? 'If you are using yarn or pnpm or cnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm` or `cnpm`' : null,
 					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
 				].filter((str => (str !== null))).join('\n'));
 
@@ -1861,7 +1863,7 @@ function realActivate(context: ExtensionContext): void {
 				client.info([
 					`Failed to load the ESLint library for the document ${uri.fsPath}`,
 					`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+					isPackageManagerNpm ? 'If you are using yarn or pnpm or cnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm` or `cnpm`' : null,
 					'You need to reopen VS Code after installing eslint.',
 				].filter((str => (str !== null))).join('\n'));
 

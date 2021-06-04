@@ -125,7 +125,7 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.lintTask.options": "-c C:/mydirectory/.eslintrc.json --ignore-path C:/mydirectory/.eslintignore ."
   }
   ```
-- `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"` or `"pnpm"`.
+- `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"` or `"pnpm"` or `"cnpm"`.
 - `eslint.options`: options to configure how ESLint is started using the [ESLint CLI Engine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengine). Defaults to an empty option bag.
   An example to point to a custom `.eslintrc.json` file is:
   ```json
@@ -254,4 +254,3 @@ As with JavaScript validating TypeScript in a mono repository requires that you 
 ## ESLint 6.x
 
 Migrating from ESLint 5.x to ESLint 6.x might need some adaption (see the [ESLint Migration Guide](https://eslint.org/docs/user-guide/migrating-to-6.0.0) for details). Before filing an issue against the VS Code ESLint extension please ensure that you can successfully validate your files in a terminal using the eslint command.
-

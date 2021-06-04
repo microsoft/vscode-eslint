@@ -55,7 +55,8 @@
 					"enum": [
 						"npm",
 						"yarn",
-						"pnpm"
+						"pnpm",
+						"cnpm"
 					],
 					"default": "npm",
 					"description": "The package manager you use to install node modules."

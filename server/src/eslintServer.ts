@@ -200,7 +200,7 @@ interface CodeActionSettings {
 	};
 }
 
-type PackageManagers = 'npm' | 'yarn' | 'pnpm';
+type PackageManagers = 'npm' | 'yarn' | 'pnpm' | 'cnpm';
 
 type ESLintOptions = object & { fixTypes?: string[] };
 enum Validate {
@@ -245,7 +245,7 @@ interface RuleCustomization  {
 
 interface CommonSettings {
 	validate: Validate;
-	packageManager: 'npm' | 'yarn' | 'pnpm';
+	packageManager: PackageManagers;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -711,6 +711,13 @@ const _globalPaths: { [key: string]: { cache: string | undefined; get(): string 
 			const pnpmPath = execSync('pnpm root -g').toString().trim();
 			return pnpmPath;
 		}
+	},
+	cnpm: {
+		cache: undefined,
+		get(): string {
+			const cnpmPath = execSync('cnpm root -g').toString().trim();
+			return cnpmPath;
+		}
 	}
 };
 
@@ -735,6 +742,21 @@ const languageId2DefaultExt: Map<string, string> = new Map([
 ]);
 
 const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
+	const result = new Map<string, RegExp[]>();
+	const typescript = /\/@typescript-eslint\/parser\//;
+	const babelESLint = /\/babel-eslint\/lib\/index.js$/;
+	const newBabelEslint = /\/@babel\/eslint-parser\/lib\/index.cjs$/;
+
+	result.set('typescript', [typescript, babelESLint, newBabelEslint]);
+	result.set('typescriptreact', [typescript, babelESLint, newBabelEslint]);
+
+	const angular = /\/@angular-eslint\/template-parser\//;
+	result.set('html', [angular]);
+
+	return result;
+}();
+
+const cnpmLanguageId2ParserRegExp: Map<string, RegExp[]> = function() {
 	const result = new Map<string, RegExp[]>();
 
 	const typescript = /@typescript-eslint\/parser\//;
@@ -929,7 +951,9 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 						}
 					}
 					if (filePath !== undefined) {
-						const parserRegExps = languageId2ParserRegExp.get(document.languageId);
+						const parserRegExps = settings.packageManager === 'cnpm'
+							? cnpmLanguageId2ParserRegExp.get(document.languageId)
+							: languageId2ParserRegExp.get(document.languageId);
 						const pluginName = languageId2PluginName.get(document.languageId);
 						const parserOptions = languageId2ParserOptions.get(document.languageId);
 						if (defaultLanguageIds.has(document.languageId)) {
