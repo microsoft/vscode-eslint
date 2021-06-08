@@ -740,6 +740,10 @@ const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId
 	const babelESLint = /\/babel-eslint\/lib\/index.js$/;
 	result.set('typescript', [typescript, babelESLint]);
 	result.set('typescriptreact', [typescript, babelESLint]);
+
+	const angular = /\/@angular-eslint\/template-parser\//;
+	result.set('html', [angular]);
+
 	return result;
 }();
 
