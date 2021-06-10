@@ -12,6 +12,10 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md);
 
+### Version 2.1.22
+
+Adapt VS Code's workspace trust model. As a consequence the custom dialog ESLint introduced in version `2.1.7` got removed. In addition the `off` value got added to the eslint rule customization support.
+
 ### Version 2.1.20
 
 Added support to customize the severity of eslint rules. See the new setting `eslint.rules.customizations`.

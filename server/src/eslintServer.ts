@@ -61,10 +61,7 @@ interface ESLintError extends Error {
 enum Status {
 	ok = 1,
 	warn = 2,
-	error = 3,
-	confirmationPending = 4,
-	confirmationCanceled = 5,
-	executionDenied = 6
+	error = 3
 }
 
 interface StatusParams {
@@ -116,38 +113,6 @@ interface ProbeFailedParams {
 
 namespace ProbeFailedRequest {
 	export const type = new RequestType<ProbeFailedParams, void, void>('eslint/probeFailed');
-}
-
-interface ConfirmExecutionParams {
-	scope: 'local' | 'global';
-	uri: string;
-	libraryPath: string;
-}
-
-enum ConfirmExecutionResult {
-	deny = 1,
-	confirmationPending = 2,
-	confirmationCanceled = 3,
-	approved = 4
-}
-
-namespace ConfirmExecutionResult {
-	export function toStatus(value: ConfirmExecutionResult): Status {
-		switch (value) {
-			case ConfirmExecutionResult.deny:
-				return Status.executionDenied;
-			case ConfirmExecutionResult.confirmationPending:
-				return Status.confirmationPending;
-			case ConfirmExecutionResult.confirmationCanceled:
-				return Status.confirmationCanceled;
-			case ConfirmExecutionResult.approved:
-				return Status.ok;
-		}
-	}
-}
-
-namespace ConfirmExecution {
-	export const type = new RequestType<ConfirmExecutionParams, ConfirmExecutionResult, void>('eslint/confirmESLintExecution');
 }
 
 namespace ShowOutputChannel {
@@ -767,7 +732,6 @@ const defaultLanguageIds: Set<string> = new Set([
 
 const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 const document2Settings: Map<string, Promise<TextDocumentSettings>> = new Map<string, Promise<TextDocumentSettings>>();
-const executionConfirmations: Map<string, ConfirmExecutionResult> = new Map();
 
 const projectFolderIndicators: [string, boolean][] = [
 	[ 'package.json',  true ],
@@ -877,136 +841,117 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 
 		settings.silent = settings.validate === Validate.probe;
 		return promise.then((libraryPath) => {
-			const scope: 'local' | 'global' = settings.resolvedGlobalPackageManagerPath !== undefined && libraryPath.startsWith(settings.resolvedGlobalPackageManagerPath)
-				? 'global'
-				: 'local';
-			const cachedExecutionConfirmation = executionConfirmations.get(libraryPath);
-			const confirmationPromise = cachedExecutionConfirmation === undefined
-				? connection.sendRequest(ConfirmExecution.type, { scope: scope, uri: uri, libraryPath })
-				: Promise.resolve(cachedExecutionConfirmation);
-			return confirmationPromise.then((confirmed) => {
-				// Only cache if the execution got confirm to give the UI the change
-				// to update on un confirmed execution.
-				if (confirmed !== ConfirmExecutionResult.approved) {
-					settings.validate = Validate.off;
-					connection.sendDiagnostics({ uri: uri, diagnostics: [] });
-					connection.sendNotification(StatusNotification.type, { uri: uri, state: ConfirmExecutionResult.toStatus(confirmed) });
-					return settings;
-				} else {
-					executionConfirmations.set(libraryPath, confirmed);
-				}
-				let library = path2Library.get(libraryPath);
+			let library = path2Library.get(libraryPath);
+			if (library === undefined) {
+				library = loadNodeModule(libraryPath);
 				if (library === undefined) {
-					library = loadNodeModule(libraryPath);
-					if (library === undefined) {
-						settings.validate = Validate.off;
-						if (!settings.silent) {
-							connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
-						}
-					} else if (library.CLIEngine === undefined) {
-						settings.validate = Validate.off;
-						connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
-					} else {
-						connection.console.info(`ESLint library loaded from: ${libraryPath}`);
-						settings.library = library;
-						path2Library.set(libraryPath, library);
-					}
-				} else {
-					settings.library = library;
-				}
-				if (settings.validate === Validate.probe && TextDocumentSettings.hasLibrary(settings)) {
 					settings.validate = Validate.off;
-					const uri: URI = URI.parse(document.uri);
-					let filePath = getFilePath(document);
-					if (filePath === undefined && uri.scheme === 'untitled' && settings.workspaceFolder !== undefined) {
-						const ext = languageId2DefaultExt.get(document.languageId);
-						const workspacePath = getFilePath(settings.workspaceFolder.uri);
-						if (workspacePath !== undefined && ext !== undefined) {
-							filePath = path.join(workspacePath, `test${ext}`);
-						}
+					if (!settings.silent) {
+						connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
 					}
-					if (filePath !== undefined) {
-						const parserRegExps = languageId2ParserRegExp.get(document.languageId);
-						const pluginName = languageId2PluginName.get(document.languageId);
-						const parserOptions = languageId2ParserOptions.get(document.languageId);
-						if (defaultLanguageIds.has(document.languageId)) {
-							settings.validate = Validate.on;
-						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
-							const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
-								try {
-									if (typeof cli.getConfigForFile === 'function') {
-										return cli.getConfigForFile(filePath!);
-									} else {
-										return undefined;
-									}
-								} catch (err) {
+				} else if (library.CLIEngine === undefined) {
+					settings.validate = Validate.off;
+					connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
+				} else {
+					connection.console.info(`ESLint library loaded from: ${libraryPath}`);
+					settings.library = library;
+					path2Library.set(libraryPath, library);
+				}
+			} else {
+				settings.library = library;
+			}
+			if (settings.validate === Validate.probe && TextDocumentSettings.hasLibrary(settings)) {
+				settings.validate = Validate.off;
+				const uri: URI = URI.parse(document.uri);
+				let filePath = getFilePath(document);
+				if (filePath === undefined && uri.scheme === 'untitled' && settings.workspaceFolder !== undefined) {
+					const ext = languageId2DefaultExt.get(document.languageId);
+					const workspacePath = getFilePath(settings.workspaceFolder.uri);
+					if (workspacePath !== undefined && ext !== undefined) {
+						filePath = path.join(workspacePath, `test${ext}`);
+					}
+				}
+				if (filePath !== undefined) {
+					const parserRegExps = languageId2ParserRegExp.get(document.languageId);
+					const pluginName = languageId2PluginName.get(document.languageId);
+					const parserOptions = languageId2ParserOptions.get(document.languageId);
+					if (defaultLanguageIds.has(document.languageId)) {
+						settings.validate = Validate.on;
+					} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
+						const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
+							try {
+								if (typeof cli.getConfigForFile === 'function') {
+									return cli.getConfigForFile(filePath!);
+								} else {
 									return undefined;
 								}
-							}, settings);
-							if (eslintConfig !== undefined) {
-								const parser: string | undefined =  eslintConfig.parser !== null
-									? (process.platform === 'win32' ? eslintConfig.parser.replace(/\\/g, '/') : eslintConfig.parser)
-									: undefined;
-								if (parser !== undefined) {
-									if (parserRegExps !== undefined) {
-										for (const regExp of parserRegExps) {
-											if (regExp.test(parser)) {
-												settings.validate = Validate.on;
-												break;
-											}
-										}
-									}
-									if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
-										for (const regExp of parserOptions.regExps) {
-											if (regExp.test(parser) && (
-												parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
-												parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfig.parserOptions!.parser!))
-											)) {
-												settings.validate = Validate.on;
-												break;
-											}
+							} catch (err) {
+								return undefined;
+							}
+						}, settings);
+						if (eslintConfig !== undefined) {
+							const parser: string | undefined =  eslintConfig.parser !== null
+								? (process.platform === 'win32' ? eslintConfig.parser.replace(/\\/g, '/') : eslintConfig.parser)
+								: undefined;
+							if (parser !== undefined) {
+								if (parserRegExps !== undefined) {
+									for (const regExp of parserRegExps) {
+										if (regExp.test(parser)) {
+											settings.validate = Validate.on;
+											break;
 										}
 									}
 								}
-								if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
-									for (const name of eslintConfig.plugins) {
-										if (name === pluginName) {
+								if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
+									for (const regExp of parserOptions.regExps) {
+										if (regExp.test(parser) && (
+											parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
+											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfig.parserOptions!.parser!))
+										)) {
 											settings.validate = Validate.on;
 											break;
 										}
 									}
 								}
 							}
+							if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
+								for (const name of eslintConfig.plugins) {
+									if (name === pluginName) {
+										settings.validate = Validate.on;
+										break;
+									}
+								}
+							}
 						}
 					}
-					if (settings.validate === Validate.off) {
-						const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
-						connection.sendRequest(ProbeFailedRequest.type, params);
-					}
 				}
-				if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
-					const Uri = URI.parse(uri);
-					const isFile = Uri.scheme === 'file';
-					let pattern: string = isFile
-						? Uri.fsPath.replace(/\\/g, '/')
-						: Uri.fsPath;
-					pattern = pattern.replace(/[\[\]\{\}]/g, '?');
+				if (settings.validate === Validate.off) {
+					const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
+					connection.sendRequest(ProbeFailedRequest.type, params);
+				}
+			}
+			if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
+				const Uri = URI.parse(uri);
+				const isFile = Uri.scheme === 'file';
+				let pattern: string = isFile
+					? Uri.fsPath.replace(/\\/g, '/')
+					: Uri.fsPath;
+				pattern = pattern.replace(/[\[\]\{\}]/g, '?');
 
-					const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
-					const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
-					if (!isFile) {
-						formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
-					} else {
-						const filePath = getFilePath(uri)!;
-						withCLIEngine((cli) => {
-							if (!cli.isPathIgnored(filePath)) {
-								formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
-							}
-						}, settings);
-					}
+				const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
+				const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
+				if (!isFile) {
+					formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+				} else {
+					const filePath = getFilePath(uri)!;
+					withCLIEngine((cli) => {
+						if (!cli.isPathIgnored(filePath)) {
+							formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+						}
+					}, settings);
 				}
-				return settings;
-			});
+			}
+			return settings;
 		}, () => {
 			settings.validate = Validate.off;
 			if (!settings.silent) {
@@ -1232,7 +1177,6 @@ function setupDocumentsListeners() {
 
 function environmentChanged() {
 	document2Settings.clear();
-	executionConfirmations.clear();
 	for (let document of documents.all()) {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}

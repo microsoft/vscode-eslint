@@ -1,10 +1,20 @@
+### 2.1.22
+
+- adapt VS Code's workspace trust model. As a consequence the custom dialog ESLint introduced in version `2.1.7` got removed.
+- Various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=milestone%3A2.1.22+)
+
+
+### 2.1.21
+
+- Internal insider release.
+
 ### 2.1.20
 
 - Merged [Implement eslint.rules.customizations - with overrides](https://github.com/microsoft/vscode-eslint/pull/1164)
 
 ### 2.1.19
 
-- fixe [Using `eslint.nodePath` globally rather than locally, yet on every new window: `The eslint.nodePath setting requires user confirmation. To do so execute the Select Node Path command.`](https://github.com/microsoft/vscode-eslint/issues/1203)
+- fixed [Using `eslint.nodePath` globally rather than locally, yet on every new window: `The eslint.nodePath setting requires user confirmation. To do so execute the Select Node Path command.`](https://github.com/microsoft/vscode-eslint/issues/1203)
 
 ### 2.1.18
 
