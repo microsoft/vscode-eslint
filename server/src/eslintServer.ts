@@ -582,6 +582,13 @@ function isUNC(path: string): boolean {
 	return true;
 }
 
+function normalizeDriveLetter(path: string): string {
+	if (process.platform !== 'win32' || path.length < 2 || path[1] !== ':') {
+		return path;
+	}
+	return path[0].toUpperCase() + path.substr(1);
+}
+
 function getFileSystemPath(uri: URI): string {
 	let result = uri.fsPath;
 	if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
@@ -1391,7 +1398,7 @@ function withCLIEngine<T>(func: (cli: CLIEngine) => T, settings: TextDocumentSet
 	const cwd = process.cwd();
 	try {
 		if (settings.workingDirectory) {
-			newOptions.cwd = settings.workingDirectory.directory;
+			newOptions.cwd = normalizeDriveLetter(settings.workingDirectory.directory);
 			if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(settings.workingDirectory.directory)) {
 				process.chdir(settings.workingDirectory.directory);
 			}
