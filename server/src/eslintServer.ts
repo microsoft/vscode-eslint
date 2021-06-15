@@ -10,7 +10,8 @@ import {
 	TextDocumentIdentifier, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
-	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0
+	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
+	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage
 } from 'vscode-languageserver/node';
 
 import {
@@ -659,7 +660,26 @@ process.on('uncaughtException', (error: any) => {
 	}
 });
 
-const connection = createConnection();
+
+function isRequestMessage(message: LMessage | undefined): message is LRequestMessage {
+	const candidate = <LRequestMessage>message;
+	return candidate && typeof candidate.method === 'string' && (typeof candidate.id === 'string' || typeof candidate.id === 'number');
+}
+
+const connection = createConnection({
+	cancelUndispatched: (message: LMessage) => {
+		// Code actions can savely be cancel on request.
+		if (isRequestMessage(message) && message.method === 'textDocument/codeAction') {
+			const response: LResponseMessage = {
+				jsonrpc: message.jsonrpc,
+				id: message.id,
+				result: null
+			};
+			return response;
+		}
+		return undefined;
+	}
+});
 connection.console.info(`ESLint server running in node ${process.version}`);
 // Is instantiated in the initialize handle;
 let documents!: TextDocuments<TextDocument>;
@@ -1148,7 +1168,7 @@ function setupDocumentsListeners() {
 		const uri = event.document.uri;
 		codeActions.delete(uri);
 		resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on|| settings.run !== 'onType') {
+			if (settings.validate !== Validate.on || settings.run !== 'onType') {
 				return;
 			}
 			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
