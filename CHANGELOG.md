@@ -1,3 +1,7 @@
+### 2.1.23
+
+- Fixes [Server should provide default result for code actions so that canceled requests can be removed from queue](https://github.com/microsoft/vscode-eslint/issues/1283)
+
 ### 2.1.22
 
 - adapt VS Code's workspace trust model. As a consequence the custom dialog ESLint introduced in version `2.1.7` got removed.
