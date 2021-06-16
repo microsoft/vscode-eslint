@@ -796,6 +796,7 @@ function realActivate(context: ExtensionContext): void {
 	const starting = 'ESLint server is starting.';
 	const running = 'ESLint server is running.';
 	const stopped = 'ESLint server stopped.';
+	statusBarItem.name = 'ESLint';
 	statusBarItem.text = 'ESLint';
 	statusBarItem.command = 'eslint.showOutputChannel';
 
