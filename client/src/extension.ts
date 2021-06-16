@@ -790,7 +790,7 @@ class Migration {
 
 function realActivate(context: ExtensionContext): void {
 
-	const statusBarItem = Window.createStatusBarItem(StatusBarAlignment.Right, 0);
+	const statusBarItem = Window.createStatusBarItem('generalStatus', StatusBarAlignment.Right, 0);
 	let serverRunning: boolean | undefined;
 
 	const starting = 'ESLint server is starting.';
