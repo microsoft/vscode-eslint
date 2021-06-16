@@ -1025,7 +1025,7 @@ function realActivate(context: ExtensionContext): void {
 				if (context.only === undefined && eslintDiagnostics.length === 0) {
 					return [];
 				}
-				const newContext: CodeActionContext = Object.assign({}, context, { diagnostics: eslintDiagnostics } as CodeActionContext);
+				const newContext: CodeActionContext = Object.assign({}, context, { diagnostics: eslintDiagnostics });
 				return next(document, range, newContext, token);
 			},
 			workspace: {
