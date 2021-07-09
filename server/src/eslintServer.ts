@@ -954,7 +954,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 				}
 				if (settings.validate === Validate.off) {
 					const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
-					connection.sendRequest(ProbeFailedRequest.type, params);
+					void connection.sendRequest(ProbeFailedRequest.type, params);
 				}
 			}
 			if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
@@ -982,7 +982,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 		}, () => {
 			settings.validate = Validate.off;
 			if (!settings.silent) {
-				connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
+				void connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
 			}
 			return settings;
 		});
@@ -1143,7 +1143,7 @@ namespace ValidateNotification {
 }
 
 messageQueue.onNotification(ValidateNotification.type, (document) => {
-	validateSingle(document, true);
+	void validateSingle(document, true);
 }, (document): number => {
 	return document.version;
 });
@@ -1153,7 +1153,7 @@ function setupDocumentsListeners() {
 	// and close on the connection
 	documents.listen(connection);
 	documents.onDidOpen((event) => {
-		resolveSettings(event.document).then((settings) => {
+		void resolveSettings(event.document).then((settings) => {
 			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 				return;
 			}
@@ -1167,7 +1167,7 @@ function setupDocumentsListeners() {
 	documents.onDidChangeContent((event) => {
 		const uri = event.document.uri;
 		codeActions.delete(uri);
-		resolveSettings(event.document).then((settings) => {
+		void resolveSettings(event.document).then((settings) => {
 			if (settings.validate !== Validate.on || settings.run !== 'onType') {
 				return;
 			}
@@ -1177,7 +1177,7 @@ function setupDocumentsListeners() {
 
 	// A text document has been saved. Validate the document according the run setting.
 	documents.onDidSave((event) => {
-		resolveSettings(event.document).then((settings) => {
+		void resolveSettings(event.document).then((settings) => {
 			if (settings.validate !== Validate.on || settings.run !== 'onSave') {
 				return;
 			}
@@ -1186,13 +1186,13 @@ function setupDocumentsListeners() {
 	});
 
 	documents.onDidClose((event) => {
-		resolveSettings(event.document).then((settings) => {
+		void resolveSettings(event.document).then((settings) => {
 			const uri = event.document.uri;
 			document2Settings.delete(uri);
 			codeActions.delete(uri);
 			const unregister = formatterRegistrations.get(event.document.uri);
 			if (unregister !== undefined) {
-				unregister.then(disposable => disposable.dispose());
+				void unregister.then(disposable => disposable.dispose());
 				formatterRegistrations.delete(event.document.uri);
 			}
 			if (settings.validate === Validate.on) {
@@ -1208,7 +1208,7 @@ function environmentChanged() {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}
 	for (const unregistration of formatterRegistrations.values()) {
-		unregistration.then(disposable => disposable.dispose());
+		void unregistration.then(disposable => disposable.dispose());
 	}
 	formatterRegistrations.clear();
 }
@@ -1255,8 +1255,8 @@ connection.onInitialize((_params, _cancel, progress) => {
 });
 
 connection.onInitialized(() => {
-	connection.client.register(DidChangeConfigurationNotification.type, undefined);
-	connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
+	void connection.client.register(DidChangeConfigurationNotification.type, undefined);
+	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
 });
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
@@ -1536,7 +1536,7 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 }
 
 function showErrorMessage(error: any, document: TextDocument): Status {
-	connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+	void connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
 		if (value !== undefined && value.id === 1) {
 			connection.sendNotification(ShowOutputChannel.type);
 		}
@@ -2088,7 +2088,7 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 		} else if (params.command === CommandIds.openRuleDoc && CommandParams.hasRuleId(commandParams)) {
 			const url = ruleDocData.urls.get(commandParams.ruleId);
 			if (url) {
-				connection.sendRequest(OpenESLintDocRequest.type, { url });
+				void connection.sendRequest(OpenESLintDocRequest.type, { url });
 			}
 		} else {
 			workspaceChange = changes.get(params.command);

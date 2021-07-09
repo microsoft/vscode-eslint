@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.57.0"
+		"vscode": "^1.58.0"
 	},
 	"activationEvents": [
 		"onStartupFinished"
@@ -484,11 +484,9 @@
 		"compile:client": "tsc -b ./client/tsconfig.json",
 		"compile:server": "tsc -b ./server/tsconfig.json",
 		"watch": "tsc -b -w",
-		"lint": "npm run lint:client && npm run lint:server",
-		"lint:client": "eslint --config ./client/.eslintrc.json ./client/src/*.ts",
-		"lint:server": "eslint --config ./server/.eslintrc.json ./server/src/*.ts",
+		"lint": "node ./build/bin/all.js run lint",
 		"clean": "rimraf client/out && rimraf server/out",
-		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+		"postinstall": "node ./build/bin/all.js install"
 	},
 	"devDependencies": {
 		"@types/mocha": "^8.0.4",
