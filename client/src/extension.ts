@@ -21,6 +21,7 @@ import {
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
 import { TaskProvider } from './tasks';
+import { error } from 'console';
 
 namespace Is {
 	const toString = Object.prototype.toString;
@@ -300,7 +301,7 @@ async function pickFolder(folders: ReadonlyArray<VWorkspaceFolder>, placeHolder:
 function createDefaultConfiguration(): void {
 	const folders = Workspace.workspaceFolders;
 	if (!folders) {
-		Window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
+		void Window.showErrorMessage('An ESLint configuration can only be generated if VS Code is opened on a workspace folder.');
 		return;
 	}
 	const noConfigFolders = folders.filter(folder => {
@@ -314,13 +315,13 @@ function createDefaultConfiguration(): void {
 	});
 	if (noConfigFolders.length === 0) {
 		if (folders.length === 1) {
-			Window.showInformationMessage('The workspace already contains an ESLint configuration file.');
+			void Window.showInformationMessage('The workspace already contains an ESLint configuration file.');
 		} else {
-			Window.showInformationMessage('All workspace folders already contain an ESLint configuration file.');
+			void Window.showInformationMessage('All workspace folders already contain an ESLint configuration file.');
 		}
 		return;
 	}
-	pickFolder(noConfigFolders, 'Select a workspace folder to generate a ESLint configuration for').then(async (folder) => {
+	void pickFolder(noConfigFolders, 'Select a workspace folder to generate a ESLint configuration for').then(async (folder) => {
 		if (!folder) {
 			return;
 		}
@@ -439,9 +440,9 @@ export function activate(context: ExtensionContext) {
 	const notValidating = () => {
 		const enabled = Workspace.getConfiguration('eslint', Window.activeTextEditor?.document).get('enable', true);
 		if (!enabled) {
-			Window.showInformationMessage(`ESLint is not running because the deprecated setting 'eslint.enable' is set to false. Remove the setting and use the extension disablement feature.`);
+			void Window.showInformationMessage(`ESLint is not running because the deprecated setting 'eslint.enable' is set to false. Remove the setting and use the extension disablement feature.`);
 		} else {
-			Window.showInformationMessage('ESLint is not running. By default only TypeScript and JavaScript files are validated. If you want to validate other file types please specify them in the \'eslint.probe\' setting.');
+			void Window.showInformationMessage('ESLint is not running. By default only TypeScript and JavaScript files are validated. If you want to validate other file types please specify them in the \'eslint.probe\' setting.');
 		}
 	};
 	onActivateCommands = [
@@ -876,7 +877,7 @@ function realActivate(context: ExtensionContext): void {
 
 	function migrationFailed(error: any): void {
 		client.error(error.message ?? 'Unknown error', error);
-		Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
+		void Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
 			if (selected === undefined) {
 				return;
 			}
@@ -888,7 +889,7 @@ function realActivate(context: ExtensionContext): void {
 	async function migrateSettings(): Promise<void> {
 		const folders = Workspace.workspaceFolders;
 		if (folders === undefined) {
-			Window.showErrorMessage('ESLint settings can only be converted if VS Code is opened on a workspace folder.');
+			void Window.showErrorMessage('ESLint settings can only be converted if VS Code is opened on a workspace folder.');
 			return;
 		}
 
@@ -1094,7 +1095,7 @@ function realActivate(context: ExtensionContext): void {
 												await config.update('migration.2_x', 'off', ConfigurationTarget.Global);
 											} else if (selected.id === 'readme') {
 												notNow = true;
-												Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-migration'));
+												void Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-migration'));
 											}
 										}
 									}
@@ -1228,7 +1229,7 @@ function realActivate(context: ExtensionContext): void {
 	try {
 		client = new LanguageClient('ESLint', serverOptions, clientOptions);
 	} catch (err) {
-		Window.showErrorMessage(`The ESLint extension couldn't be started. See the ESLint output channel for details.`);
+		void Window.showErrorMessage(`The ESLint extension couldn't be started. See the ESLint output channel for details.`);
 		return;
 	}
 	client.registerProposedFeatures();
@@ -1284,7 +1285,7 @@ function realActivate(context: ExtensionContext): void {
 		client.onNotification(exitCalled, (params) => {
 			serverCalledProcessExit = true;
 			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
-			Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+			void Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
 				if (value !== undefined && value.id === 1) {
 					client.outputChannel.show();
 				}
@@ -1356,8 +1357,8 @@ function realActivate(context: ExtensionContext): void {
 				}
 				if (!state.workspaces[workspaceFolder.uri.toString()]) {
 					state.workspaces[workspaceFolder.uri.toString()] = true;
-					context.globalState.update(key, state);
-					Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+					void context.globalState.update(key, state);
+					void Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
 						if (item && item.id === 1) {
 							client.outputChannel.show(true);
 						}
@@ -1373,8 +1374,8 @@ function realActivate(context: ExtensionContext): void {
 
 				if (!state.global) {
 					state.global = true;
-					context.globalState.update(key, state);
-					Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+					void context.globalState.update(key, state);
+					void Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
 						if (item && item.id === 1) {
 							client.outputChannel.show(true);
 						}
@@ -1384,8 +1385,8 @@ function realActivate(context: ExtensionContext): void {
 			return {};
 		});
 
-		client.onRequest(OpenESLintDocRequest.type, (params) => {
-			Commands.executeCommand('vscode.open', Uri.parse(params.url));
+		client.onRequest(OpenESLintDocRequest.type, async (params) => {
+			await Commands.executeCommand('vscode.open', Uri.parse(params.url));
 			return {};
 		});
 
@@ -1400,7 +1401,7 @@ function realActivate(context: ExtensionContext): void {
 		});
 	};
 
-	client.onReady().then(readyHandler);
+	client.onReady().then(readyHandler).catch((error) => client.error(`On ready failed`, error));
 
 	if (onActivateCommands) {
 		onActivateCommands.forEach(command => command.dispose());
@@ -1432,14 +1433,14 @@ function realActivate(context: ExtensionContext): void {
 			};
 			await client.onReady();
 			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
-				Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
+				void Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});
 		}),
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			client.outputChannel.show();
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
-			migrateSettings();
+			void migrateSettings();
 		}),
 		Commands.registerCommand('eslint.restart', async () => {
 			await client.stop();
@@ -1447,7 +1448,7 @@ function realActivate(context: ExtensionContext): void {
 			// So we should add a dev flag.
 			const start = () => {
 				client.start();
-				client.onReady().then(readyHandler);
+				client.onReady().then(readyHandler).catch((error) => client.error(`On ready failed`, error));
 			};
 			if (isInDebugMode()) {
 				setTimeout(start, 1000);

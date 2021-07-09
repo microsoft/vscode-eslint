@@ -24,6 +24,6 @@
 	},
 	"scripts": {
 		"test": "node ../node_modules/mocha/bin/_mocha",
-		"lint": "node ../node_modules/eslint/bin/eslint.js ./src/**/*.ts"
+		"lint": "node ../node_modules/eslint/bin/eslint.js --ext ts src"
 	}
 }

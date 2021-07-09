@@ -20,6 +20,6 @@
 		"vscode-uri": "^2.1.2"
 	},
 	"scripts": {
-		"lint": "node ../node_modules/eslint/bin/eslint.js ./src/**/*.ts"
+		"lint": "node ../node_modules/eslint/bin/eslint.js --ext ts src"
 	}
 }
