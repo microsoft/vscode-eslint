@@ -1620,15 +1620,23 @@ class Fixes {
 			}
 		});
 		return result.sort((a, b) => {
-			const d = a.edit.range[0] - b.edit.range[0];
-			if (d !== 0) {
-				return d;
+			const d0 = a.edit.range[0] - b.edit.range[0];
+			if (d0 !== 0) {
+				return d0;
 			}
+			// Both edits have now the same start offset.
+
+			// Length of a and length of b
 			const al = a.edit.range[1] - a.edit.range[0];
+			const bl = b.edit.range[1] - b.edit.range[0];
+			// Both has the same start offset and length.
+			if (al === bl) {
+				return 0;
+			}
+
 			if (al === 0) {
 				return -1;
 			}
-			const bl = b.edit.range[1] - b.edit.range[0];
 			if (bl === 0) {
 				return 1;
 			}
