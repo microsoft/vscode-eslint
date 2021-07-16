@@ -608,6 +608,18 @@ function getFileSystemPath(uri: URI): string {
 	return result;
 }
 
+function normalizePath(path: string): string;
+function normalizePath(path: undefined): undefined;
+function normalizePath(path: string | undefined): string | undefined {
+	if (path === undefined) {
+		return undefined;
+	}
+	if (process.platform === 'win32') {
+		return path.replace(/\\/g, '/');
+	}
+	return path;
+}
+
 
 function getFilePath(documentOrUri: string | TextDocument | URI | undefined): string | undefined {
 	if (!documentOrUri) {
@@ -918,7 +930,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 						}, settings);
 						if (eslintConfig !== undefined) {
 							const parser: string | undefined =  eslintConfig.parser !== null
-								? (process.platform === 'win32' ? eslintConfig.parser.replace(/\\/g, '/') : eslintConfig.parser)
+								? normalizePath(eslintConfig.parser)
 								: undefined;
 							if (parser !== undefined) {
 								if (parserRegExps !== undefined) {
@@ -930,10 +942,11 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 									}
 								}
 								if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
+									const eslintConfigParserOptionsParser = normalizePath(eslintConfig.parserOptions.parser);
 									for (const regExp of parserOptions.regExps) {
 										if (regExp.test(parser) && (
 											parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
-											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfig.parserOptions!.parser!))
+											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfigParserOptionsParser))
 										)) {
 											settings.validate = Validate.on;
 											break;
