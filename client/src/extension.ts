@@ -21,7 +21,6 @@ import {
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
 import { TaskProvider } from './tasks';
-import { error } from 'console';
 
 namespace Is {
 	const toString = Object.prototype.toString;
