@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.20",
+	"version": "2.1.24",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.57.0"
+		"vscode": "^1.58.0"
 	},
 	"activationEvents": [
 		"onStartupFinished"
@@ -35,6 +35,10 @@
 		"virtualWorkspaces": {
 			"supported": false,
 			"description": "Using ESLint is not possible in virtual workspaces."
+		},
+		"untrustedWorkspaces": {
+			"supported": false,
+			"description": "The extension requires workspace trust because it loads configuration files and code from the workspace and executes it."
 		}
 	},
 	"contributes": {
@@ -433,26 +437,6 @@
 				"command": "eslint.migrateSettings"
 			},
 			{
-				"title": "Reset Library Execution Decisions",
-				"category": "ESLint",
-				"command": "eslint.resetLibraryExecution"
-			},
-			{
-				"title": "Manage Library Execution",
-				"category": "ESLint",
-				"command": "eslint.manageLibraryExecution"
-			},
-			{
-				"title": "Select Node Runtime",
-				"category": "ESLint",
-				"command": "eslint.selectNodeRuntime"
-			},
-			{
-				"title": "Select Node Path",
-				"category": "ESLint",
-				"command": "eslint.selectNodePath"
-			},
-			{
 				"title": "Restart ESLint Server",
 				"category": "ESLint",
 				"command": "eslint.restart"
@@ -500,23 +484,21 @@
 		"compile:client": "tsc -b ./client/tsconfig.json",
 		"compile:server": "tsc -b ./server/tsconfig.json",
 		"watch": "tsc -b -w",
-		"lint": "npm run lint:client && npm run lint:server",
-		"lint:client": "eslint --config ./client/.eslintrc.json ./client/src/*.ts",
-		"lint:server": "eslint --config ./server/.eslintrc.json ./server/src/*.ts",
+		"lint": "node ./build/bin/all.js run lint",
 		"clean": "rimraf client/out && rimraf server/out",
-		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+		"postinstall": "node ./build/bin/all.js install"
 	},
 	"devDependencies": {
 		"@types/mocha": "^8.0.4",
-		"@types/node": "^12.12.6",
-		"@typescript-eslint/eslint-plugin": "^4.22.1",
-		"@typescript-eslint/parser": "^4.22.1",
-		"eslint": "^7.26.0",
+		"@types/node": "^14.14.31",
+		"@typescript-eslint/eslint-plugin": "^4.28.2",
+		"@typescript-eslint/parser": "^4.28.2",
+		"eslint": "^7.30.0",
 		"merge-options": "^3.0.4",
 		"mocha": "^8.2.1",
 		"rimraf": "^3.0.2",
 		"ts-loader": "^8.0.11",
-		"typescript": "^4.1.2",
+		"typescript": "^4.3.5",
 		"webpack": "^5.10.0",
 		"webpack-cli": "^4.2.0"
 	}

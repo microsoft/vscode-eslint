@@ -1,6 +1,9 @@
 {
 	"root": true,
 	"extends": "../.eslintrc.base.json",
+	"parserOptions": {
+		"project": ["tsconfig.json"]
+	},
 	"rules": {
 		"no-console": "error"
 	}
