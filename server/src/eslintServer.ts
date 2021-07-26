@@ -1262,7 +1262,8 @@ connection.onInitialize((_params, _cancel, progress) => {
 					CommandIds.applyDisableFile,
 					CommandIds.openRuleDoc,
 				]
-			}
+			},
+			documentFormattingProvider: true
 		}
 	};
 });
