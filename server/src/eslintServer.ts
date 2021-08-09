@@ -348,8 +348,10 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	const r = typeof __webpack_require__ === 'function' ? __non_webpack_require__ : require;
 	try {
 		return r(moduleName);
-	} catch (err) {
-		connection.console.error(err.stack.toString());
+	} catch (err: any) {
+		if (err.stack) {
+			connection.console.error(err.stack.toString());
+		}
 	}
 	return undefined;
 }
