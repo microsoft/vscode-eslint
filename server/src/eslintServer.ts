@@ -4,6 +4,12 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
+import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
+import { execSync } from 'child_process';
+import { EOL } from 'os';
+
 import {
 	createConnection, Connection, ResponseError, RequestType, NotificationType, RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken, TextDocuments, TextDocumentSyncKind, TextEdit,
@@ -19,10 +25,7 @@ import {
 } from 'vscode-languageserver-textdocument';
 
 import { URI } from 'vscode-uri';
-import * as path from 'path';
-import * as fs from 'fs';
-import { execSync } from 'child_process';
-import { EOL } from 'os';
+
 import { stringDiff } from './diff';
 import { LRUCache } from './linkedMap';
 
@@ -456,7 +459,13 @@ namespace SuggestionsProblem {
 
 function computeKey(diagnostic: Diagnostic): string {
 	const range = diagnostic.range;
-	return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}`;
+	let message: string | undefined;
+	if (diagnostic.message) {
+		const hash  = crypto.createHash('md5');
+		hash.update(diagnostic.message);
+		message = hash.digest('base64');
+	}
+	return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}-${message ?? ''}`;
 }
 
 const codeActions: Map<string, Map<string, Problem>> = new Map<string, Map<string, Problem>>();
