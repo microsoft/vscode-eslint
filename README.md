@@ -130,11 +130,11 @@ This extension contributes the following variables to the [settings](https://cod
   }
   ```
 - `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"` or `"pnpm"`.
-- `eslint.options`: options to configure how ESLint is started using the [ESLint CLI Engine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengine). Defaults to an empty option bag.
+- `eslint.options`: options to configure how ESLint is started using the [ESLint class API](http://eslint.org/docs/developer-guide/nodejs-api#eslint-class). (If you use ESLint<=v7, it will be used as an option for [CLI Engine](http://eslint.org/docs/developer-guide/nodejs-api#cliengine).) Defaults to an empty option bag.
   An example to point to a custom `.eslintrc.json` file is:
   ```json
   {
-    "eslint.options": { "configFile": "C:/mydirectory/.eslintrc.json" }
+    "eslint.options": { "overrideConfigFile": "C:/mydirectory/.eslintrc.json" }
   }
   ```
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
@@ -145,7 +145,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.probe` = an array for language identifiers for which the ESLint extension should be activated and should try to validate the file. If validation fails for probed languages the extension says silent. Defaults to `["javascript", "javascriptreact", "typescript", "typescriptreact", "html", "vue", "markdown"]`.
 - `eslint.validate` - an array of language identifiers specifying the files for which validation is to be enforced. This is an old legacy setting and should in normal cases not be necessary anymore. Defaults to `["javascript", "javascriptreact"]`.
 - `eslint.format.enable`: enables ESLint as a formatter for validated files. Although you can also use the formatter on save using the setting `editor.formatOnSave` it is recommended to use the `editor.codeActionsOnSave` feature since it allows for better configurability.
-- `eslint.workingDirectories` - specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly. If executing ESLint in the terminal requires you to change the working directory in the terminal into a sub folder then it is usually necessary to tweak this setting. (see also [CLIEngine options#cwd](https://eslint.org/docs/developer-guide/nodejs-api#cliengine)). Please also keep in mind that the `.eslintrc*` file is resolved considering the parent directories whereas the `.eslintignore` file is only honored in the current working directory. The following values can be used:
+- `eslint.workingDirectories` - specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly. If executing ESLint in the terminal requires you to change the working directory in the terminal into a sub folder then it is usually necessary to tweak this setting. (see also [ESLint class options#cwd](https://eslint.org/docs/developer-guide/nodejs-api#eslint-class)). Please also keep in mind that the `.eslintrc*` file is resolved considering the parent directories whereas the `.eslintignore` file is only honored in the current working directory. The following values can be used:
   - `[{ "mode": "location" }]` (@since 2.0.0): instructs ESLint to uses the workspace folder location or the file location (if no workspace folder is open) as the working directory. This is the default and is the same strategy as used in older versions of the ESLint extension (1.9.x versions).
   - `[{ "mode": "auto" }]` (@since 2.0.0): instructs ESLint to infer a working directory based on the location of `package.json`, `.eslintignore` and `.eslintrc*` files. This might work in many cases but can lead to unexpected results as well.
   - `string[]`: an array of working directories to use.
