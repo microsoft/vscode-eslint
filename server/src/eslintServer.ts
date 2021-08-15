@@ -303,8 +303,8 @@ interface RuleData {
 }
 
 namespace RuleData {
-	export function hasMetaType(value: RuleData | undefined): value is RuleData & { meta: { type: string; }; } {
-		return value !== undefined && value.meta !== undefined && value.meta.type !== undefined;
+	export function hasMetaType(value: RuleData['meta'] | undefined): value is RuleData['meta'] & { type: string; } {
+		return value !== undefined && value.type !== undefined;
 	}
 }
 
@@ -346,7 +346,7 @@ interface ESLintClass {
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
 	isPathIgnored(path: string): Promise<boolean>;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintgetrulesmetaforresultsresults
-	getRulesMetaForResults(results: ESLintDocumentReport[]): Record<string, RuleData> | undefined /* for ESLintClassEmulator */;
+	getRulesMetaForResults(results: ESLintDocumentReport[]): Record<string, RuleData['meta']> | undefined /* for ESLintClassEmulator */;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintcalculateconfigforfilefilepath
 	calculateConfigForFile(path: string): Promise<ESLintConfig | undefined /* for ESLintClassEmulator */>;
 }
@@ -1425,9 +1425,9 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 		const rulesMeta = eslintClass.getRulesMetaForResults(reportResults);
 		if (rulesMeta && !ruleDocData.handled.has(uri)) {
 			ruleDocData.handled.add(uri);
-			Object.entries(rulesMeta).forEach(([key, rule]) => {
-				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
-					ruleDocData.urls.set(key, rule.meta.docs.url);
+			Object.entries(rulesMeta).forEach(([key, meta]) => {
+				if (meta && meta.docs && Is.string(meta.docs.url)) {
+					ruleDocData.urls.set(key, meta.docs.url);
 				}
 			});
 		}
@@ -1450,8 +1450,8 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && rulesMeta && problem.ruleId !== undefined && problem.fix !== undefined) {
-							const rule = rulesMeta[problem.ruleId];
-							if (RuleData.hasMetaType(rule) && fixTypes.has(rule.meta.type)) {
+							const meta = rulesMeta[problem.ruleId];
+							if (RuleData.hasMetaType(meta) && fixTypes.has(meta.type)) {
 								recordCodeAction(document, diagnostic, problem);
 							}
 						} else {
@@ -1505,13 +1505,13 @@ class ESLintClassEmulator implements ESLintClass {
 	async isPathIgnored(path: string): Promise<boolean> {
 		return this.cli.isPathIgnored(path);
 	}
-	getRulesMetaForResults(_results: ESLintDocumentReport[]): Record<string, RuleData> | undefined {
+	getRulesMetaForResults(_results: ESLintDocumentReport[]): Record<string, RuleData['meta']> | undefined {
 		if (!CLIEngine.hasRule(this.cli)) {
 			return undefined;
 		}
-		const rules: Record<string, RuleData> = {};
+		const rules: Record<string, RuleData['meta']> = {};
 		for (const [name, rule] of this.cli.getRules()) {
-			rules[name] = rule;
+			rules[name] = rule.meta;
 		}
 		return rules;
 	}
