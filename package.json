@@ -92,7 +92,7 @@
 					"scope": "resource",
 					"type": "object",
 					"default": {},
-					"markdownDescription": "The eslint options object to provide args normally passed to eslint when executed from a command line (see https://eslint.org/docs/developer-guide/nodejs-api#cliengine)."
+					"markdownDescription": "The eslint options object to provide args normally passed to eslint when executed from a command line (see https://eslint.org/docs/developer-guide/nodejs-api#eslint-class)."
 				},
 				"eslint.trace.server": {
 					"scope": "window",
@@ -250,7 +250,7 @@
 							}
 						]
 					},
-                    			"markdownDescription": "Specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly."
+					"markdownDescription": "Specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly."
 				},
 				"eslint.validate": {
 					"scope": "resource",
@@ -353,7 +353,7 @@
 						}
 					},
 					"additionalProperties": false,
-                    			"markdownDescription": "Show disable lint rule in the quick fix menu."
+					"markdownDescription": "Show disable lint rule in the quick fix menu."
 				},
 				"eslint.codeAction.showDocumentation": {
 					"scope": "resource",
@@ -369,7 +369,7 @@
 						}
 					},
 					"additionalProperties": false,
-                    			"markdownDescription": "Show open lint rule documentation web page in the quick fix menu."
+					"markdownDescription": "Show open lint rule documentation web page in the quick fix menu."
 				},
 				"eslint.codeActionsOnSave.mode": {
 					"scope": "resource",
