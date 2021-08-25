@@ -187,6 +187,8 @@ enum RuleSeverity {
 	upgrade = 'upgrade'
 }
 
+type NpmPackageManager = 'npm' | 'pnpm' | 'yarn';
+
 interface RuleCustomization  {
 	rule: string;
 	severity: RuleSeverity;
@@ -194,7 +196,7 @@ interface RuleCustomization  {
 
 interface ConfigurationSettings {
 	validate: Validate;
-	packageManager: 'npm' | 'yarn' | 'pnpm';
+	packageManager: NpmPackageManager;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -1103,9 +1105,20 @@ function realActivate(context: ExtensionContext): void {
 								}
 							}
 						});
+
+						let packageManager: NpmPackageManager | null | undefined;
+						packageManager = config.get('packageManager');
+						if (!packageManager) {
+							try {
+								packageManager = await Commands.executeCommand<NpmPackageManager>('npm.packageManager', workspaceFolder?.uri);
+							} catch {
+								// ignore
+							}
+						}
+
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
-							packageManager: config.get('packageManager', 'npm'),
+							packageManager: !!packageManager ? packageManager : 'npm',
 							codeActionOnSave: {
 								enable: false,
 								mode: CodeActionsOnSaveMode.all
@@ -1320,7 +1333,7 @@ function realActivate(context: ExtensionContext): void {
 
 			const uri: Uri = Uri.parse(params.source.uri);
 			const workspaceFolder = Workspace.getWorkspaceFolder(uri);
-			const packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
+			const packageManager = Workspace.getConfiguration('eslint', uri).get<NpmPackageManager>('packageManager', 'npm');
 			const localInstall = {
 				npm: 'npm install eslint',
 				pnpm: 'pnpm install eslint',
@@ -1347,7 +1360,7 @@ function realActivate(context: ExtensionContext): void {
 					`To use ESLint please install eslint by running ${localInstall[packageManager]} in the workspace folder ${workspaceFolder.name}`,
 					`or globally using '${globalInstall[packageManager]}'. You need to reopen the workspace after installing eslint.`,
 					'',
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `npm.packageManager` or `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
 				].filter((str => (str !== null))).join('\n'));
 
@@ -1367,7 +1380,7 @@ function realActivate(context: ExtensionContext): void {
 				client.info([
 					`Failed to load the ESLint library for the document ${uri.fsPath}`,
 					`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `npm.packageManager` or `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					'You need to reopen VS Code after installing eslint.',
 				].filter((str => (str !== null))).join('\n'));
 

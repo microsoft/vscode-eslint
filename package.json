@@ -61,8 +61,8 @@
 						"yarn",
 						"pnpm"
 					],
-					"default": "npm",
-					"description": "The package manager you use to install node modules."
+					"default": null,
+					"description": "The package manager you use to install node modules. If this setting is not provided, the package manager defaults to npm.packageManager."
 				},
 				"eslint.alwaysShowStatus": {
 					"type": "boolean",
