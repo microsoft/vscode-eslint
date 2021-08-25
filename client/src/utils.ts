@@ -7,12 +7,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-function exists(file: string): Promise<boolean> {
-	return new Promise<boolean>((resolve, _reject) => {
-		fs.exists(file, (value) => {
-			resolve(value);
-		});
-	});
+async function exists(file: string): Promise<boolean> {
+	try {
+		await fs.promises.access(file);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export async function findEslint(rootPath: string): Promise<string> {
