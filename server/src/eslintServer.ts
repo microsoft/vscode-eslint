@@ -17,7 +17,7 @@ import {
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
 	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
-	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage
+	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger
 } from 'vscode-languageserver/node';
 
 import {
@@ -1905,10 +1905,10 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		if ( editInfo.line - 1 > 0) {
 
 			// check previous line if there is a eslint-disable-next-line comment already present
-			const prevLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line - 2, Number.MAX_VALUE)));
+			const prevLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line - 2, uinteger.MAX_VALUE)));
 			const matched = prevLine && prevLine.match(/^\s*\/\/\s*eslint-disable-next-line/);
 			if (matched && matched.length) {
-				return TextEdit.insert(Position.create(editInfo.line - 2, Number.MAX_VALUE), `, ${editInfo.ruleId}`);
+				return TextEdit.insert(Position.create(editInfo.line - 2, uinteger.MAX_VALUE), `, ${editInfo.ruleId}`);
 			}
 
 		}
@@ -1916,11 +1916,11 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
-		const currentLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line -1, Number.MAX_VALUE)));
+		const currentLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line -1, uinteger.MAX_VALUE)));
 		const matched = currentLine && /\/\/\s*eslint\-disable\-line/.exec(currentLine);
 
 		const disbaleRuleContent = (matched && matched.length)  ? `, ${editInfo.ruleId}` : ` // eslint-disable-line ${editInfo.ruleId}`;
-		return TextEdit.insert(Position.create(editInfo.line - 1, Number.MAX_VALUE), disbaleRuleContent);
+		return TextEdit.insert(Position.create(editInfo.line - 1, uinteger.MAX_VALUE), disbaleRuleContent);
 	}
 
 	function createDisableFileTextEdit(editInfo: Problem): TextEdit {
@@ -2029,7 +2029,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				if (settings.codeAction.disableRuleComment.location === 'sameLine') {
 					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableSameLineTextEdit(editInfo));
 				} else {
-					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, Number.MAX_VALUE)));
+					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, uinteger.MAX_VALUE)));
 					const matches = /^([ \t]*)/.exec(lineText);
 					const indentationText = matches !== null && matches.length > 0 ? matches[1] : '';
 					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableLineTextEdit(editInfo, indentationText));
