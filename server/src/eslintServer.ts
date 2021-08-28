@@ -4,6 +4,12 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
+import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
+import { execSync } from 'child_process';
+import { EOL } from 'os';
+
 import {
 	createConnection, Connection, ResponseError, RequestType, NotificationType, RequestHandler, NotificationHandler,
 	Diagnostic, DiagnosticSeverity, Range, Files, CancellationToken, TextDocuments, TextDocumentSyncKind, TextEdit,
@@ -19,10 +25,7 @@ import {
 } from 'vscode-languageserver-textdocument';
 
 import { URI } from 'vscode-uri';
-import * as path from 'path';
-import * as fs from 'fs';
-import { execSync } from 'child_process';
-import { EOL } from 'os';
+
 import { stringDiff } from './diff';
 import { LRUCache } from './linkedMap';
 
@@ -283,6 +286,12 @@ interface CLIOptions {
 	fix?: boolean;
 }
 
+interface ESLintClassOptions {
+	cwd?: string;
+	fixTypes?: string[];
+	fix?: boolean;
+}
+
 // { meta: { docs: [Object], schema: [Array] }, create: [Function: create] }
 interface RuleData {
 	meta?: {
@@ -294,8 +303,8 @@ interface RuleData {
 }
 
 namespace RuleData {
-	export function hasMetaType(value: RuleData | undefined): value is RuleData & { meta: { type: string; }; } {
-		return value !== undefined && value.meta !== undefined && value.meta.type !== undefined;
+	export function hasMetaType(value: RuleData['meta'] | undefined): value is RuleData['meta'] & { type: string; } {
+		return value !== undefined && value.type !== undefined;
 	}
 }
 
@@ -320,6 +329,28 @@ interface ESLintConfig {
  	settings: object;
 }
 
+namespace ESLintClass {
+	export function newESLintClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions): ESLintClass {
+		if (ESLintModule.hasESLintClass(library)) {
+			return new library.ESLint(newOptions);
+		} else {
+			const cli = new library.CLIEngine(newOptions);
+			return new ESLintClassEmulator(cli);
+		}
+	}
+}
+
+interface ESLintClass {
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintlinttextcode-options
+	lintText(content: string, options: {filePath?: string, warnIgnored?: boolean}): Promise<ESLintDocumentReport[]>;
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
+	isPathIgnored(path: string): Promise<boolean>;
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintgetrulesmetaforresultsresults
+	getRulesMetaForResults(results: ESLintDocumentReport[]): Record<string, RuleData['meta']> | undefined /* for ESLintClassEmulator */;
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintcalculateconfigforfilefilepath
+	calculateConfigForFile(path: string): Promise<ESLintConfig | undefined /* for ESLintClassEmulator */>;
+}
+
 interface CLIEngine {
 	executeOnText(content: string, file?: string, warn?: boolean): ESLintReport;
 	isPathIgnored(path: string): boolean;
@@ -334,12 +365,27 @@ namespace CLIEngine {
 	}
 }
 
+interface ESLintClassConstructor {
+	new(options: ESLintClassOptions): ESLintClass;
+}
+
 interface CLIEngineConstructor {
 	new(options: CLIOptions): CLIEngine;
 }
 
-interface ESLintModule {
+type ESLintModule = {
+	ESLint: ESLintClassConstructor | undefined;
 	CLIEngine: CLIEngineConstructor;
+} | {
+	// for ESLint >= v8
+	ESLint: ESLintClassConstructor;
+	CLIEngine: undefined;
+};
+
+namespace ESLintModule {
+	export function hasESLintClass(value: ESLintModule): value is (ESLintModule & { ESLint: ESLintClassConstructor }) {
+		return value.ESLint !== undefined;
+	}
 }
 
 declare const __webpack_require__: typeof require;
@@ -348,8 +394,10 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	const r = typeof __webpack_require__ === 'function' ? __non_webpack_require__ : require;
 	try {
 		return r(moduleName);
-	} catch (err) {
-		connection.console.error(err.stack.toString());
+	} catch (err: any) {
+		if (err.stack) {
+			connection.console.error(err.stack.toString());
+		}
 	}
 	return undefined;
 }
@@ -454,7 +502,13 @@ namespace SuggestionsProblem {
 
 function computeKey(diagnostic: Diagnostic): string {
 	const range = diagnostic.range;
-	return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}`;
+	let message: string | undefined;
+	if (diagnostic.message) {
+		const hash  = crypto.createHash('md5');
+		hash.update(diagnostic.message);
+		message = hash.digest('base64');
+	}
+	return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}-${message ?? ''}`;
 }
 
 const codeActions: Map<string, Map<string, Problem>> = new Map<string, Map<string, Problem>>();
@@ -879,7 +933,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 		}
 
 		settings.silent = settings.validate === Validate.probe;
-		return promise.then((libraryPath) => {
+		return promise.then(async (libraryPath) => {
 			let library = path2Library.get(libraryPath);
 			if (library === undefined) {
 				library = loadNodeModule(libraryPath);
@@ -888,9 +942,9 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					if (!settings.silent) {
 						connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
 					}
-				} else if (library.CLIEngine === undefined) {
+				} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
 					settings.validate = Validate.off;
-					connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a CLIEngine. You need at least eslint@1.0.0`);
+					connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
 				} else {
 					connection.console.info(`ESLint library loaded from: ${libraryPath}`);
 					settings.library = library;
@@ -917,13 +971,9 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					if (defaultLanguageIds.has(document.languageId)) {
 						settings.validate = Validate.on;
 					} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
-						const eslintConfig: ESLintConfig | undefined = withCLIEngine((cli) => {
+						const eslintConfig: ESLintConfig | undefined = await withESLintClass((eslintClass) => {
 							try {
-								if (typeof cli.getConfigForFile === 'function') {
-									return cli.getConfigForFile(filePath!);
-								} else {
-									return undefined;
-								}
+								return eslintClass.calculateConfigForFile(filePath!);
 							} catch (err) {
 								return undefined;
 							}
@@ -984,8 +1034,8 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
 				} else {
 					const filePath = getFilePath(uri)!;
-					withCLIEngine((cli) => {
-						if (!cli.isPathIgnored(filePath)) {
+					await withESLintClass(async (eslintClass) => {
+						if (!await eslintClass.isPathIgnored(filePath)) {
 							formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
 						}
 					}, settings);
@@ -1293,12 +1343,12 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 	if (!documents.get(document.uri)) {
 		return Promise.resolve(undefined);
 	}
-	return resolveSettings(document).then((settings) => {
+	return resolveSettings(document).then(async (settings) => {
 		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 			return;
 		}
 		try {
-			validate(document, settings, publishDiagnostics);
+			await validate(document, settings, publishDiagnostics);
 			connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		} catch (err) {
 			// if an exception has occurred while validating clear all errors to ensure
@@ -1351,7 +1401,7 @@ const ruleDocData: {
 };
 
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
-function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): void {
+async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): Promise<void> {
 	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 	let fixTypes: Set<string> | undefined = undefined;
 	if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
@@ -1376,20 +1426,21 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	const uri = document.uri;
 	const file = getFilePath(document);
 
-	withCLIEngine((cli) => {
+	await withESLintClass(async (eslintClass) => {
 		codeActions.delete(uri);
-		const report: ESLintReport = cli.executeOnText(content, file, settings.onIgnoredFiles !== ESLintSeverity.off);
-		if (CLIEngine.hasRule(cli) && !ruleDocData.handled.has(uri)) {
+		const reportResults: ESLintDocumentReport[] = await eslintClass.lintText(content, { filePath: file, warnIgnored: settings.onIgnoredFiles !== ESLintSeverity.off });
+		const rulesMeta = eslintClass.getRulesMetaForResults(reportResults);
+		if (rulesMeta && !ruleDocData.handled.has(uri)) {
 			ruleDocData.handled.add(uri);
-			cli.getRules().forEach((rule, key) => {
-				if (rule.meta && rule.meta.docs && Is.string(rule.meta.docs.url)) {
-					ruleDocData.urls.set(key, rule.meta.docs.url);
+			Object.entries(rulesMeta).forEach(([key, meta]) => {
+				if (meta && meta.docs && Is.string(meta.docs.url)) {
+					ruleDocData.urls.set(key, meta.docs.url);
 				}
 			});
 		}
 		const diagnostics: Diagnostic[] = [];
-		if (report && report.results && Array.isArray(report.results) && report.results.length > 0) {
-			const docReport = report.results[0];
+		if (reportResults && Array.isArray(reportResults) && reportResults.length > 0) {
+			const docReport = reportResults[0];
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
@@ -1405,9 +1456,9 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 						}
 						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
-						if (fixTypes !== undefined && CLIEngine.hasRule(cli) && problem.ruleId !== undefined && problem.fix !== undefined) {
-							const rule = cli.getRules().get(problem.ruleId);
-							if (RuleData.hasMetaType(rule) && fixTypes.has(rule.meta.type)) {
+						if (fixTypes !== undefined && rulesMeta && problem.ruleId !== undefined && problem.fix !== undefined) {
+							const meta = rulesMeta[problem.ruleId];
+							if (RuleData.hasMetaType(meta) && fixTypes.has(meta.type)) {
 								recordCodeAction(document, diagnostic, problem);
 							}
 						} else {
@@ -1423,8 +1474,8 @@ function validate(document: TextDocument, settings: TextDocumentSettings & { lib
 	}, settings);
 }
 
-function withCLIEngine<T>(func: (cli: CLIEngine) => T, settings: TextDocumentSettings & { library: ESLintModule }, options?: CLIOptions): T {
-	const newOptions: CLIOptions = options === undefined
+function withESLintClass<T>(func: (eslintClass: ESLintClass) => T, settings: TextDocumentSettings & { library: ESLintModule }, options?: ESLintClassOptions | CLIOptions): T {
+	const newOptions: ESLintClassOptions | CLIOptions = options === undefined
 		? Object.assign(Object.create(null), settings.options)
 		: Object.assign(Object.create(null), settings.options, options);
 
@@ -1436,12 +1487,43 @@ function withCLIEngine<T>(func: (cli: CLIEngine) => T, settings: TextDocumentSet
 				process.chdir(settings.workingDirectory.directory);
 			}
 		}
-		const cli = new settings.library.CLIEngine(newOptions);
-		return func(cli);
+
+		const eslintClass = ESLintClass.newESLintClass(settings.library, newOptions);
+		return func(eslintClass);
 	} finally {
 		if (cwd !== process.cwd()) {
 			process.chdir(cwd);
 		}
+	}
+}
+
+/**
+ * ESLint class emulator using CLI Engine.
+ */
+class ESLintClassEmulator implements ESLintClass {
+	private cli: CLIEngine;
+
+	constructor(cli: CLIEngine) {
+		this.cli = cli;
+	}
+	async lintText(content: string, options: { filePath?: string | undefined; warnIgnored?: boolean | undefined; }): Promise<ESLintDocumentReport[]> {
+		return this.cli.executeOnText(content, options.filePath, options.warnIgnored).results;
+	}
+	async isPathIgnored(path: string): Promise<boolean> {
+		return this.cli.isPathIgnored(path);
+	}
+	getRulesMetaForResults(_results: ESLintDocumentReport[]): Record<string, RuleData['meta']> | undefined {
+		if (!CLIEngine.hasRule(this.cli)) {
+			return undefined;
+		}
+		const rules: Record<string, RuleData['meta']> = {};
+		for (const [name, rule] of this.cli.getRules()) {
+			rules[name] = rule.meta;
+		}
+		return rules;
+	}
+	async calculateConfigForFile(path: string): Promise<ESLintConfig | undefined> {
+		return typeof this.cli.getConfigForFile === 'function' ? this.cli.getConfigForFile(path) : undefined;
 	}
 }
 
@@ -1561,7 +1643,7 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 	return Status.error;
 }
 
-messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (params) => {
+messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async (params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	ruleDocData.handled.clear();
@@ -1569,7 +1651,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 	noConfigReported.clear();
 	missingModuleReported.clear();
 	document2Settings.clear(); // config files can change plugins and parser.
-	params.changes.forEach((change) => {
+	await Promise.all(params.changes.map(async (change) => {
 		const fsPath = getFilePath(change.uri);
 		if (fsPath === undefined || fsPath.length === 0 || isUNC(fsPath)) {
 			return;
@@ -1578,15 +1660,15 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, (param
 		if (dirname) {
 			const library = configErrorReported.get(fsPath);
 			if (library !== undefined) {
-				const cli = new library.CLIEngine({});
+				const eslintClass = ESLintClass.newESLintClass(library, {});
 				try {
-					cli.executeOnText('', path.join(dirname, '___test___.js'));
+					await eslintClass.lintText('', { filePath: path.join(dirname, '___test___.js') });
 					configErrorReported.delete(fsPath);
 				} catch (error) {
 				}
 			}
 		}
-	});
+	}));
 	validateMany(documents.all());
 });
 
@@ -2045,7 +2127,7 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllF
 			return [];
 		}
 		const filePath = getFilePath(textDocument);
-		return withCLIEngine((cli) => {
+		return withESLintClass(async (eslintClass) => {
 			const problems = codeActions.get(uri);
 			const originalContent = textDocument.getText();
 			let problemFixes: TextEdit[] | undefined;
@@ -2071,10 +2153,10 @@ function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllF
 				} else {
 					content = originalContent;
 				}
-				const report = cli.executeOnText(content, filePath);
+				const reportResults = await eslintClass.lintText(content, { filePath });
 				connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
-				if (Array.isArray(report.results) && report.results.length === 1 && report.results[0].output !== undefined) {
-					const fixedContent = report.results[0].output;
+				if (Array.isArray(reportResults) && reportResults.length === 1 && reportResults[0].output !== undefined) {
+					const fixedContent = reportResults[0].output;
 					start = Date.now();
 					const diffs = stringDiff(originalContent, fixedContent, false);
 					connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);

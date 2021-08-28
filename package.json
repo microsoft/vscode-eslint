@@ -77,7 +77,7 @@
 						"null"
 					],
 					"default": null,
-					"description": "The value of NODE_ENV to use when running eslint tasks."
+					"markdownDescription": "The value of `NODE_ENV` to use when running eslint tasks."
 				},
 				"eslint.nodePath": {
 					"scope": "machine-overridable",
@@ -86,13 +86,13 @@
 						"null"
 					],
 					"default": null,
-					"description": "A path added to NODE_PATH when resolving the eslint module."
+					"markdownDescription": "A path added to `NODE_PATH` when resolving the eslint module."
 				},
 				"eslint.options": {
 					"scope": "resource",
 					"type": "object",
 					"default": {},
-					"description": "The eslint options object to provide args normally passed to eslint when executed from a command line (see http://eslint.org/docs/developer-guide/nodejs-api#cliengine)."
+					"markdownDescription": "The eslint options object to provide args normally passed to eslint when executed from a command line (see https://eslint.org/docs/developer-guide/nodejs-api#eslint-class)."
 				},
 				"eslint.trace.server": {
 					"scope": "window",
@@ -249,7 +249,8 @@
 								]
 							}
 						]
-					}
+					},
+					"markdownDescription": "Specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly."
 				},
 				"eslint.validate": {
 					"scope": "resource",
@@ -311,7 +312,7 @@
 					"scope": "resource",
 					"type": "string",
 					"default": ".",
-					"description": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
+					"markdownDescription": "Command line options applied when running the task for linting the whole workspace (see https://eslint.org/docs/user-guide/command-line-interface)."
 				},
 				"eslint.runtime": {
 					"scope": "machine-overridable",
@@ -326,7 +327,7 @@
 					"scope": "window",
 					"type": "boolean",
 					"default": false,
-					"description": "Enables ESLint debug mode (same as --debug on the command line)"
+					"markdownDescription": "Enables ESLint debug mode (same as `--debug` on the command line)"
 				},
 				"eslint.codeAction.disableRuleComment": {
 					"scope": "resource",
@@ -351,7 +352,8 @@
 							"description": "Configure the disable rule code action to insert the comment on the same line or a new line."
 						}
 					},
-					"additionalProperties": false
+					"additionalProperties": false,
+					"markdownDescription": "Show disable lint rule in the quick fix menu."
 				},
 				"eslint.codeAction.showDocumentation": {
 					"scope": "resource",
@@ -366,7 +368,8 @@
 							"description": "Show the documentation code actions."
 						}
 					},
-					"additionalProperties": false
+					"additionalProperties": false,
+					"markdownDescription": "Show open lint rule documentation web page in the quick fix menu."
 				},
 				"eslint.codeActionsOnSave.mode": {
 					"scope": "resource",
@@ -484,22 +487,23 @@
 		"compile:client": "tsc -b ./client/tsconfig.json",
 		"compile:server": "tsc -b ./server/tsconfig.json",
 		"watch": "tsc -b -w",
+		"test": "cd client && npm test && cd ..",
 		"lint": "node ./build/bin/all.js run lint",
 		"clean": "rimraf client/out && rimraf server/out",
 		"postinstall": "node ./build/bin/all.js install"
 	},
 	"devDependencies": {
-		"@types/mocha": "^8.0.4",
+		"@types/mocha": "^9.0.0",
 		"@types/node": "^14.14.31",
-		"@typescript-eslint/eslint-plugin": "^4.28.2",
-		"@typescript-eslint/parser": "^4.28.2",
-		"eslint": "^7.30.0",
+		"@typescript-eslint/eslint-plugin": "^4.29.2",
+		"@typescript-eslint/parser": "^4.29.2",
+		"eslint": "^7.32.0",
 		"merge-options": "^3.0.4",
-		"mocha": "^8.2.1",
+		"mocha": "^9.1.0",
 		"rimraf": "^3.0.2",
-		"ts-loader": "^8.0.11",
+		"ts-loader": "^9.2.5",
 		"typescript": "^4.3.5",
-		"webpack": "^5.10.0",
-		"webpack-cli": "^4.2.0"
+		"webpack": "^5.51.1",
+		"webpack-cli": "^4.8.0"
 	}
 }
