@@ -88,6 +88,15 @@
 					"default": null,
 					"markdownDescription": "A path added to `NODE_PATH` when resolving the eslint module."
 				},
+				"eslint.eslintPath": {
+					"scope": "machine-overridable",
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"markdownDescription": "Path to eslint module."
+				},
 				"eslint.options": {
 					"scope": "resource",
 					"type": "object",
