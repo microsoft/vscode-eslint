@@ -5,3 +5,4 @@ npm-debug.log
 scrapbook.js
 *.lsif
 *.db
+.DS_Store
