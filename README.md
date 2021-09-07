@@ -130,7 +130,7 @@ This extension contributes the following variables to the [settings](https://cod
   }
   ```
 - `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"` or `"pnpm"`.
-- `eslint.options`: options to configure how ESLint is started using the [ESLint class API](http://eslint.org/docs/developer-guide/nodejs-api#eslint-class). (If you use ESLint<=v7, it will be used as an option for [CLI Engine](http://eslint.org/docs/developer-guide/nodejs-api#cliengine).) Defaults to an empty option bag.
+- `eslint.options`: options to configure how ESLint is started using the [ESLint class API](http://eslint.org/docs/developer-guide/nodejs-api#eslint-class). (If you use ESLint < v7, it will be used as an option for [CLI Engine](http://eslint.org/docs/developer-guide/nodejs-api#cliengine).) Defaults to an empty option bag.
   An example to point to a custom `.eslintrc.json` file is:
   ```json
   {
