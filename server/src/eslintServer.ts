@@ -331,7 +331,7 @@ interface ESLintConfig {
 
 namespace ESLintClass {
 	export function newESLintClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions): ESLintClass {
-		if (ESLintModule.hasESLintClass(library)) {
+		if (library.CLIEngine === undefined) {
 			return new library.ESLint(newOptions);
 		} else {
 			const cli = new library.CLIEngine(newOptions);
@@ -374,19 +374,12 @@ interface CLIEngineConstructor {
 }
 
 type ESLintModule = {
-	ESLint: ESLintClassConstructor | undefined;
 	CLIEngine: CLIEngineConstructor;
 } | {
 	// for ESLint >= v8
 	ESLint: ESLintClassConstructor;
 	CLIEngine: undefined;
 };
-
-namespace ESLintModule {
-	export function hasESLintClass(value: ESLintModule): value is (ESLintModule & { ESLint: ESLintClassConstructor }) {
-		return value.ESLint !== undefined;
-	}
-}
 
 declare const __webpack_require__: typeof require;
 declare const __non_webpack_require__: typeof require;
