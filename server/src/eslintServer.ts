@@ -1520,7 +1520,7 @@ class ESLintClassEmulator implements ESLintClass {
 		const rules: Record<string, RuleData['meta']> = {};
 		for (const [name, rule] of this.cli.getRules()) {
 			if (rule.meta !== undefined) {
-				rules[name] = rule.meta
+				rules[name] = rule.meta;
 			}
 		}
 		return rules;
