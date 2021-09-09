@@ -1422,14 +1422,17 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 	await withESLintClass(async (eslintClass) => {
 		codeActions.delete(uri);
 		const reportResults: ESLintDocumentReport[] = await eslintClass.lintText(content, { filePath: file, warnIgnored: settings.onIgnoredFiles !== ESLintSeverity.off });
-		const rulesMeta = eslintClass.getRulesMetaForResults(reportResults);
-		if (rulesMeta && !ruleDocData.handled.has(uri)) {
+		let rulesMeta: Record<string, RuleData['meta']> | undefined | null = null;
+		if (!ruleDocData.handled.has(uri)) {
 			ruleDocData.handled.add(uri);
-			Object.entries(rulesMeta).forEach(([key, meta]) => {
-				if (meta && meta.docs && Is.string(meta.docs.url)) {
-					ruleDocData.urls.set(key, meta.docs.url);
-				}
-			});
+			const rulesMeta = eslintClass.getRulesMetaForResults(reportResults);
+			if (rulesMeta !== undefined) {
+				Object.entries(rulesMeta).forEach(([key, meta]) => {
+					if (meta && meta.docs && Is.string(meta.docs.url)) {
+						ruleDocData.urls.set(key, meta.docs.url);
+					}
+				});
+			}
 		}
 		const diagnostics: Diagnostic[] = [];
 		if (reportResults && Array.isArray(reportResults) && reportResults.length > 0) {
@@ -1449,10 +1452,15 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 						}
 						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
-						if (fixTypes !== undefined && rulesMeta && problem.ruleId !== undefined && problem.fix !== undefined) {
-							const meta = rulesMeta[problem.ruleId];
-							if (RuleData.hasMetaType(meta) && fixTypes.has(meta.type)) {
-								recordCodeAction(document, diagnostic, problem);
+						if (fixTypes !== undefined && problem.ruleId !== undefined && problem.fix !== undefined) {
+							if (rulesMeta === null) {
+								rulesMeta = eslintClass.getRulesMetaForResults(reportResults);
+							}
+							if (rulesMeta !== undefined) {
+								const meta = rulesMeta[problem.ruleId];
+								if (RuleData.hasMetaType(meta) && fixTypes.has(meta.type)) {
+									recordCodeAction(document, diagnostic, problem);
+								}
 							}
 						} else {
 							recordCodeAction(document, diagnostic, problem);
@@ -1511,7 +1519,9 @@ class ESLintClassEmulator implements ESLintClass {
 		}
 		const rules: Record<string, RuleData['meta']> = {};
 		for (const [name, rule] of this.cli.getRules()) {
-			rules[name] = rule.meta;
+			if (rule.meta !== undefined) {
+				rules[name] = rule.meta
+			}
 		}
 		return rules;
 	}
