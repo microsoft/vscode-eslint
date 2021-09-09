@@ -1231,7 +1231,8 @@ function realActivate(context: ExtensionContext): void {
 		void Window.showErrorMessage(`The ESLint extension couldn't be started. See the ESLint output channel for details.`);
 		return;
 	}
-	client.registerProposedFeatures();
+	// Currently we don't need any proposed features.
+	// client.registerProposedFeatures();
 
 	Workspace.onDidChangeConfiguration(() => {
 		probeFailed.clear();
