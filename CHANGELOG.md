@@ -1,3 +1,12 @@
+### 2.1.25
+
+- Added support for ESLint v8 Beta
+- Various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A2.1.25)
+
+### 2.1.24
+
+- Internal insider release.
+
 ### 2.1.23
 
 - Fixes [Server should provide default result for code actions so that canceled requests can be removed from queue](https://github.com/microsoft/vscode-eslint/issues/1283)
