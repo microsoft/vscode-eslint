@@ -438,7 +438,8 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 	return result;
 }
 
-const saveConfigCache = new LRUCache<string, ConfigData | null>(128);
+type SaveRuleConfigItem = { offRules: Set<string>, onRules: Set<string>};
+const saveRuleConfigCache = new LRUCache<string, SaveRuleConfigItem | null>(128);
 function isOff(ruleId: string, matchers: string[]): boolean {
 	for (const matcher of matchers) {
 		if (matcher.startsWith('!') && new RegExp(`^${matcher.slice(1).replace(/\*/g, '.*')}$`, 'g').test(ruleId)) {
@@ -450,8 +451,8 @@ function isOff(ruleId: string, matchers: string[]): boolean {
 	return true;
 }
 
-async function getSaveConfiguration(filePath: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<ConfigData | undefined> {
-	let result = saveConfigCache.get(filePath);
+async function getSaveRuleConfig(filePath: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<SaveRuleConfigItem | undefined> {
+	let result = saveRuleConfigCache.get(filePath);
 	if (result === null) {
 		return undefined;
 	}
@@ -467,24 +468,27 @@ async function getSaveConfiguration(filePath: string, settings: TextDocumentSett
 			if (config === undefined || config.rules === undefined || config.rules.length === 0) {
 				return undefined;
 			}
-			const result: Required<ConfigData> = { rules: Object.create(null) };
+			const offRules: Set<string> = new Set();
+			const onRules: Set<string> = new Set();
 			if (rules.length === 0) {
-				Object.keys(config.rules).forEach(ruleId => result.rules[ruleId] = 'off');
+				Object.keys(config.rules).forEach(ruleId => offRules.add(ruleId));
 			} else {
 				for (const ruleId of Object.keys(config.rules)) {
 					if (isOff(ruleId, rules)) {
-						result.rules[ruleId] = 'off';
+						offRules.add(ruleId);
+					} else {
+						onRules.add(ruleId);
 					}
 				}
 			}
-			return Object.keys(result.rules).length > 0 ? result : undefined;
+			return offRules.size > 0 ? { offRules, onRules } : undefined;
 		}, settings);
 	}
 	if (result === undefined || result === null) {
-		saveConfigCache.set(filePath, null);
+		saveRuleConfigCache.set(filePath, null);
 		return undefined;
 	} else {
-		saveConfigCache.set(filePath, result);
+		saveRuleConfigCache.set(filePath, result);
 		return result;
 	}
 }
@@ -1328,9 +1332,9 @@ function setupDocumentsListeners() {
 function environmentChanged() {
 	document2Settings.clear();
 	ruleSeverityCache.clear();
-	saveConfigCache.clear();
+	saveRuleConfigCache.clear();
 
-	for (let document of documents.all()) {
+	for (const document of documents.all()) {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}
 	for (const unregistration of formatterRegistrations.values()) {
@@ -1419,7 +1423,7 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 			connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 			if (!settings.silent) {
 				let status: Status | undefined = undefined;
-				for (let handler of singleErrorHandlers) {
+				for (const handler of singleErrorHandlers) {
 					status = handler(err, document, settings.library);
 					if (status) {
 						break;
@@ -1469,7 +1473,7 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 	let fixTypes: Set<string> | undefined = undefined;
 	if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
 		fixTypes = new Set();
-		for (let item of newOptions.fixTypes) {
+		for (const item of newOptions.fixTypes) {
 			if (validFixTypes.has(item)) {
 				fixTypes.add(item);
 			}
@@ -1719,7 +1723,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async 
 	missingModuleReported.clear();
 	document2Settings.clear(); // config files can change plugins and parser.
 	ruleSeverityCache.clear();
-	saveConfigCache.clear();
+	saveRuleConfigCache.clear();
 
 	await Promise.all(params.changes.map(async (change) => {
 		const fsPath = getFilePath(change.uri);
@@ -1767,7 +1771,7 @@ class Fixes {
 
 	public getScoped(diagnostics: Diagnostic[]): Problem[] {
 		const result: Problem[] = [];
-		for (let diagnostic of diagnostics) {
+		for (const diagnostic of diagnostics) {
 			const key = computeKey(diagnostic);
 			const editInfo = this.edits.get(key);
 			if (editInfo) {
@@ -1779,11 +1783,11 @@ class Fixes {
 
 	public getAllSorted(): FixableProblem[] {
 		const result: FixableProblem[] = [];
-		this.edits.forEach((value) => {
+		for (const value of this.edits.values()) {
 			if (Problem.isFixable(value)) {
 				result.push(value);
 			}
-		});
+		}
 		return result.sort((a, b) => {
 			const d0 = a.edit.range[0] - b.edit.range[0];
 			if (d0 !== 0) {
@@ -1863,7 +1867,7 @@ class CodeActionResult {
 
 	public all(): CodeAction[] {
 		const result: CodeAction[] = [];
-		for (let actions of this._actions.values()) {
+		for (const actions of this._actions.values()) {
 			result.push(...actions.fixes);
 			result.push(...actions.suggestions);
 			if (actions.disable) {
@@ -1887,7 +1891,7 @@ class CodeActionResult {
 
 	public get length(): number {
 		let result: number = 0;
-		for (let actions of this._actions.values()) {
+		for (const actions of this._actions.values()) {
 			result += actions.fixes.length;
 		}
 		return result;
@@ -2045,7 +2049,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		const allFixableRuleIds: string[] = [];
 		const kind: CodeActionKind = only ?? CodeActionKind.QuickFix;
 
-		for (let editInfo of fixes.getScoped(params.context.diagnostics)) {
+		for (const editInfo of fixes.getScoped(params.context.diagnostics)) {
 			documentVersion = editInfo.documentVersion;
 			const ruleId = editInfo.ruleId;
 			allFixableRuleIds.push(ruleId);
@@ -2127,7 +2131,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		if (result.length > 0) {
 			const sameProblems: Map<string, FixableProblem[]> = new Map<string, FixableProblem[]>(allFixableRuleIds.map<[string, FixableProblem[]]>(s => [s, []]));
 
-			for (let editInfo of fixes.getAllSorted()) {
+			for (const editInfo of fixes.getAllSorted()) {
 				if (documentVersion === -1) {
 					documentVersion = editInfo.documentVersion;
 				}
@@ -2187,25 +2191,45 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	const filePath = getFilePath(textDocument);
 	const problems = codeActions.get(uri);
 	const originalContent = textDocument.getText();
-	let problemFixes: TextEdit[] | undefined;
 	let start = Date.now();
 	// Only use known fixes when running in onSave mode. See https://github.com/microsoft/vscode-eslint/issues/871
 	// for details
-	if (mode === AllFixesMode.onSave && problems !== undefined && problems.size > 0) {
-		const fixes = (new Fixes(problems)).getApplicable();
-		if (fixes.length > 0) {
-			problemFixes = fixes.map(fix => FixableProblem.createTextEdit(textDocument, fix));
-		}
-	}
 	if (mode === AllFixesMode.onSave && settings.codeActionOnSave.mode === CodeActionsOnSaveMode.problems) {
+		const result = problems !== undefined && problems.size > 0
+			? new Fixes(problems).getApplicable().map(fix => FixableProblem.createTextEdit(textDocument, fix))
+			: [];
 		connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
-		return problemFixes !== undefined ? problemFixes.slice(0) : [];
+		return result;
 	} else {
-		const overrideConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await getSaveConfiguration(filePath, settings) : undefined;
+		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await getSaveRuleConfig(filePath, settings) : undefined;
+		const offRules = saveConfig?.offRules;
+		const onRules = saveConfig?.onRules;
+		let overrideConfig: Required<ConfigData> | undefined;
+		if (offRules !== undefined) {
+			overrideConfig = { rules: Object.create(null) };
+			for (const ruleId of offRules) {
+				overrideConfig.rules[ruleId] = 'off';
+			}
+		}
 		return withESLintClass(async (eslintClass) => {
 			const result: TextEdit[] = [];
-			const content = problemFixes !== undefined && overrideConfig === undefined
-				? TextDocument.applyEdits(textDocument, problemFixes)
+			let fixes: TextEdit[] | undefined;
+			if (problems !== undefined && problems.size > 0) {
+				// We have override rules that turn rules off. Filter the fixes for these rules.
+				if (offRules !== undefined) {
+					const filtered: typeof problems = new Map();
+					for (const [key, problem] of problems) {
+						if (onRules?.has(problem.ruleId)) {
+							filtered.set(key, problem);
+						}
+					}
+					fixes = filtered.size > 0 ? new Fixes(filtered).getApplicable().map(fix => FixableProblem.createTextEdit(textDocument, fix)) : undefined;
+				} else {
+					fixes = new Fixes(problems).getApplicable().map(fix => FixableProblem.createTextEdit(textDocument, fix));
+				}
+			}
+			const content = fixes !== undefined
+				? TextDocument.applyEdits(textDocument, fixes)
 				: originalContent;
 			const reportResults = await eslintClass.lintText(content, { filePath });
 			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
@@ -2214,7 +2238,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 				start = Date.now();
 				const diffs = stringDiff(originalContent, fixedContent, false);
 				connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);
-				for (let diff of diffs) {
+				for (const diff of diffs) {
 					result.push({
 						range: {
 							start: textDocument.positionAt(diff.originalStart),
@@ -2223,11 +2247,11 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 						newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
 					});
 				}
-			} else if (problemFixes !== undefined && overrideConfig === undefined) {
-				result.push(...problemFixes);
+			} else if (fixes !== undefined) {
+				result.push(...fixes);
 			}
 			return result;
-		}, settings, overrideConfig ? { fix: true, overrideConfig } : { fix: true });
+		}, settings, overrideConfig !== undefined ? { fix: true, overrideConfig } : { fix: true });
 	}
 }
 
