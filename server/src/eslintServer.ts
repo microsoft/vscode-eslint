@@ -477,7 +477,7 @@ async function getSaveConfiguration(filePath: string, settings: TextDocumentSett
 					}
 				}
 			}
-			return result;
+			return Object.keys(result.rules).length > 0 ? result : undefined;
 		}, settings);
 	}
 	if (result === undefined || result === null) {
