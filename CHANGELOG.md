@@ -1,3 +1,11 @@
+### Version 2.2.1
+
+Added support for ESLint V8.0 Beta. This release also switch to the ESLint class API that got introduced in version 7. In addition the rules taken into consideration during code action on save can now be configured.
+
+### Version 2.2.0
+
+- Internal insider release.
+
 ### 2.1.25
 
 - Added support for ESLint v8 Beta
