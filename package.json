@@ -383,7 +383,15 @@
 						"Only fixes reported problems that have non overlapping textual edits. This options runs a lot faster."
 					],
 					"default": "all",
-					"description": "Specifies the code action mode. Possible values are 'all' and 'problems'."
+					"markdownDescription": "Specifies the code action mode. Possible values are 'all' and 'problems'."
+				},
+				"eslint.codeActionsOnSave.rules": {
+					"scope": "resource",
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"markdownDescription": "The rules that should be executed when computing the code actions on save. Defaults to the rules configured via the ESLint configuration"
 				},
 				"eslint.format.enable": {
 					"scope": "resource",
@@ -392,7 +400,6 @@
 					"description": "Enables ESLint as a formatter."
 				},
 				"eslint.rules.customizations": {
-					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules.",
 					"items": {
 						"properties": {
 							"severity": {
@@ -414,7 +421,8 @@
 						"type": "object"
 					},
 					"scope": "resource",
-					"type": "array"
+					"type": "array",
+					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules."
 				}
 			}
 		},
@@ -502,7 +510,7 @@
 		"mocha": "^9.1.0",
 		"rimraf": "^3.0.2",
 		"ts-loader": "^9.2.5",
-		"typescript": "^4.3.5",
+		"typescript": "^4.4.2",
 		"webpack": "^5.51.1",
 		"webpack-cli": "^4.8.0"
 	}

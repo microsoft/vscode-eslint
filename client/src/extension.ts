@@ -127,7 +127,7 @@ enum CodeActionsOnSaveMode {
 
 namespace CodeActionsOnSaveMode {
 	export function from(value: string | undefined | null): CodeActionsOnSaveMode {
-		if (value === undefined || value === null) {
+		if (value === undefined || value === null || !Is.string(value)) {
 			return CodeActionsOnSaveMode.all;
 		}
 		switch(value.toLowerCase()) {
@@ -139,9 +139,19 @@ namespace CodeActionsOnSaveMode {
 	}
 }
 
+namespace CodeActionsOnSaveRules {
+	export function from(value: string[] | undefined | null): string[] | undefined {
+		if (value === undefined || value === null || !Array.isArray(value)) {
+			return undefined;
+		}
+		return value.filter(item => Is.string(item));
+	}
+}
+
 interface CodeActionsOnSaveSettings {
 	enable: boolean;
-	mode: CodeActionsOnSaveMode
+	mode: CodeActionsOnSaveMode,
+	rules?: string[]
 }
 
 enum Validate {
@@ -1136,6 +1146,7 @@ function realActivate(context: ExtensionContext): void {
 							settings.format = !!config.get('format.enable', false);
 							settings.codeActionOnSave.enable = readCodeActionsOnSaveSetting(document);
 							settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
+							settings.codeActionOnSave.rules = CodeActionsOnSaveRules.from(config.get('codeActionsOnSave.rules', null));
 						}
 						if (workspaceFolder !== undefined) {
 							settings.workspaceFolder = {

@@ -191,7 +191,8 @@ enum CodeActionsOnSaveMode {
 
 interface CodeActionsOnSaveSettings {
 	enable: boolean;
-	mode: CodeActionsOnSaveMode
+	mode: CodeActionsOnSaveMode;
+	rules?: string[];
 }
 
 enum RuleSeverity {
@@ -286,10 +287,19 @@ interface CLIOptions {
 	fix?: boolean;
 }
 
+type SeverityConf = 0 | 1 | 2 | 'off' | 'warn' | 'error';
+
+type RuleConf = SeverityConf | [SeverityConf, ...any[]];
+
+type ConfigData = {
+	rules?: Record<string, RuleConf>;
+};
+
 interface ESLintClassOptions {
 	cwd?: string;
 	fixTypes?: string[];
 	fix?: boolean;
+	overrideConfig?: ConfigData;
 }
 
 // { meta: { docs: [Object], schema: [Array] }, create: [Function: create] }
@@ -325,7 +335,7 @@ interface ESLintConfig {
  	processor: string;
  	reportUnusedDisableDirectives: boolean | undefined;
  	root: boolean;
- 	// rules: Record<string, RuleConf>;
+ 	rules: Record<string, RuleConf>;
  	settings: object;
 }
 
@@ -403,7 +413,6 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 }
 
 const ruleSeverityCache = new LRUCache<string, RuleSeverity | undefined>(1024);
-let ruleCustomizationsKey: string | undefined;
 
 function asteriskMatches(matcher: string, ruleId: string) {
 	return matcher.startsWith('!')
@@ -427,6 +436,48 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 	ruleSeverityCache.set(ruleId, result);
 
 	return result;
+}
+
+const saveConfigCache = new LRUCache<string, ConfigData | null>(128);
+async function getSaveConfiguration(filePath: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<ConfigData | undefined> {
+	let result = saveConfigCache.get(filePath);
+	if (result === null) {
+		return undefined;
+	}
+	if (result !== undefined) {
+		return result;
+	}
+	const rules = settings.codeActionOnSave.rules;
+	if (rules === undefined || !ESLintModule.hasESLintClass(settings.library)) {
+		result = undefined;
+	} else {
+		result = await withESLintClass(async (eslint) => {
+			const config = await eslint.calculateConfigForFile(filePath);
+			if (config === undefined || config.rules === undefined || config.rules.length === 0) {
+				return undefined;
+			}
+			const result: Required<ConfigData> = { rules: Object.create(null) };
+			if (rules.length === 0) {
+				Object.keys(config.rules).forEach(ruleId => result.rules[ruleId] === 'off');
+			} else {
+				for (const ruleId of Object.keys(config.rules)) {
+					for (const matcher of rules) {
+						if (!asteriskMatches(matcher, ruleId)) {
+							result.rules[ruleId] = 'off';
+						}
+					}
+				}
+			}
+			return result;
+		}, settings);
+	}
+	if (result === undefined || result === null) {
+		saveConfigCache.set(filePath, null);
+		return undefined;
+	} else {
+		saveConfigCache.set(filePath, result);
+		return result;
+	}
 }
 
 function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): Diagnostic {
@@ -1267,6 +1318,9 @@ function setupDocumentsListeners() {
 
 function environmentChanged() {
 	document2Settings.clear();
+	ruleSeverityCache.clear();
+	saveConfigCache.clear();
+
 	for (let document of documents.all()) {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}
@@ -1414,12 +1468,6 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 		if (fixTypes.size === 0) {
 			fixTypes = undefined;
 		}
-	}
-
-	const newRuleCustomizationsKey = JSON.stringify(settings.rulesCustomizations);
-	if (ruleCustomizationsKey !== newRuleCustomizationsKey) {
-		ruleCustomizationsKey = newRuleCustomizationsKey;
-		ruleSeverityCache.clear();
 	}
 
 	const content = document.getText();
@@ -1661,6 +1709,9 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async 
 	noConfigReported.clear();
 	missingModuleReported.clear();
 	document2Settings.clear(); // config files can change plugins and parser.
+	ruleSeverityCache.clear();
+	saveConfigCache.clear();
+
 	await Promise.all(params.changes.map(async (change) => {
 		const fsPath = getFilePath(change.uri);
 		if (fsPath === undefined || fsPath.length === 0 || isUNC(fsPath)) {
@@ -2112,67 +2163,63 @@ enum AllFixesMode {
 	command = 'command'
 }
 
-function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllFixesMode): Promise<TextEdit[]> | undefined {
+async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode: AllFixesMode): Promise<TextEdit[] | undefined> {
 	const uri = identifier.uri;
 	const textDocument = documents.get(uri)!;
 	if (textDocument === undefined || identifier.version !== textDocument.version) {
 		return undefined;
 	}
 
-	return resolveSettings(textDocument).then((settings) => {
-		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings) || (mode === AllFixesMode.format && !settings.format)) {
-			return [];
+	const settings = await resolveSettings(textDocument);
+
+	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings) || (mode === AllFixesMode.format && !settings.format)) {
+		return [];
+	}
+	const filePath = getFilePath(textDocument);
+	const problems = codeActions.get(uri);
+	const originalContent = textDocument.getText();
+	let problemFixes: TextEdit[] | undefined;
+	let start = Date.now();
+	// Only use known fixes when running in onSave mode. See https://github.com/microsoft/vscode-eslint/issues/871
+	// for details
+	if (mode === AllFixesMode.onSave && problems !== undefined && problems.size > 0) {
+		const fixes = (new Fixes(problems)).getApplicable();
+		if (fixes.length > 0) {
+			problemFixes = fixes.map(fix => FixableProblem.createTextEdit(textDocument, fix));
 		}
-		const filePath = getFilePath(textDocument);
+	}
+	if (mode === AllFixesMode.onSave && settings.codeActionOnSave.mode === CodeActionsOnSaveMode.problems) {
+		connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
+		return problemFixes !== undefined ? problemFixes.slice(0) : [];
+	} else {
+		const overrideConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await getSaveConfiguration(filePath, settings) : undefined;
 		return withESLintClass(async (eslintClass) => {
-			const problems = codeActions.get(uri);
-			const originalContent = textDocument.getText();
-			let problemFixes: TextEdit[] | undefined;
 			const result: TextEdit[] = [];
-			let start = Date.now();
-			// Only use known fixes when running in onSave mode. See https://github.com/microsoft/vscode-eslint/issues/871
-			// for details
-			if (mode === AllFixesMode.onSave && problems !== undefined && problems.size > 0) {
-				const fixes = (new Fixes(problems)).getApplicable();
-				if (fixes.length > 0) {
-					problemFixes = fixes.map(fix => FixableProblem.createTextEdit(textDocument, fix));
+			const content = problemFixes !== undefined && overrideConfig === undefined
+				? TextDocument.applyEdits(textDocument, problemFixes)
+				: originalContent;
+			const reportResults = await eslintClass.lintText(content, { filePath });
+			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
+			if (Array.isArray(reportResults) && reportResults.length === 1 && reportResults[0].output !== undefined) {
+				const fixedContent = reportResults[0].output;
+				start = Date.now();
+				const diffs = stringDiff(originalContent, fixedContent, false);
+				connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);
+				for (let diff of diffs) {
+					result.push({
+						range: {
+							start: textDocument.positionAt(diff.originalStart),
+							end: textDocument.positionAt(diff.originalStart + diff.originalLength)
+						},
+						newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
+					});
 				}
-			}
-			if (mode === AllFixesMode.onSave && settings.codeActionOnSave.mode === CodeActionsOnSaveMode.problems) {
-				connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
-				if (problemFixes !== undefined) {
-					result.push(...problemFixes);
-				}
-			} else {
-				let content: string;
-				if (problemFixes !== undefined) {
-					content = TextDocument.applyEdits(textDocument, problemFixes);
-				} else {
-					content = originalContent;
-				}
-				const reportResults = await eslintClass.lintText(content, { filePath });
-				connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
-				if (Array.isArray(reportResults) && reportResults.length === 1 && reportResults[0].output !== undefined) {
-					const fixedContent = reportResults[0].output;
-					start = Date.now();
-					const diffs = stringDiff(originalContent, fixedContent, false);
-					connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);
-					for (let diff of diffs) {
-						result.push({
-							range: {
-								start: textDocument.positionAt(diff.originalStart),
-								end: textDocument.positionAt(diff.originalStart + diff.originalLength)
-							},
-							newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
-						});
-					}
-				} else if (problemFixes !== undefined) {
-					result.push(...problemFixes);
-				}
+			} else if (problemFixes !== undefined && overrideConfig === undefined) {
+				result.push(...problemFixes);
 			}
 			return result;
-		}, settings, { fix: true });
-	});
+		}, settings, overrideConfig ? { fix: true, overrideConfig } : { fix: true });
+	}
 }
 
 messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
