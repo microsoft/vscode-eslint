@@ -12,6 +12,10 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md).
 
+### Version 2.2.0
+
+Added support for ESLint V8.0 Beta. This release also switch to the ESLint class API that got introduced in version 7. In addition the rules taken into consideration during code action on save can now be configured.
+
 ### Version 2.1.22
 
 Adapt VS Code's workspace trust model. As a consequence the custom dialog ESLint introduced in version `2.1.7` got removed. In addition the `off` value got added to the eslint rule customization support.
@@ -179,6 +183,36 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.codeActionsOnSave.mode` (@since 2.0.12): controls which problems are fix when running code actions on save
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
+
+- `eslint.codeActionsOnSave.rules` (@since 2.2.0): controls the rules which are taken into consideration during code action on save execution. If not specified all rules specified via the normal ESLint configuration mechanism are consider. An empty array results in no rules being considered. If the array contains more than one entry the order matters and the first match determines the rule's on / off state.
+
+  In this example only semicolon related rules are considered:
+
+  ```json
+  "eslint.codeActionsOnSave.rules": [
+    "*semi*"
+  ]
+  ```
+
+  This example removes all TypeScript ESLint specific rules from the code action on save pass but keeps all other rules:
+
+  ```json
+  "eslint.codeActionsOnSave.rules": [
+    "!@typescript-eslint/*",
+    "*"
+  ]
+  ```
+
+  This example keeps the indent and semi rule from TypeScript ESLint, disables all other TypeScript ESLint rules and keeps the rest:
+
+  ```json
+  "eslint.codeActionsOnSave.rules": [
+	  "@typescript-eslint/semi",
+	  "@typescript-eslint/indent",
+	  "!@typescript-eslint/*",
+	  "*"
+  ]
+  ```
 
 - `eslint.rules.customizations` (@since 2.1.20): force rules to report a different severity within VS Code compared to the project's true ESLint configuration. Contains two properties:
   - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "rule": "no-*", "severity": "warn" }`
