@@ -439,6 +439,17 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 }
 
 const saveConfigCache = new LRUCache<string, ConfigData | null>(128);
+function isOff(ruleId: string, matchers: string[]): boolean {
+	for (const matcher of matchers) {
+		if (matcher.startsWith('!') && new RegExp(`^${matcher.slice(1).replace(/\*/g, '.*')}$`, 'g').test(ruleId)) {
+			return true;
+		} else if (new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 async function getSaveConfiguration(filePath: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<ConfigData | undefined> {
 	let result = saveConfigCache.get(filePath);
 	if (result === null) {
@@ -458,13 +469,11 @@ async function getSaveConfiguration(filePath: string, settings: TextDocumentSett
 			}
 			const result: Required<ConfigData> = { rules: Object.create(null) };
 			if (rules.length === 0) {
-				Object.keys(config.rules).forEach(ruleId => result.rules[ruleId] === 'off');
+				Object.keys(config.rules).forEach(ruleId => result.rules[ruleId] = 'off');
 			} else {
 				for (const ruleId of Object.keys(config.rules)) {
-					for (const matcher of rules) {
-						if (!asteriskMatches(matcher, ruleId)) {
-							result.rules[ruleId] = 'off';
-						}
+					if (isOff(ruleId, rules)) {
+						result.rules[ruleId] = 'off';
 					}
 				}
 			}
