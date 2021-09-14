@@ -302,18 +302,20 @@ interface ESLintClassOptions {
 	overrideConfig?: ConfigData;
 }
 
-// { meta: { docs: [Object], schema: [Array] }, create: [Function: create] }
-interface RuleData {
-	meta?: {
-		docs?: {
-			url?: string;
-		};
-		type?: string;
+type RuleMetaData = {
+	docs?: {
+		url?: string;
 	};
-}
+	type?: string;
+};
+
+// { meta: { docs: [Object], schema: [Array] }, create: [Function: create] }
+type RuleData = {
+	meta?: RuleMetaData;
+};
 
 namespace RuleData {
-	export function hasMetaType(value: RuleData['meta'] | undefined): value is RuleData['meta'] & { type: string; } {
+	export function hasMetaType(value: RuleMetaData | undefined): value is RuleMetaData & { type: string; } {
 		return value !== undefined && value.type !== undefined;
 	}
 }
@@ -339,6 +341,19 @@ interface ESLintConfig {
  	settings: object;
 }
 
+interface ESLintClass {
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintlinttextcode-options
+	lintText(content: string, options: {filePath?: string, warnIgnored?: boolean}): Promise<ESLintDocumentReport[]>;
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
+	isPathIgnored(path: string): Promise<boolean>;
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintgetrulesmetaforresultsresults
+	getRulesMetaForResults(results: ESLintDocumentReport[]): Record<string, RuleMetaData> | undefined /* for ESLintClassEmulator */;
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintcalculateconfigforfilefilepath
+	calculateConfigForFile(path: string): Promise<ESLintConfig | undefined /* for ESLintClassEmulator */>;
+	// Whether it is the old CLI Engine
+	isCLIEngine?: boolean;
+}
+
 namespace ESLintClass {
 	export function newESLintClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions): ESLintClass {
 		if (ESLintModule.hasESLintClass(library)) {
@@ -348,17 +363,6 @@ namespace ESLintClass {
 			return new ESLintClassEmulator(cli);
 		}
 	}
-}
-
-interface ESLintClass {
-	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintlinttextcode-options
-	lintText(content: string, options: {filePath?: string, warnIgnored?: boolean}): Promise<ESLintDocumentReport[]>;
-	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
-	isPathIgnored(path: string): Promise<boolean>;
-	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintgetrulesmetaforresultsresults
-	getRulesMetaForResults(results: ESLintDocumentReport[]): Record<string, RuleData['meta']> | undefined /* for ESLintClassEmulator */;
-	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintcalculateconfigforfilefilepath
-	calculateConfigForFile(path: string): Promise<ESLintConfig | undefined /* for ESLintClassEmulator */>;
 }
 
 interface CLIEngine {
@@ -372,6 +376,42 @@ interface CLIEngine {
 namespace CLIEngine {
 	export function hasRule(value: CLIEngine): value is CLIEngine & { getRules(): Map<string, RuleData> } {
 		return value.getRules !== undefined;
+	}
+}
+
+/**
+ * ESLint class emulator using CLI Engine.
+ */
+class ESLintClassEmulator implements ESLintClass {
+
+	private cli: CLIEngine;
+
+	constructor(cli: CLIEngine) {
+		this.cli = cli;
+	}
+	get isCLIEngine(): boolean {
+		return true;
+	}
+	async lintText(content: string, options: { filePath?: string | undefined; warnIgnored?: boolean | undefined; }): Promise<ESLintDocumentReport[]> {
+		return this.cli.executeOnText(content, options.filePath, options.warnIgnored).results;
+	}
+	async isPathIgnored(path: string): Promise<boolean> {
+		return this.cli.isPathIgnored(path);
+	}
+	getRulesMetaForResults(_results: ESLintDocumentReport[]): Record<string, RuleMetaData> | undefined {
+		if (!CLIEngine.hasRule(this.cli)) {
+			return undefined;
+		}
+		const rules: Record<string, RuleMetaData> = {};
+		for (const [name, rule] of this.cli.getRules()) {
+			if (rule.meta !== undefined) {
+				rules[name] = rule.meta;
+			}
+		}
+		return rules;
+	}
+	async calculateConfigForFile(path: string): Promise<ESLintConfig | undefined> {
+		return typeof this.cli.getConfigForFile === 'function' ? this.cli.getConfigForFile(path) : undefined;
 	}
 }
 
@@ -395,6 +435,53 @@ type ESLintModule = {
 namespace ESLintModule {
 	export function hasESLintClass(value: ESLintModule): value is (ESLintModule & { ESLint: ESLintClassConstructor }) {
 		return value.ESLint !== undefined;
+	}
+}
+
+namespace RuleMetaData {
+	const handled: Set<string> = new Set();
+	const ruleId2Meta: Map<string, RuleMetaData> = new Map();
+
+	export function capture(eslint: ESLintClass, reports: ESLintDocumentReport[]): void {
+		let rulesMetaData: Record<string, RuleMetaData> | undefined;
+		if (eslint.isCLIEngine) {
+			const toHandle = reports.filter(report => !handled.has(report.filePath));
+			if (toHandle.length === 0) {
+				return;
+			}
+			rulesMetaData = eslint.getRulesMetaForResults(toHandle);
+			toHandle.forEach(report => handled.add(report.filePath));
+		} else {
+			rulesMetaData = eslint.getRulesMetaForResults(reports);
+		}
+		if (rulesMetaData === undefined) {
+			return undefined;
+		}
+		Object.entries(rulesMetaData).forEach(([key, meta]) => {
+			if (ruleId2Meta.has(key)) {
+				return;
+			}
+			if (meta && meta.docs && Is.string(meta.docs.url)) {
+				ruleId2Meta.set(key, meta);
+			}
+		});
+	}
+
+	export function clear(): void {
+		handled.clear();
+		ruleId2Meta.clear();
+	}
+
+	export function getUrl(ruleId: string): string | undefined {
+		return ruleId2Meta.get(ruleId)?.docs?.url;
+	}
+
+	export function getType(ruleId: string): string | undefined {
+		return ruleId2Meta.get(ruleId)?.type;
+	}
+
+	export function hasRuleId(ruleId: string): boolean {
+		return ruleId2Meta.has(ruleId);
 	}
 }
 
@@ -509,7 +596,7 @@ function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem):
 		}
 	};
 	if (problem.ruleId) {
-		const url = ruleDocData.urls.get(problem.ruleId);
+		const url = RuleMetaData.getUrl(problem.ruleId);
 		result.code = problem.ruleId;
 		if (url !== undefined) {
 			result.codeDescription = {
@@ -1459,14 +1546,6 @@ function getMessage(err: any, document: TextDocument): string {
 	return result;
 }
 
-const ruleDocData: {
-	handled: Set<string>;
-	urls: Map<string, string>;
-} = {
-	handled: new Set<string>(),
-	urls: new Map<string, string>()
-};
-
 const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
 async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, publishDiagnostics: boolean = true): Promise<void> {
 	const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
@@ -1490,18 +1569,7 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 	await withESLintClass(async (eslintClass) => {
 		codeActions.delete(uri);
 		const reportResults: ESLintDocumentReport[] = await eslintClass.lintText(content, { filePath: file, warnIgnored: settings.onIgnoredFiles !== ESLintSeverity.off });
-		let rulesMeta: Record<string, RuleData['meta']> | undefined | null = null;
-		if (!ruleDocData.handled.has(uri)) {
-			ruleDocData.handled.add(uri);
-			const rulesMeta = eslintClass.getRulesMetaForResults(reportResults);
-			if (rulesMeta !== undefined) {
-				Object.entries(rulesMeta).forEach(([key, meta]) => {
-					if (meta && meta.docs && Is.string(meta.docs.url)) {
-						ruleDocData.urls.set(key, meta.docs.url);
-					}
-				});
-			}
-		}
+		RuleMetaData.capture(eslintClass, reportResults);
 		const diagnostics: Diagnostic[] = [];
 		if (reportResults && Array.isArray(reportResults) && reportResults.length > 0) {
 			const docReport = reportResults[0];
@@ -1521,14 +1589,9 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 						const diagnostic = makeDiagnostic(settings, problem);
 						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && problem.ruleId !== undefined && problem.fix !== undefined) {
-							if (rulesMeta === null) {
-								rulesMeta = eslintClass.getRulesMetaForResults(reportResults);
-							}
-							if (rulesMeta !== undefined) {
-								const meta = rulesMeta[problem.ruleId];
-								if (RuleData.hasMetaType(meta) && fixTypes.has(meta.type)) {
-									recordCodeAction(document, diagnostic, problem);
-								}
+							const type = RuleMetaData.getType(problem.ruleId);
+							if (type !== undefined && fixTypes.has(type)) {
+								recordCodeAction(document, diagnostic, problem);
 							}
 						} else {
 							recordCodeAction(document, diagnostic, problem);
@@ -1563,38 +1626,6 @@ function withESLintClass<T>(func: (eslintClass: ESLintClass) => T, settings: Tex
 		if (cwd !== process.cwd()) {
 			process.chdir(cwd);
 		}
-	}
-}
-
-/**
- * ESLint class emulator using CLI Engine.
- */
-class ESLintClassEmulator implements ESLintClass {
-	private cli: CLIEngine;
-
-	constructor(cli: CLIEngine) {
-		this.cli = cli;
-	}
-	async lintText(content: string, options: { filePath?: string | undefined; warnIgnored?: boolean | undefined; }): Promise<ESLintDocumentReport[]> {
-		return this.cli.executeOnText(content, options.filePath, options.warnIgnored).results;
-	}
-	async isPathIgnored(path: string): Promise<boolean> {
-		return this.cli.isPathIgnored(path);
-	}
-	getRulesMetaForResults(_results: ESLintDocumentReport[]): Record<string, RuleData['meta']> | undefined {
-		if (!CLIEngine.hasRule(this.cli)) {
-			return undefined;
-		}
-		const rules: Record<string, RuleData['meta']> = {};
-		for (const [name, rule] of this.cli.getRules()) {
-			if (rule.meta !== undefined) {
-				rules[name] = rule.meta;
-			}
-		}
-		return rules;
-	}
-	async calculateConfigForFile(path: string): Promise<ESLintConfig | undefined> {
-		return typeof this.cli.getConfigForFile === 'function' ? this.cli.getConfigForFile(path) : undefined;
 	}
 }
 
@@ -1717,8 +1748,7 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async (params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
-	ruleDocData.handled.clear();
-	ruleDocData.urls.clear();
+	RuleMetaData.clear();
 	noConfigReported.clear();
 	missingModuleReported.clear();
 	document2Settings.clear(); // config files can change plugins and parser.
@@ -2117,7 +2147,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			}
 
 			if (settings.codeAction.showDocumentation.enable && result.get(ruleId).showDocumentation === undefined) {
-				if (ruleDocData.urls.has(ruleId)) {
+				if (RuleMetaData.hasRuleId(ruleId)) {
 					result.get(ruleId).showDocumentation = createCodeAction(
 						`Show documentation for ${ruleId}`,
 						kind,
@@ -2271,7 +2301,7 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 		} else if ([CommandIds.applySuggestion].indexOf(params.command) !== -1) {
 			workspaceChange = changes.get(`${params.command}:${commandParams.ruleId}:${commandParams.sequence}`);
 		} else if (params.command === CommandIds.openRuleDoc && CommandParams.hasRuleId(commandParams)) {
-			const url = ruleDocData.urls.get(commandParams.ruleId);
+			const url = RuleMetaData.getUrl(commandParams.ruleId);
 			if (url) {
 				void connection.sendRequest(OpenESLintDocRequest.type, { url });
 			}
