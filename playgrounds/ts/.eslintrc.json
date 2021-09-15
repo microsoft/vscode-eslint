@@ -1,5 +1,191 @@
 {
-	"extends": ".eslintrc.base.json",
-	"rules": {
-	}
+    "env": {
+        "browser": true,
+        "node": true
+    },
+    "extends": [
+        // "plugin:@typescript-eslint/recommended"
+        // "plugin:@typescript-eslint/recommended-requiring-type-checking"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "project": "tsconfig.json",
+        "sourceType": "module",
+        "ecmaVersion": 2020
+    },
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "rules": {
+        "@typescript-eslint/array-type": "off",
+        "@typescript-eslint/consistent-type-definitions": "error",
+        "@typescript-eslint/explicit-member-accessibility": [
+            "off",
+            {
+                "accessibility": "explicit"
+            }
+        ],
+        "@typescript-eslint/indent": "warn",
+        "@typescript-eslint/interface-name-prefix": "off",
+        "@typescript-eslint/member-delimiter-style": [
+            "off",
+            {
+                "multiline": {
+                    "delimiter": "none",
+                    "requireLast": true
+                },
+                "singleline": {
+                    "delimiter": "semi",
+                    "requireLast": false
+                }
+            }
+        ],
+        "@typescript-eslint/member-ordering": "off",
+        "@typescript-eslint/no-empty-function": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-non-null-assertion": "error",
+        "@typescript-eslint/no-parameter-properties": "off",
+        "@typescript-eslint/no-unused-vars": [
+            "error",
+            {
+                "vars": "all",
+                "args": "none",
+                "argsIgnorePattern": "^_"
+            }
+        ],
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/prefer-for-of": "error",
+        "@typescript-eslint/prefer-function-type": "error",
+        "@typescript-eslint/quotes": "off",
+        "@typescript-eslint/semi": [
+            "off",
+            null
+        ],
+        "@typescript-eslint/space-within-parens": [
+            "off",
+            "never"
+        ],
+        "@typescript-eslint/type-annotation-spacing": "off",
+        "@typescript-eslint/unified-signatures": "error",
+        "array-element-newline": [
+            "error",
+            "consistent"
+        ],
+        "arrow-body-style": "error",
+        "arrow-parens": [
+            "off",
+            "as-needed"
+        ],
+        "camelcase": "error",
+        "comma-dangle": "warn",
+        "complexity": "off",
+        "constructor-super": "error",
+        "curly": "error",
+        "dot-notation": "error",
+        "eol-last": "warn",
+        "eqeqeq": [
+            "error",
+            "smart"
+        ],
+        "guard-for-in": "error",
+        "id-blacklist": "error",
+        "id-match": "error",
+        // "import/no-require": "warn",
+        "import/order": "off",
+        // "jsdoc/no-types": "error",
+        "linebreak-style": "off",
+        "max-classes-per-file": "off",
+        "max-len": "off",
+        "new-parens": "warn",
+        "newline-per-chained-call": ["warn", { "ignoreChainWithDepth": 3}],
+        "no-bitwise": "warn",
+        "no-confusing-arrow": "warn",
+        "no-caller": "error",
+        "no-cond-assign": "error",
+        "no-console": [
+            "error",
+            {
+                "allow": [
+                    "log",
+                    "warn",
+                    "dir",
+                    "timeLog",
+                    "assert",
+                    "clear",
+                    "count",
+                    "countReset",
+                    "group",
+                    "groupEnd",
+                    "table",
+                    "dirxml",
+                    "error",
+                    "groupCollapsed",
+                    "Console",
+                    "profile",
+                    "profileEnd",
+                    "timeStamp",
+                    "context"
+                ]
+            }
+        ],
+        "no-debugger": "error",
+        "no-empty": "off",
+        "no-eval": "error",
+        "no-extra-semi": "off",
+        "no-fallthrough": [
+            "error"
+        ], // { "commentPattern": "[Ff]alls?[\\s-]?[Tt]hrough"} ],
+        "no-invalid-this": "off",
+        "no-irregular-whitespace": "off",
+        "no-multiple-empty-lines": "warn",
+        "no-new-wrappers": "error",
+        "no-shadow": [
+            "error",
+            {
+                "hoist": "all"
+            }
+        ],
+        "no-throw-literal": "error",
+        "no-trailing-spaces": "warn",
+        "no-undef-init": "error",
+        "no-underscore-dangle": "off",
+        "no-unsafe-finally": "error",
+        "no-unused-expressions": "error",
+        "no-unused-labels": "error",
+        "object-shorthand": "error",
+        "one-var": [
+            "error",
+            "never"
+        ],
+        // "prefer-arrow/prefer-arrow-functions": "error",
+        "quote-props": "off",
+        "radix": "error",
+        "space-before-function-paren": "off",
+        "spaced-comment": [
+            "error",
+            "always",
+            {
+                "markers": [
+                    "/"
+                ]
+            }
+        ],
+        "use-isnan": "error",
+        "valid-typeof": "off"
+    },
+    "overrides": [
+        {
+            "files": [
+                "**/*.component.ts"
+            ],
+            "rules": {
+                "@typescript-eslint/no-use-before-define": [
+                    "error",
+                    {
+                        "classes": false
+                    }
+                ]
+            }
+        }
+    ]
 }
