@@ -921,6 +921,7 @@ function realActivate(context: ExtensionContext): void {
 	const eslintConfig = Workspace.getConfiguration('eslint');
 	const debug = eslintConfig.get<boolean>('debug', false) ?? false;
 	const runtime = eslintConfig.get<string | undefined>('runtime', undefined) ?? undefined;
+	const serverDebugPort = eslintConfig.get<number | undefined>('server.debug.port', undefined) ?? undefined;
 
 	const nodeEnv = eslintConfig.get('nodeEnv', null);
 	let env: { [key: string]: string | number | boolean } | undefined;
@@ -936,6 +937,10 @@ function realActivate(context: ExtensionContext): void {
 		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd(), env } },
 		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ['--nolazy', '--inspect=6011'], cwd: process.cwd(), env } }
 	};
+
+	if (typeof serverDebugPort === 'number') {
+		serverOptions.run.options!.execArgv = ['--nolazy', `--inspect=${serverDebugPort}`];
+	}
 
 	let defaultErrorHandler: ErrorHandler;
 	let serverCalledProcessExit: boolean = false;

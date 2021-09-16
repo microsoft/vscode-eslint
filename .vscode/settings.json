@@ -32,6 +32,7 @@
 	],
 	"eslint.trace.server": "off",
 	"eslint.debug": false,
+	"eslint.server.debug.port": 6011,
 	"eslint.lintTask.enable": false,
 	"eslint.format.enable": true,
 	"cSpell.words": [

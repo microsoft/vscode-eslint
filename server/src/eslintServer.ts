@@ -1552,7 +1552,7 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 	let fixTypes: Set<string> | undefined = undefined;
 	if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
 		fixTypes = new Set();
-		for (const item of newOptions.fixTypes) {
+		for (const item of newOptions.fixTypes) { 
 			if (validFixTypes.has(item)) {
 				fixTypes.add(item);
 			}
