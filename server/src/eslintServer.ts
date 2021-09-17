@@ -1015,195 +1015,203 @@ function findWorkingDirectory(workspaceFolder: string, file: string | undefined)
 	return result;
 }
 
-function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> {
+async function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> {
 	const uri = document.uri;
 	let resultPromise = document2Settings.get(uri);
 	if (resultPromise) {
 		return resultPromise;
 	}
-	resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((configuration: ConfigurationSettings) => {
-		const settings: TextDocumentSettings = Object.assign(
-			{},
-			configuration,
-			{ silent: false, library: undefined, resolvedGlobalPackageManagerPath: undefined },
-			{ workingDirectory: undefined}
-		);
-		if (settings.validate === Validate.off) {
-			return settings;
-		}
-		settings.resolvedGlobalPackageManagerPath = globalPathGet(settings.packageManager);
-		const filePath = getFilePath(document);
-		const workspaceFolderPath = settings.workspaceFolder !== undefined ? getFilePath(settings.workspaceFolder.uri) : undefined;
-		const hasUserDefinedWorkingDirectories: boolean = configuration.workingDirectory !== undefined;
-		const workingDirectoryConfig = configuration.workingDirectory ?? { mode: ModeEnum.location };
-		if (ModeItem.is(workingDirectoryConfig)) {
-			let candidate: string | undefined;
-			if (workingDirectoryConfig.mode === ModeEnum.location) {
-				if (workspaceFolderPath !== undefined) {
-					candidate = workspaceFolderPath;
-				} else if (filePath !== undefined && !isUNC(filePath)) {
-					candidate = path.dirname(filePath);
-				}
-			} else if (workingDirectoryConfig.mode === ModeEnum.auto) {
-				if (workspaceFolderPath !== undefined) {
-					candidate = findWorkingDirectory(workspaceFolderPath, filePath);
-				} else if (filePath !== undefined && !isUNC(filePath)) {
-					candidate = path.dirname(filePath);
-				}
-			}
-			if (candidate !== undefined && fs.existsSync(candidate)) {
-				settings.workingDirectory = { directory: candidate };
-			}
-		} else {
-			settings.workingDirectory = workingDirectoryConfig;
-		}
-		let promise: Promise<string>;
-		let nodePath: string | undefined;
-		if (settings.nodePath !== null) {
-			nodePath = settings.nodePath;
-			if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== undefined) {
-				const workspaceFolderPath = getFilePath(settings.workspaceFolder.uri);
-				if (workspaceFolderPath !== undefined) {
-					nodePath = path.join(workspaceFolderPath, nodePath);
-				}
-			}
-		}
-		let moduleResolveWorkingDirectory: string | undefined;
-		if (!hasUserDefinedWorkingDirectories && filePath !== undefined) {
-			moduleResolveWorkingDirectory = path.dirname(filePath);
-		}
-		if (moduleResolveWorkingDirectory === undefined && settings.workingDirectory !== undefined && !settings.workingDirectory['!cwd']) {
-			moduleResolveWorkingDirectory = settings.workingDirectory.directory;
-		}
-		if (nodePath !== undefined) {
-			promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-				return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
-			});
-		} else {
-			promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
-		}
-
-		settings.silent = settings.validate === Validate.probe;
-		return promise.then(async (libraryPath) => {
-			let library = path2Library.get(libraryPath);
-			if (library === undefined) {
-				library = loadNodeModule(libraryPath);
-				if (library === undefined) {
-					settings.validate = Validate.off;
-					if (!settings.silent) {
-						connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
-					}
-				} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
-					settings.validate = Validate.off;
-					connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
-				} else {
-					connection.console.info(`ESLint library loaded from: ${libraryPath}`);
-					settings.library = library;
-					path2Library.set(libraryPath, library);
-				}
-			} else {
-				settings.library = library;
-			}
-			if (settings.validate === Validate.probe && TextDocumentSettings.hasLibrary(settings)) {
-				settings.validate = Validate.off;
-				const uri: URI = URI.parse(document.uri);
-				let filePath = getFilePath(document);
-				if (filePath === undefined && uri.scheme === 'untitled' && settings.workspaceFolder !== undefined) {
-					const ext = languageId2DefaultExt.get(document.languageId);
-					const workspacePath = getFilePath(settings.workspaceFolder.uri);
-					if (workspacePath !== undefined && ext !== undefined) {
-						filePath = path.join(workspacePath, `test${ext}`);
-					}
-				}
-				if (filePath !== undefined) {
-					const parserRegExps = languageId2ParserRegExp.get(document.languageId);
-					const pluginName = languageId2PluginName.get(document.languageId);
-					const parserOptions = languageId2ParserOptions.get(document.languageId);
-					if (defaultLanguageIds.has(document.languageId)) {
-						settings.validate = Validate.on;
-					} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
-						const eslintConfig: ESLintConfig | undefined = await withESLintClass(async (eslintClass) => {
-							try {
-								const result = await eslintClass.calculateConfigForFile(filePath!);
-								return result;
-							} catch (err) {
-								return undefined;
-							}
-						}, settings);
-						if (eslintConfig !== undefined) {
-							const parser: string | undefined =  eslintConfig.parser !== null
-								? normalizePath(eslintConfig.parser)
-								: undefined;
-							if (parser !== undefined) {
-								if (parserRegExps !== undefined) {
-									for (const regExp of parserRegExps) {
-										if (regExp.test(parser)) {
-											settings.validate = Validate.on;
-											break;
-										}
-									}
-								}
-								if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
-									const eslintConfigParserOptionsParser = normalizePath(eslintConfig.parserOptions.parser);
-									for (const regExp of parserOptions.regExps) {
-										if (regExp.test(parser) && (
-											parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
-											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfigParserOptionsParser))
-										)) {
-											settings.validate = Validate.on;
-											break;
-										}
-									}
-								}
-							}
-							if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
-								for (const name of eslintConfig.plugins) {
-									if (name === pluginName) {
-										settings.validate = Validate.on;
-										break;
-									}
-								}
-							}
-						}
-					}
-				}
-				if (settings.validate === Validate.off) {
-					const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
-					void connection.sendRequest(ProbeFailedRequest.type, params);
-				}
-			}
-			if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
-				const Uri = URI.parse(uri);
-				const isFile = Uri.scheme === 'file';
-				let pattern: string = isFile
-					? Uri.fsPath.replace(/\\/g, '/')
-					: Uri.fsPath;
-				pattern = pattern.replace(/[\[\]\{\}]/g, '?');
-
-				const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
-				const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
-				if (!isFile) {
-					formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
-				} else {
-					const filePath = getFilePath(uri)!;
-					await withESLintClass(async (eslintClass) => {
-						if (!await eslintClass.isPathIgnored(filePath)) {
-							formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
-						}
-					}, settings);
-				}
-			}
-			return settings;
-		}, () => {
-			settings.validate = Validate.off;
-			if (!settings.silent) {
-				void connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
-			}
-			return settings;
-		});
-	});
+	resultPromise = doResolveSettings(document);
 	document2Settings.set(uri, resultPromise);
 	return resultPromise;
+}
+
+async function doResolveSettings(document: TextDocument): Promise<TextDocumentSettings> {
+	const uri = document.uri;
+	const configuration: ConfigurationSettings = await connection.workspace.getConfiguration({ scopeUri: uri, section: '' });
+	const settings: TextDocumentSettings = Object.assign(
+		{},
+		configuration,
+		{ silent: false, library: undefined, resolvedGlobalPackageManagerPath: undefined },
+		{ workingDirectory: undefined}
+	);
+	if (settings.validate === Validate.off) {
+		return settings;
+	}
+
+	let status: Status = Status.ok;
+	settings.resolvedGlobalPackageManagerPath = globalPathGet(settings.packageManager);
+	const filePath = getFilePath(document);
+	const workspaceFolderPath = settings.workspaceFolder !== undefined ? getFilePath(settings.workspaceFolder.uri) : undefined;
+	const hasUserDefinedWorkingDirectories: boolean = configuration.workingDirectory !== undefined;
+	const workingDirectoryConfig = configuration.workingDirectory ?? { mode: ModeEnum.location };
+	if (ModeItem.is(workingDirectoryConfig)) {
+		let candidate: string | undefined;
+		if (workingDirectoryConfig.mode === ModeEnum.location) {
+			if (workspaceFolderPath !== undefined) {
+				candidate = workspaceFolderPath;
+			} else if (filePath !== undefined && !isUNC(filePath)) {
+				candidate = path.dirname(filePath);
+			}
+		} else if (workingDirectoryConfig.mode === ModeEnum.auto) {
+			if (workspaceFolderPath !== undefined) {
+				candidate = findWorkingDirectory(workspaceFolderPath, filePath);
+			} else if (filePath !== undefined && !isUNC(filePath)) {
+				candidate = path.dirname(filePath);
+			}
+		}
+		if (candidate !== undefined && fs.existsSync(candidate)) {
+			settings.workingDirectory = { directory: candidate };
+		}
+	} else {
+		settings.workingDirectory = workingDirectoryConfig;
+	}
+	let libraryPath: string;
+	let nodePath: string | undefined;
+	if (settings.nodePath !== null) {
+		nodePath = settings.nodePath;
+		if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== undefined) {
+			const workspaceFolderPath = getFilePath(settings.workspaceFolder.uri);
+			if (workspaceFolderPath !== undefined) {
+				nodePath = path.join(workspaceFolderPath, nodePath);
+			}
+		}
+	}
+	let moduleResolveWorkingDirectory: string | undefined;
+	if (!hasUserDefinedWorkingDirectories && filePath !== undefined) {
+		moduleResolveWorkingDirectory = path.dirname(filePath);
+	}
+	if (moduleResolveWorkingDirectory === undefined && settings.workingDirectory !== undefined && !settings.workingDirectory['!cwd']) {
+		moduleResolveWorkingDirectory = settings.workingDirectory.directory;
+	}
+	if (nodePath !== undefined) {
+		try {
+			libraryPath = await Files.resolve('eslint', nodePath, nodePath, trace);
+		} catch (err) {
+			libraryPath = await Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
+		}
+	} else {
+		libraryPath = await Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
+	}
+
+	settings.silent = settings.validate === Validate.probe;
+
+	let library = path2Library.get(libraryPath);
+	if (library === undefined) {
+		library = loadNodeModule(libraryPath);
+		if (library === undefined) {
+			settings.validate = Validate.off;
+			status = Status.error;
+			if (!settings.silent) {
+				connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+				void connection.sendRequest(NoESLintLibraryRequest.type, { source: { uri: document.uri } });
+			}
+		} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
+			status = Status.error;
+			settings.validate = Validate.off;
+			connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
+		} else {
+			connection.console.info(`ESLint library loaded from: ${libraryPath}`);
+			settings.library = library;
+			path2Library.set(libraryPath, library);
+		}
+	} else {
+		settings.library = library;
+	}
+
+	if (settings.validate === Validate.probe && TextDocumentSettings.hasLibrary(settings)) {
+		settings.validate = Validate.off;
+		const _uri: URI = URI.parse(document.uri);
+		let configTestPath = filePath;
+		if (configTestPath === undefined && _uri.scheme === 'untitled' && settings.workspaceFolder !== undefined) {
+			const ext = languageId2DefaultExt.get(document.languageId);
+			const workspacePath = getFilePath(settings.workspaceFolder.uri);
+			if (workspacePath !== undefined && ext !== undefined) {
+				configTestPath = path.join(workspacePath, `test${ext}`);
+			}
+		}
+		if (configTestPath !== undefined) {
+			const parserRegExps = languageId2ParserRegExp.get(document.languageId);
+			const pluginName = languageId2PluginName.get(document.languageId);
+			const parserOptions = languageId2ParserOptions.get(document.languageId);
+			if (defaultLanguageIds.has(document.languageId)) {
+				settings.validate = Validate.on;
+			} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
+				const eslintConfig: ESLintConfig | undefined = await withESLintClass(async (eslintClass) => {
+					try {
+						const result = await eslintClass.calculateConfigForFile(configTestPath!);
+						return result;
+					} catch (err) {
+						status = Status.warn;
+						return undefined;
+					}
+				}, settings);
+				if (eslintConfig !== undefined) {
+					const parser: string | undefined =  eslintConfig.parser !== null
+						? normalizePath(eslintConfig.parser)
+						: undefined;
+					if (parser !== undefined) {
+						if (parserRegExps !== undefined) {
+							for (const regExp of parserRegExps) {
+								if (regExp.test(parser)) {
+									settings.validate = Validate.on;
+									break;
+								}
+							}
+						}
+						if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
+							const eslintConfigParserOptionsParser = normalizePath(eslintConfig.parserOptions.parser);
+							for (const regExp of parserOptions.regExps) {
+								if (regExp.test(parser) && (
+									parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
+									parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfigParserOptionsParser))
+								)) {
+									settings.validate = Validate.on;
+									break;
+								}
+							}
+						}
+					}
+					if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
+						for (const name of eslintConfig.plugins) {
+							if (name === pluginName) {
+								settings.validate = Validate.on;
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if (settings.validate === Validate.off) {
+		const params: ProbeFailedParams = { textDocument: { uri: document.uri } };
+		void connection.sendRequest(ProbeFailedRequest.type, params);
+	}
+
+	if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
+		const Uri = URI.parse(uri);
+		const isFile = Uri.scheme === 'file';
+		let pattern: string = isFile
+			? Uri.fsPath.replace(/\\/g, '/')
+			: Uri.fsPath;
+		pattern = pattern.replace(/[\[\]\{\}]/g, '?');
+
+		const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
+		const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
+		if (!isFile) {
+			formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+		} else {
+			const filePath = getFilePath(uri)!;
+			await withESLintClass(async (eslintClass) => {
+				if (!await eslintClass.isPathIgnored(filePath)) {
+					formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+				}
+			}, settings);
+		}
+	}
+	connection.sendNotification(StatusNotification.type, { uri, state: status });
+	return settings;
 }
 
 interface Request<P, R> {
