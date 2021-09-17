@@ -4,13 +4,38 @@
  * ------------------------------------------------------------------------------------------ */
 'use strict';
 
+declare module 'vscode' {
+	enum LanguageStatusSeverity {
+		Information = 0,
+		Warning = 1,
+		Error = 2
+	}
+
+	interface LanguageStatusItem {
+		readonly id: string;
+		selector: DocumentSelector;
+		// todo@jrieken replace with boolean ala needsAttention
+		severity: LanguageStatusSeverity;
+		name: string | undefined;
+		text: string;
+		detail?: string;
+		command: Command | undefined;
+		accessibilityInformation?: AccessibilityInformation;
+		dispose(): void;
+	}
+
+	namespace languages {
+		export function createLanguageStatusItem(id: string, selector: DocumentSelector): LanguageStatusItem;
+	}
+}
+
 import * as path from 'path';
 import * as fs from 'fs';
 import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri,
 	StatusBarAlignment, TextDocument, CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem,
 	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind,
-	WorkspaceConfiguration, ThemeColor
+	WorkspaceConfiguration, ThemeColor, StatusBarItem, LanguageStatusItem, LanguageStatusSeverity
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
@@ -800,24 +825,89 @@ class Migration {
 
 function realActivate(context: ExtensionContext): void {
 
-	const statusBarItem = Window.createStatusBarItem('generalStatus', StatusBarAlignment.Right, 0);
+	const hasLanguageStatusItem = typeof Languages.createLanguageStatusItem === 'function';
+	const statusBarItem: StatusBarItem | undefined = !hasLanguageStatusItem
+		? Window.createStatusBarItem('generalStatus', StatusBarAlignment.Right, 0)
+		: undefined;
+
 	let serverRunning: boolean | undefined;
 
 	const starting = 'ESLint server is starting.';
 	const running = 'ESLint server is running.';
 	const stopped = 'ESLint server stopped.';
-	statusBarItem.name = 'ESLint';
-	statusBarItem.text = 'ESLint';
-	statusBarItem.command = 'eslint.showOutputChannel';
+
+	if (statusBarItem !== undefined) {
+		statusBarItem.name = 'ESLint';
+		statusBarItem.text = 'ESLint';
+		statusBarItem.command = 'eslint.showOutputChannel';
+	}
 
 	const documentStatus: Map<string, Status> = new Map();
+	let idCounter: number = 1;
+	const languageStatusItems: Map<string, LanguageStatusItem> = new Map();
 
 	function updateDocumentStatus(params: StatusParams): void {
 		documentStatus.set(params.uri, params.state);
-		updateStatusBar(params.uri);
+		updateStatusBarOrLanguageStatus(params.uri);
+	}
+
+	function updateStatusBarOrLanguageStatus(uri: string | undefined) {
+		if (hasLanguageStatusItem) {
+			updateLanguageStatus(uri);
+		} else {
+			updateStatusBar(uri);
+		}
+	}
+
+	function updateLanguageStatus(uri: string | undefined) {
+		if (uri === undefined) {
+			uri = Window.activeTextEditor?.document.uri.toString();
+		}
+		if (uri === undefined) {
+			return;
+		}
+		const status = documentStatus.get(uri);
+		if (status === undefined) {
+			return;
+		}
+		if (hasLanguageStatusItem) {
+			const starting = 'ESLint - server is starting';
+			const running = 'ESLint - server is running';
+			const stopped = 'ESLint - server stopped';
+
+			const serverState = serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
+			let item = languageStatusItems.get(uri);
+			if (item === undefined) {
+				const _uri = Uri.parse(uri);
+				// See https://github.com/microsoft/vscode/issues/133331
+				item = Languages.createLanguageStatusItem('eslint' + idCounter++, [
+					{ pattern: _uri.fsPath }
+				]);
+				item.name = 'ESLint';
+				item.command = { command: 'eslint.showOutputChannel', title: 'Open Output' };
+				languageStatusItems.set(uri, item);
+			}
+			switch (status) {
+				case Status.ok:
+					item.severity = LanguageStatusSeverity.Information;
+					item.text = serverRunning === true ? 'ESLint - active' : serverState;
+					break;
+				case Status.warn:
+					item.severity = LanguageStatusSeverity.Warning;
+					item.text = serverRunning === true ? 'ESLint - config problems' : serverState;
+					break;
+				case Status.error:
+					item.text = 'ESLint - setup problems';
+					item.severity = LanguageStatusSeverity.Error;
+					break;
+			}
+		}
 	}
 
 	function updateStatusBar(uri: string | undefined) {
+		if (statusBarItem === undefined) {
+			return;
+		}
 		const status = function() {
 			if (serverRunning === false) {
 				return Status.error;
@@ -827,6 +917,7 @@ function realActivate(context: ExtensionContext): void {
 			}
 			return (uri !== undefined ? documentStatus.get(uri) : undefined) ?? Status.ok;
 		}();
+
 		let icon: string| undefined;
 		let tooltip: string | undefined;
 		let text: string = 'ESLint';
@@ -1275,13 +1366,13 @@ function realActivate(context: ExtensionContext): void {
 			client.info('ESLint server is starting');
 			serverRunning = undefined;
 		} else if (event.newState === ClientState.Running) {
-			client.info(running);
+			client.info('ES');
 			serverRunning = true;
 		} else {
 			client.info(stopped);
 			serverRunning = false;
 		}
-		updateStatusBar(undefined);
+		updateStatusBarOrLanguageStatus(undefined);
 	});
 
 	const readyHandler = () => {
@@ -1422,12 +1513,17 @@ function realActivate(context: ExtensionContext): void {
 	context.subscriptions.push(
 		client.start(),
 		Window.onDidChangeActiveTextEditor(() => {
-			updateStatusBar(undefined);
+			updateStatusBarOrLanguageStatus(undefined);
 		}),
 		Workspace.onDidCloseTextDocument((document) => {
 			const uri = document.uri.toString();
 			documentStatus.delete(uri);
-			updateStatusBar(undefined);
+			const item = languageStatusItems.get(uri);
+			if (item !== undefined) {
+				languageStatusItems.delete(uri);
+				item.dispose();
+			}
+			updateStatusBarOrLanguageStatus(undefined);
 		}),
 		Commands.registerCommand('eslint.executeAutofix', async () => {
 			const textEditor = Window.activeTextEditor;

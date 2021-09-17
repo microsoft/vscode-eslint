@@ -1122,9 +1122,10 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 					if (defaultLanguageIds.has(document.languageId)) {
 						settings.validate = Validate.on;
 					} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
-						const eslintConfig: ESLintConfig | undefined = await withESLintClass((eslintClass) => {
+						const eslintConfig: ESLintConfig | undefined = await withESLintClass(async (eslintClass) => {
 							try {
-								return eslintClass.calculateConfigForFile(filePath!);
+								const result = await eslintClass.calculateConfigForFile(filePath!);
+								return result;
 							} catch (err) {
 								return undefined;
 							}
