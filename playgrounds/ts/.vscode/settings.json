@@ -4,6 +4,6 @@
 		"source.fixAll.eslint": true
 	},
 	"eslint.format.enable": true,
-	"eslint.trace.server": "messages",
-	"eslint.debug": true,
+	"eslint.trace.server": "off",
+	"eslint.debug": false,
 }

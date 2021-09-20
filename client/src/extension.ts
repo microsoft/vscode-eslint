@@ -842,12 +842,43 @@ function realActivate(context: ExtensionContext): void {
 		statusBarItem.command = 'eslint.showOutputChannel';
 	}
 
-	const documentStatus: Map<string, Status> = new Map();
-	let idCounter: number = 1;
-	const languageStatusItems: Map<string, LanguageStatusItem> = new Map();
+	const languageStatusItem: LanguageStatusItem | undefined = hasLanguageStatusItem
+		? Languages.createLanguageStatusItem('eslint', [])
+		: undefined;
+
+	if (languageStatusItem !== undefined) {
+		languageStatusItem.text = 'ESLint';
+		languageStatusItem.command = { command: 'eslint.showOutputChannel', title: 'Open Output' };
+	}
+
+	type DocumentStatus = {
+		status: Status;
+		filter?: DocumentFilter;
+	};
+	const documentStatus: Map<string, DocumentStatus> = new Map();
 
 	function updateDocumentStatus(params: StatusParams): void {
-		documentStatus.set(params.uri, params.state);
+		let value = documentStatus.get(params.uri);
+		let changed: boolean = false;
+		if (value === undefined) {
+			changed = true;
+			if (hasLanguageStatusItem) {
+				const _uri = Uri.parse(params.uri);
+				value = { status: params.state, filter: { scheme: _uri.scheme, pattern: _uri.fsPath } };
+			} else {
+				value = { status: params.state };
+			}
+			documentStatus.set(params.uri, value);
+		} else {
+			value.status = params.state;
+		}
+		if (changed && hasLanguageStatusItem) {
+			const selector: DocumentFilter[] = [];
+			for (const item of documentStatus.values()) {
+				selector.push(item.filter!);
+			}
+			languageStatusItem!.selector = selector;
+		}
 		updateStatusBarOrLanguageStatus(params.uri);
 	}
 
@@ -870,35 +901,24 @@ function realActivate(context: ExtensionContext): void {
 		if (status === undefined) {
 			return;
 		}
-		if (hasLanguageStatusItem) {
-			const starting = 'ESLint - server is starting';
-			const running = 'ESLint - server is running';
-			const stopped = 'ESLint - server stopped';
+		if (languageStatusItem !== undefined) {
+			const starting = 'server is starting';
+			const running = 'server is running';
+			const stopped = 'server stopped';
 
 			const serverState = serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
-			let item = languageStatusItems.get(uri);
-			if (item === undefined) {
-				const _uri = Uri.parse(uri);
-				// See https://github.com/microsoft/vscode/issues/133331
-				item = Languages.createLanguageStatusItem('eslint' + idCounter++, [
-					{ pattern: _uri.fsPath }
-				]);
-				item.name = 'ESLint';
-				item.command = { command: 'eslint.showOutputChannel', title: 'Open Output' };
-				languageStatusItems.set(uri, item);
-			}
-			switch (status) {
+			switch (status.status) {
 				case Status.ok:
-					item.severity = LanguageStatusSeverity.Information;
-					item.text = serverRunning === true ? 'ESLint - active' : serverState;
+					languageStatusItem.severity = LanguageStatusSeverity.Information;
+					languageStatusItem.detail = serverRunning === true ? 'active' : serverState;
 					break;
 				case Status.warn:
-					item.severity = LanguageStatusSeverity.Warning;
-					item.text = serverRunning === true ? 'ESLint - config problems' : serverState;
+					languageStatusItem.severity = LanguageStatusSeverity.Warning;
+					languageStatusItem.detail = serverRunning === true ? 'config problems' : serverState;
 					break;
 				case Status.error:
-					item.text = 'ESLint - setup problems';
-					item.severity = LanguageStatusSeverity.Error;
+					languageStatusItem.text = 'setup problems';
+					languageStatusItem.severity = LanguageStatusSeverity.Error;
 					break;
 			}
 		}
@@ -1004,6 +1024,30 @@ function realActivate(context: ExtensionContext): void {
 				await migration.update();
 			} catch (error) {
 				migrationFailed(error);
+			}
+		}
+	}
+
+	function clearProbeFailed(): void {
+		probeFailed.clear();
+		for (const textDocument of syncedDocuments.values()) {
+			if (computeValidate(textDocument) === Validate.off) {
+				try {
+					const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
+					provider?.send(textDocument);
+				} catch (err) {
+				// A feature currently throws if no provider can be found. So for now we catch the exception.
+				}
+			}
+		}
+		for (const textDocument of Workspace.textDocuments) {
+			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
+				try {
+					const provider = client.getFeature(DidOpenTextDocumentNotification.method).getProvider(textDocument);
+					provider?.send(textDocument);
+				} catch (err) {
+				// A feature currently throws if no provider can be found. So for now we catch the exception.
+				}
 			}
 		}
 	}
@@ -1131,7 +1175,7 @@ function realActivate(context: ExtensionContext): void {
 			},
 			workspace: {
 				didChangeWatchedFile: (event, next) => {
-					probeFailed.clear();
+					clearProbeFailed();
 					next(event);
 				},
 				didChangeConfiguration: (sections, next) => {
@@ -1336,29 +1380,7 @@ function realActivate(context: ExtensionContext): void {
 	// Currently we don't need any proposed features.
 	// client.registerProposedFeatures();
 
-	Workspace.onDidChangeConfiguration(() => {
-		probeFailed.clear();
-		for (const textDocument of syncedDocuments.values()) {
-			if (computeValidate(textDocument) === Validate.off) {
-				try {
-					const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
-					provider?.send(textDocument);
-				} catch (err) {
-					// A feature currently throws if no provider can be found. So for now we catch the exception.
-				}
-			}
-		}
-		for (const textDocument of Workspace.textDocuments) {
-			if (!syncedDocuments.has(textDocument.uri.toString()) && computeValidate(textDocument) !== Validate.off) {
-				try {
-					const provider = client.getFeature(DidOpenTextDocumentNotification.method).getProvider(textDocument);
-					provider?.send(textDocument);
-				} catch (err) {
-					// A feature currently throws if no provider can be found. So for now we catch the exception.
-				}
-			}
-		}
-	});
+	Workspace.onDidChangeConfiguration(clearProbeFailed);
 
 	defaultErrorHandler = client.createDefaultErrorHandler();
 	client.onDidChangeState((event) => {
@@ -1518,10 +1540,12 @@ function realActivate(context: ExtensionContext): void {
 		Workspace.onDidCloseTextDocument((document) => {
 			const uri = document.uri.toString();
 			documentStatus.delete(uri);
-			const item = languageStatusItems.get(uri);
-			if (item !== undefined) {
-				languageStatusItems.delete(uri);
-				item.dispose();
+			if (languageStatusItem !== undefined) {
+				const selector: DocumentFilter[] = [];
+				for (const item of documentStatus.values()) {
+					selector.push(item.filter!);
+				}
+				languageStatusItem.selector = selector;
 			}
 			updateStatusBarOrLanguageStatus(undefined);
 		}),

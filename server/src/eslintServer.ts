@@ -1141,8 +1141,15 @@ async function doResolveSettings(document: TextDocument): Promise<TextDocumentSe
 					try {
 						const result = await eslintClass.calculateConfigForFile(configTestPath!);
 						return result;
-					} catch (err) {
+					} catch (error: any) {
 						status = Status.warn;
+						// if an exception has occurred while validating clear all errors to ensure
+						// we are not showing any stale once
+						connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+						connection.console.error(`Errors occured while reading eslint configuration.`);
+						if (Is.string(error.stack)) {
+							connection.console.error(error.stack);
+						}
 						return undefined;
 					}
 				}, settings);
