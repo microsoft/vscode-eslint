@@ -78,7 +78,7 @@ The extension contributes the following variables to the [settings](https://code
 - `eslint.codeAction.showDocumentation` - object with properties:
   - `enable` - show open lint rule documentation web page in the quick fix menu. `true` by default.
 
-The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.lintTaks.enable` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
+The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.lintTasks.enable` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
 
 ## Using ESLint to validate TypeScript files
 
