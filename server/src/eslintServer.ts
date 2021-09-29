@@ -347,20 +347,55 @@ interface ESLintClass {
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
 	isPathIgnored(path: string): Promise<boolean>;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintgetrulesmetaforresultsresults
-	getRulesMetaForResults(results: ESLintDocumentReport[]): Record<string, RuleMetaData> | undefined /* for ESLintClassEmulator */;
+	getRulesMetaForResults?(results: ESLintDocumentReport[]): Record<string, RuleMetaData> | undefined /* for ESLintClassEmulator */;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintcalculateconfigforfilefilepath
 	calculateConfigForFile(path: string): Promise<ESLintConfig | undefined /* for ESLintClassEmulator */>;
 	// Whether it is the old CLI Engine
 	isCLIEngine?: boolean;
 }
 
+interface ESLintClassConstructor {
+	new(options: ESLintClassOptions): ESLintClass;
+}
+
+interface CLIEngineConstructor {
+	new(options: CLIOptions): CLIEngine;
+}
+
+type ESLintModule =
+{
+	// version < 7.0
+	ESLint: undefined;
+	CLIEngine: CLIEngineConstructor;
+} | {
+	// 7.0 <= version < 8.0
+	ESLint: ESLintClassConstructor;
+	CLIEngine: CLIEngineConstructor;
+} | {
+	// 8.0 <= version.
+	ESLint: ESLintClassConstructor;
+	CLIEngine: undefined;
+};
+
+namespace ESLintModule {
+	export function hasESLintClass(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: CLIEngineConstructor | undefined;} {
+		return value.ESLint !== undefined;
+	}
+	export function hasCLIEngine(value: ESLintModule): value is { CLIEngine: CLIEngineConstructor; ESLint: ESLintClassConstructor | undefined; } {
+		return value.CLIEngine !== undefined;
+	}
+}
+
 namespace ESLintClass {
 	export function newESLintClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions): ESLintClass {
 		if (ESLintModule.hasESLintClass(library)) {
-			return new library.ESLint(newOptions);
+			const result = new library.ESLint(newOptions);
+			if (result.getRulesMetaForResults === undefined && ESLintModule.hasCLIEngine(library)) {
+				return new ESLintClassEmulator(new library.CLIEngine(newOptions));
+			}
+			return result;
 		} else {
-			const cli = new library.CLIEngine(newOptions);
-			return new ESLintClassEmulator(cli);
+			return new ESLintClassEmulator(new library.CLIEngine(newOptions));
 		}
 	}
 }
@@ -415,29 +450,6 @@ class ESLintClassEmulator implements ESLintClass {
 	}
 }
 
-interface ESLintClassConstructor {
-	new(options: ESLintClassOptions): ESLintClass;
-}
-
-interface CLIEngineConstructor {
-	new(options: CLIOptions): CLIEngine;
-}
-
-type ESLintModule = {
-	ESLint: ESLintClassConstructor | undefined;
-	CLIEngine: CLIEngineConstructor;
-} | {
-	// for ESLint >= v8
-	ESLint: ESLintClassConstructor;
-	CLIEngine: undefined;
-};
-
-namespace ESLintModule {
-	export function hasESLintClass(value: ESLintModule): value is (ESLintModule & { ESLint: ESLintClassConstructor }) {
-		return value.ESLint !== undefined;
-	}
-}
-
 namespace RuleMetaData {
 	const handled: Set<string> = new Set();
 	const ruleId2Meta: Map<string, RuleMetaData> = new Map();
@@ -449,10 +461,10 @@ namespace RuleMetaData {
 			if (toHandle.length === 0) {
 				return;
 			}
-			rulesMetaData = eslint.getRulesMetaForResults(toHandle);
+			rulesMetaData = typeof eslint.getRulesMetaForResults === 'function' ? eslint.getRulesMetaForResults(toHandle) : undefined;
 			toHandle.forEach(report => handled.add(report.filePath));
 		} else {
-			rulesMetaData = eslint.getRulesMetaForResults(reports);
+			rulesMetaData = typeof eslint.getRulesMetaForResults === 'function' ? eslint.getRulesMetaForResults(reports) : undefined;
 		}
 		if (rulesMetaData === undefined) {
 			return undefined;
@@ -1403,6 +1415,7 @@ function setupDocumentsListeners() {
 		void resolveSettings(event.document).then((settings) => {
 			const uri = event.document.uri;
 			document2Settings.delete(uri);
+			saveRuleConfigCache.delete(uri);
 			codeActions.delete(uri);
 			const unregister = formatterRegistrations.get(event.document.uri);
 			if (unregister !== undefined) {
@@ -1784,8 +1797,8 @@ class Fixes {
 		return a !== undefined && a.edit.range[1] > b.edit.range[0];
 	}
 
-	public static isSame(a: FixableProblem, b: FixableProblem): boolean {
-		return a.edit.range[0] === b.edit.range[0] && a.edit.range[1] === b.edit.range[1] && a.edit.text === b.edit.text;
+	public static sameRange(a: FixableProblem, b: FixableProblem): boolean {
+		return a.edit.range[0] === b.edit.range[0] && a.edit.range[1] === b.edit.range[1];
 	}
 
 	public isEmpty(): boolean {
@@ -1853,7 +1866,7 @@ class Fixes {
 		result.push(last);
 		for (let i = 1; i < sorted.length; i++) {
 			let current = sorted[i];
-			if (!Fixes.overlaps(last, current) && !Fixes.isSame(last, current)) {
+			if (!Fixes.overlaps(last, current) && !Fixes.sameRange(last, current)) {
 				result.push(current);
 				last = current;
 			}

@@ -391,6 +391,7 @@
 					"items": {
 						"type": "string"
 					},
+					"default": null,
 					"markdownDescription": "The rules that should be executed when computing the code actions on save. Defaults to the rules configured via the ESLint configuration"
 				},
 				"eslint.format.enable": {
