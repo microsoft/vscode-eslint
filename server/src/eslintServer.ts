@@ -962,7 +962,8 @@ const languageId2Config: Map<string, LanguageConfig> = new Map([
 	['typescriptreact', { ext: 'tsx', lineComment: '//', blockComment: ['/*', '*/'] } ],
 	['html', { ext: 'html', lineComment: '//', blockComment: ['/*', '*/'] }],
 	['vue', { ext: 'vue', lineComment: '//', blockComment: ['/*', '*/'] }],
-	['coffeescript', { ext: 'coffee', lineComment: '#', blockComment: ['###', '###'] }]
+	['coffeescript', { ext: 'coffee', lineComment: '#', blockComment: ['###', '###'] }],
+	['yaml', { ext: 'yaml', lineComment: '#', blockComment: ['#', ''] }]
 ]);
 
 function getLineComment(languageId: string): string {
