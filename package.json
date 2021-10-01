@@ -50,8 +50,7 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether eslint is enabled or not.",
-					"deprecationMessage": "This setting is deprecated. Disable ESLint using the extensions viewlet."
+					"description": "Controls whether eslint is enabled or not."
 				},
 				"eslint.packageManager": {
 					"scope": "resource",
