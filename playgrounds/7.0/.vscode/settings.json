@@ -57,6 +57,9 @@
 	"eslint.codeActionsOnSave.rules": [
 		"*semi*"
 	]
+	// ,"eslint.runtime.execArgv": [
+	// 	"--max_old_space_size=4096"
+	// ]
 }
 
 

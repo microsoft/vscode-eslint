@@ -322,6 +322,15 @@
 					"default": null,
 					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user/machine setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
 				},
+				"eslint.runtime.execArgv": {
+					"scope": "machine-overridable",
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": null,
+					"markdownDescription": "Additional exec argv argument passed to the runtime. This can for example be used to control the maximum heap space using --max_old_space_size"
+				},
 				"eslint.debug": {
 					"scope": "window",
 					"type": "boolean",

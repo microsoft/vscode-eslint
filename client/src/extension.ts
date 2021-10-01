@@ -917,24 +917,35 @@ function realActivate(context: ExtensionContext): void {
 		}
 	}
 
+	function sanitize<T, D>(value: T, type: 'bigint' | 'boolean' | 'function' | 'number' | 'object' | 'string' | 'symbol' | 'undefined', def: D): T | D {
+		if (Array.isArray(value)) {
+			return value.filter(item => typeof item === type) as unknown as T;
+		} else if (typeof value !== type) {
+			return def;
+		}
+		return value;
+	}
+
 	const serverModule = Uri.joinPath(context.extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 	const eslintConfig = Workspace.getConfiguration('eslint');
-	const debug = eslintConfig.get<boolean>('debug', false) ?? false;
-	const runtime = eslintConfig.get<string | undefined>('runtime', undefined) ?? undefined;
+	const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
+	const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
+	const execArgv = sanitize(eslintConfig.get<string[] | null>('runtime.execArgv', null) ?? undefined, 'string', undefined);
+	const nodeEnv = sanitize(eslintConfig.get('nodeEnv', null) ?? undefined, 'string', undefined);
 
-	const nodeEnv = eslintConfig.get('nodeEnv', null);
 	let env: { [key: string]: string | number | boolean } | undefined;
 	if (debug) {
 		env = env || {};
 		env.DEBUG = 'eslint:*,-eslint:code-path';
 	}
-	if (nodeEnv) {
+	if (nodeEnv !== undefined) {
 		env = env || {};
 		env.NODE_ENV = nodeEnv;
 	}
+	const debugArgv = ['--nolazy', '--inspect=6011'];
 	const serverOptions: ServerOptions = {
-		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd(), env } },
-		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ['--nolazy', '--inspect=6011'], cwd: process.cwd(), env } }
+		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd: process.cwd(), env } },
+		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd: process.cwd(), env } }
 	};
 
 	let defaultErrorHandler: ErrorHandler;
