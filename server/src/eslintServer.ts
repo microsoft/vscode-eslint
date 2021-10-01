@@ -837,20 +837,42 @@ function normalizePath(path: string | undefined): string | undefined {
 	return path;
 }
 
+function getUri(documentOrUri: string | TextDocument | URI): URI {
+	return Is.string(documentOrUri)
+		? URI.parse(documentOrUri)
+		: documentOrUri instanceof URI
+			? documentOrUri
+			: URI.parse(documentOrUri.uri);
+}
 
 function getFilePath(documentOrUri: string | TextDocument | URI | undefined): string | undefined {
 	if (!documentOrUri) {
 		return undefined;
 	}
-	const uri = Is.string(documentOrUri)
-		? URI.parse(documentOrUri)
-		: documentOrUri instanceof URI
-			? documentOrUri
-			: URI.parse(documentOrUri.uri);
+	const uri = getUri(documentOrUri);
 	if (uri.scheme !== 'file') {
 		return undefined;
 	}
 	return getFileSystemPath(uri);
+}
+
+function getESLintFilePath(document: TextDocument | undefined, settings: TextDocumentSettings): string | undefined {
+	if (document === undefined) {
+		return undefined;
+	}
+	const uri = URI.parse(document.uri);
+	if (uri.scheme === 'untitled') {
+		if (settings.workspaceFolder !== undefined) {
+			const ext = languageId2DefaultExt.get(document.languageId);
+			const workspacePath = getFilePath(settings.workspaceFolder.uri);
+			if (workspacePath !== undefined && ext !== undefined) {
+				return path.join(workspacePath, `test${ext}`);
+			}
+		}
+		return undefined;
+	} else {
+		return getFilePath(uri);
+	}
 }
 
 const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
@@ -1073,11 +1095,8 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 		let nodePath: string | undefined;
 		if (settings.nodePath !== null) {
 			nodePath = settings.nodePath;
-			if (!path.isAbsolute(nodePath) && settings.workspaceFolder !== undefined) {
-				const workspaceFolderPath = getFilePath(settings.workspaceFolder.uri);
-				if (workspaceFolderPath !== undefined) {
-					nodePath = path.join(workspaceFolderPath, nodePath);
-				}
+			if (!path.isAbsolute(nodePath) && workspaceFolderPath !== undefined) {
+				nodePath = path.join(workspaceFolderPath, nodePath);
 			}
 		}
 		let moduleResolveWorkingDirectory: string | undefined;
@@ -1118,15 +1137,7 @@ function resolveSettings(document: TextDocument): Promise<TextDocumentSettings> 
 			}
 			if (settings.validate === Validate.probe && TextDocumentSettings.hasLibrary(settings)) {
 				settings.validate = Validate.off;
-				const uri: URI = URI.parse(document.uri);
-				let filePath = getFilePath(document);
-				if (filePath === undefined && uri.scheme === 'untitled' && settings.workspaceFolder !== undefined) {
-					const ext = languageId2DefaultExt.get(document.languageId);
-					const workspacePath = getFilePath(settings.workspaceFolder.uri);
-					if (workspacePath !== undefined && ext !== undefined) {
-						filePath = path.join(workspacePath, `test${ext}`);
-					}
-				}
+				let filePath = getESLintFilePath(document, settings);
 				if (filePath !== undefined) {
 					const parserRegExps = languageId2ParserRegExp.get(document.languageId);
 					const pluginName = languageId2PluginName.get(document.languageId);
@@ -1577,7 +1588,7 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 
 	const content = document.getText();
 	const uri = document.uri;
-	const file = getFilePath(document);
+	const file = getESLintFilePath(document, settings);
 
 	await withESLintClass(async (eslintClass) => {
 		codeActions.delete(uri);

@@ -1076,10 +1076,12 @@ function realActivate(context: ExtensionContext): void {
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
 						const config = Workspace.getConfiguration('eslint', resource);
-						const workspaceFolder = Workspace.getWorkspaceFolder(resource);
+						const workspaceFolder = resource.scheme === 'untitled'
+							? Workspace.workspaceFolders !== undefined ? Workspace.workspaceFolders[0] : undefined
+							: Workspace.getWorkspaceFolder(resource);
 						await migrationSemaphore.lock(async () => {
 							const globalMigration = Workspace.getConfiguration('eslint').get('migration.2_x', 'on');
-							if (notNow === false && globalMigration === 'on'  /*&& !(workspaceFolder !== undefined ? noMigrationLocal!.workspaces[workspaceFolder.uri.toString()] : noMigrationLocal!.files[resource.toString()]) */) {
+							if (notNow === false && globalMigration === 'on') {
 								try {
 									migration = new Migration(resource);
 									migration.record();
