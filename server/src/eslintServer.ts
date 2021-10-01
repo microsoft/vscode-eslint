@@ -856,25 +856,6 @@ function getFilePath(documentOrUri: string | TextDocument | URI | undefined): st
 	return getFileSystemPath(uri);
 }
 
-function getESLintFilePath(document: TextDocument | undefined, settings: TextDocumentSettings): string | undefined {
-	if (document === undefined) {
-		return undefined;
-	}
-	const uri = URI.parse(document.uri);
-	if (uri.scheme === 'untitled') {
-		if (settings.workspaceFolder !== undefined) {
-			const ext = languageId2DefaultExt.get(document.languageId);
-			const workspacePath = getFilePath(settings.workspaceFolder.uri);
-			if (workspacePath !== undefined && ext !== undefined) {
-				return path.join(workspacePath, `test${ext}`);
-			}
-		}
-		return undefined;
-	} else {
-		return getFilePath(uri);
-	}
-}
-
 const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 
 const nodeExit = process.exit;
@@ -968,14 +949,29 @@ function globalPathGet(packageManager: PackageManagers): string | undefined {
 	return undefined;
 }
 
-const languageId2DefaultExt: Map<string, string> = new Map([
-	['javascript', 'js'],
-	['javascriptreact', 'jsx'],
-	['typescript', 'ts'],
-	['typescriptreact', 'tsx'],
-	['html', 'html'],
-	['vue', 'vue']
+type LanguageConfig = {
+	ext: string;
+	lineComment: string;
+	blockComment: [string, string];
+};
+
+const languageId2Config: Map<string, LanguageConfig> = new Map([
+	['javascript', { ext: 'js', lineComment: '//', blockComment: ['/*', '*/'] }],
+	['javascriptreact', { ext: 'jsx', lineComment: '//', blockComment: ['/*', '*/'] }],
+	['typescript', { ext: 'ts', lineComment: '//', blockComment: ['/*', '*/'] } ],
+	['typescriptreact', { ext: 'tsx', lineComment: '//', blockComment: ['/*', '*/'] } ],
+	['html', { ext: 'html', lineComment: '//', blockComment: ['/*', '*/'] }],
+	['vue', { ext: 'vue', lineComment: '//', blockComment: ['/*', '*/'] }],
+	['coffeescript', { ext: 'coffee', lineComment: '#', blockComment: ['###', '###'] }]
 ]);
+
+function getLineComment(languageId: string): string {
+	return languageId2Config.get(languageId)?.lineComment ?? '//';
+}
+
+function getBlockComment(languageId: string): [string, string] {
+	return languageId2Config.get(languageId)?.blockComment ?? ['/**', '*/'];
+}
 
 const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
 	const result = new Map<string, RegExp[]>();
@@ -1020,6 +1016,25 @@ const projectFolderIndicators: [string, boolean][] = [
 	[ '.eslintrc.yaml', false ],
 	[ '.eslintrc.yml', false ]
 ];
+
+function getESLintFilePath(document: TextDocument | undefined, settings: TextDocumentSettings): string | undefined {
+	if (document === undefined) {
+		return undefined;
+	}
+	const uri = URI.parse(document.uri);
+	if (uri.scheme === 'untitled') {
+		if (settings.workspaceFolder !== undefined) {
+			const ext = languageId2Config.get(document.languageId);
+			const workspacePath = getFilePath(settings.workspaceFolder.uri);
+			if (workspacePath !== undefined && ext !== undefined) {
+				return path.join(workspacePath, `test${ext}`);
+			}
+		}
+		return undefined;
+	} else {
+		return getFilePath(uri);
+	}
+}
 
 function findWorkingDirectory(workspaceFolder: string, file: string | undefined): string | undefined {
 	if (file === undefined || isUNC(file)) {
@@ -2029,20 +2044,20 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 	}
 
 	function createDisableLineTextEdit(editInfo: Problem, indentationText: string): TextEdit {
-		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}// eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
+		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}${getLineComment(textDocument!.languageId)} eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
 
 	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
 		// Todo@dbaeumer Use uinteger.MAX_VALUE instead.
-		return TextEdit.insert(Position.create(editInfo.line - 1, 2147483647), ` // eslint-disable-line ${editInfo.ruleId}`);
+		return TextEdit.insert(Position.create(editInfo.line - 1, 2147483647), ` ${getLineComment(textDocument!.languageId)} eslint-disable-line ${editInfo.ruleId}`);
 	}
 
 	function createDisableFileTextEdit(editInfo: Problem): TextEdit {
 		// If firts line contains a shebang, insert on the next line instead.
 		const shebang = textDocument?.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
 		const line = shebang === '#!' ? 1 : 0;
-
-		return TextEdit.insert(Position.create(line, 0), `/* eslint-disable ${editInfo.ruleId} */${EOL}`);
+		const block = getBlockComment(textDocument!.languageId);
+		return TextEdit.insert(Position.create(line, 0), `${block[0]} eslint-disable ${editInfo.ruleId} ${block[1]}${EOL}`);
 	}
 
 	function getLastEdit(array: FixableProblem[]): FixableProblem | undefined {
