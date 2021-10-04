@@ -963,7 +963,8 @@ const languageId2Config: Map<string, LanguageConfig> = new Map([
 	['html', { ext: 'html', lineComment: '//', blockComment: ['/*', '*/'] }],
 	['vue', { ext: 'vue', lineComment: '//', blockComment: ['/*', '*/'] }],
 	['coffeescript', { ext: 'coffee', lineComment: '#', blockComment: ['###', '###'] }],
-	['yaml', { ext: 'yaml', lineComment: '#', blockComment: ['#', ''] }]
+	['yaml', { ext: 'yaml', lineComment: '#', blockComment: ['#', ''] }],
+	['graphql', { ext: 'graphql', lineComment: '#', blockComment: ['#', ''] }]
 ]);
 
 function getLineComment(languageId: string): string {
