@@ -511,29 +511,33 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 	return undefined;
 }
 
-const ruleSeverityCache = new LRUCache<string, RuleSeverity | undefined>(1024);
+const ruleSeverityCache = new LRUCache<string, RuleSeverity | null>(1024);
 
-function asteriskMatches(matcher: string, ruleId: string) {
+function asteriskMatches(matcher: string, ruleId: string): boolean {
 	return matcher.startsWith('!')
 		? !(new RegExp(`^${matcher.slice(1).replace(/\*/g, '.*')}$`, 'g').test(ruleId))
 		: new RegExp(`^${matcher.replace(/\*/g, '.*')}$`, 'g').test(ruleId);
 }
 
-function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]) {
-	if (ruleSeverityCache.has(ruleId)) {
-		return ruleSeverityCache.get(ruleId);
+function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]): RuleSeverity | undefined {
+	let result: RuleSeverity | undefined | null = ruleSeverityCache.get(ruleId);
+	if (result === null) {
+		return undefined;
 	}
-
-	let result: RuleSeverity | undefined;
-
+	if (result !== undefined) {
+		return result;
+	}
 	for (const customization of customizations) {
 		if (asteriskMatches(customization.rule, ruleId)) {
 			result = customization.severity;
 		}
 	}
+	if (result === undefined) {
+		ruleSeverityCache.set(ruleId, null);
+		return undefined;
+	}
 
 	ruleSeverityCache.set(ruleId, result);
-
 	return result;
 }
 
@@ -592,15 +596,16 @@ async function getSaveRuleConfig(filePath: string, settings: TextDocumentSetting
 	}
 }
 
-function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): Diagnostic {
+function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): [Diagnostic, RuleSeverity | undefined] {
 	const message = problem.message;
 	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
 	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
 	const endLine = Is.nullOrUndefined(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
 	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+	const override = getSeverityOverride(problem.ruleId, settings.rulesCustomizations);
 	const result: Diagnostic = {
 		message: message,
-		severity: convertSeverityToDiagnosticWithOverride(problem.severity, getSeverityOverride(problem.ruleId, settings.rulesCustomizations)),
+		severity: convertSeverityToDiagnosticWithOverride(problem.severity, override),
 		source: 'eslint',
 		range: {
 			start: { line: startLine, character: startChar },
@@ -620,7 +625,7 @@ function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem):
 		}
 	}
 
-	return result;
+	return [result, override];
 }
 
 interface Problem {
@@ -1617,18 +1622,10 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 			if (docReport.messages && Array.isArray(docReport.messages)) {
 				docReport.messages.forEach((problem) => {
 					if (problem) {
-						const isOff = getSeverityOverride(problem.ruleId, settings.rulesCustomizations) === RuleSeverity.off;
-						if (isOff) {
-							// Filter out rules with severity override to off
-							return;
+						const [diagnostic, override] = makeDiagnostic(settings, problem);
+						if (!(override === RuleSeverity.off || (settings.quiet && diagnostic.severity === DiagnosticSeverity.Warning))) {
+							diagnostics.push(diagnostic);
 						}
-						const isWarning = convertSeverityToDiagnostic(problem.severity) === DiagnosticSeverity.Warning;
-						if (settings.quiet && isWarning) {
-							// Filter out warnings when quiet mode is enabled
-							return;
-						}
-						const diagnostic = makeDiagnostic(settings, problem);
-						diagnostics.push(diagnostic);
 						if (fixTypes !== undefined && problem.ruleId !== undefined && problem.fix !== undefined) {
 							const type = RuleMetaData.getType(problem.ruleId);
 							if (type !== undefined && fixTypes.has(type)) {
