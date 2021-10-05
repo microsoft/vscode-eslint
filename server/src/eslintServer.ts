@@ -216,6 +216,7 @@ interface RuleCustomization  {
 interface CommonSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
+	useESLintClass: boolean;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -387,16 +388,14 @@ namespace ESLintModule {
 }
 
 namespace ESLintClass {
-	export function newESLintClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions): ESLintClass {
-		if (ESLintModule.hasESLintClass(library)) {
-			const result = new library.ESLint(newOptions);
-			if (result.getRulesMetaForResults === undefined && ESLintModule.hasCLIEngine(library)) {
-				return new ESLintClassEmulator(new library.CLIEngine(newOptions));
-			}
-			return result;
-		} else {
+	export function newESLintClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions, useESLintClass: boolean): ESLintClass {
+		if (ESLintModule.hasESLintClass(library) && useESLintClass) {
+			return new library.ESLint(newOptions);
+		}
+		if (ESLintModule.hasCLIEngine(library)) {
 			return new ESLintClassEmulator(new library.CLIEngine(newOptions));
 		}
+		return new library.ESLint(newOptions);
 	}
 }
 
@@ -563,7 +562,7 @@ async function getSaveRuleConfig(filePath: string, settings: TextDocumentSetting
 		return result;
 	}
 	const rules = settings.codeActionOnSave.rules;
-	if (rules === undefined || !ESLintModule.hasESLintClass(settings.library)) {
+	if (rules === undefined || !ESLintModule.hasESLintClass(settings.library) || !settings.useESLintClass) {
 		result = undefined;
 	} else {
 		result = await withESLintClass(async (eslint) => {
@@ -1658,7 +1657,7 @@ function withESLintClass<T>(func: (eslintClass: ESLintClass) => T, settings: Tex
 			}
 		}
 
-		const eslintClass = ESLintClass.newESLintClass(settings.library, newOptions);
+		const eslintClass = ESLintClass.newESLintClass(settings.library, newOptions, settings.useESLintClass);
 		return func(eslintClass);
 	} finally {
 		if (cwd !== process.cwd()) {
@@ -1802,7 +1801,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async 
 		if (dirname) {
 			const library = configErrorReported.get(fsPath);
 			if (library !== undefined) {
-				const eslintClass = ESLintClass.newESLintClass(library, {});
+				const eslintClass = ESLintClass.newESLintClass(library, {}, false);
 				try {
 					await eslintClass.lintText('', { filePath: path.join(dirname, '___test___.js') });
 					configErrorReported.delete(fsPath);

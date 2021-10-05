@@ -205,6 +205,7 @@ interface RuleCustomization  {
 interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
+	useESLintClass: boolean;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -1129,6 +1130,7 @@ function realActivate(context: ExtensionContext): void {
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: config.get('packageManager', 'npm'),
+							useESLintClass: config.get('useESLintClass', false),
 							codeActionOnSave: {
 								enable: false,
 								mode: CodeActionsOnSaveMode.all
