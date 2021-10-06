@@ -1,3 +1,20 @@
+### Version 2.2.1
+
+Added support for ESLint V8.0 Beta. This release also provides an option to use the new ESLint class API introduced in version 7 of the ESLint npm module. The corresponding setting is `eslint.useESLintClass`. In addition the rules taken into consideration during code action on save can now be configured. Hopwever this feature requires the new ESLint class API. So you either need to use ESLint version 8 or version 7 with `"eslint.useESLintClass": true`.
+
+### Version 2.2.0
+
+- Internal insider release.
+
+### 2.1.25
+
+- Added support for ESLint v8 Beta
+- Various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A2.1.25)
+
+### 2.1.24
+
+- Internal insider release.
+
 ### 2.1.23
 
 - Fixes [Server should provide default result for code actions so that canceled requests can be removed from queue](https://github.com/microsoft/vscode-eslint/issues/1283)
