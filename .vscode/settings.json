@@ -19,6 +19,7 @@
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
 	},
+	"eslint.useESLintClass": true,
 	"eslint.codeActionsOnSave.rules": [
 		"@typescript-eslint/semi",
 		"@typescript-eslint/indent",
