@@ -134,7 +134,7 @@ This extension contributes the following variables to the [settings](https://cod
   }
   ```
 - `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"` or `"pnpm"`.
-- `eslint.options`: options to configure how ESLint is started using the [ESLint class API](http://eslint.org/docs/developer-guide/nodejs-api#eslint-class). (If you use ESLint <= v7, it will be used as an option for [CLI Engine](http://eslint.org/docs/developer-guide/nodejs-api#cliengine).) Defaults to an empty option bag.
+- `eslint.options`: options to configure how ESLint is started using either the [ESLint class API](http://eslint.org/docs/developer-guide/nodejs-api#eslint-class) or the [CLIEngine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengine). The extension uses the ESLint class API if ESLint version 8 or higher is used or if ESLint version 7 is used and the setting `eslint.useESLintCLass` is set to true. I all other cases the CLIEngine API is used.
   An example to point to a custom `.eslintrc.json` file using the new ESLint API is:
   ```json
   {
@@ -147,7 +147,7 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.options": { "configFile": "C:/mydirectory/.eslintrc.json" }
   }
   ```
-- `eslint.useESLintClass` (@since 2.2.0) - whether to use the ESLint class API even if the CLIEngine API is present.
+- `eslint.useESLintClass` (@since 2.2.0) - whether to use the ESLint class API even if the CLIEngine API is present. The setting is only honor when using using ESLint version 7.x.
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.quiet` - ignore warnings.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under. [Use `"node"`](https://github.com/microsoft/vscode-eslint/issues/1233#issuecomment-815521280) if you want to use your default system version of node.
@@ -192,7 +192,7 @@ This extension contributes the following variables to the [settings](https://cod
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
-- `eslint.codeActionsOnSave.rules` (@since 2.2.0) - controls the rules which are taken into consideration during code action on save execution. If not specified all rules specified via the normal ESLint configuration mechanism are consider. An empty array results in no rules being considered. If the array contains more than one entry the order matters and the first match determines the rule's on / off state. This setting is only honored if either ESLint version 8 or greater is used or ESLint version 7 is used and the setting `useESLintClass` is set to true.
+- `eslint.codeActionsOnSave.rules` (@since 2.2.0) - controls the rules which are taken into consideration during code action on save execution. If not specified all rules specified via the normal ESLint configuration mechanism are consider. An empty array results in no rules being considered. If the array contains more than one entry the order matters and the first match determines the rule's on / off state. This setting is only honored if either ESLint version 8 or greater is used or ESLint version 7 is used and the setting `eslint.useESLintClass` is set to true.
 
   In this example only semicolon related rules are considered:
 
