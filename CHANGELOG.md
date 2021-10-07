@@ -1,8 +1,8 @@
-### Version 2.2.1
+### 2.2.1
 
-Added support for ESLint V8.0 Beta. This release also provides an option to use the new ESLint class API introduced in version 7 of the ESLint npm module. The corresponding setting is `eslint.useESLintClass`. In addition the rules taken into consideration during code action on save can now be configured. Hopwever this feature requires the new ESLint class API. So you either need to use ESLint version 8 or version 7 with `"eslint.useESLintClass": true`.
+Added support for ESLint V8.0 Beta. This release also provides an option to use the new ESLint class API introduced in version 7 of the ESLint npm module. The corresponding setting is `eslint.useESLintClass`. In addition the rules taken into consideration during code action on save can now be configured. However this feature requires the new ESLint class API. So you either need to use ESLint version 8 or version 7 with `"eslint.useESLintClass": true`.
 
-### Version 2.2.0
+### 2.2.0
 
 - Internal insider release.
 
@@ -92,7 +92,7 @@ Added support for ESLint V8.0 Beta. This release also provides an option to use 
 ### 2.1.5
 
 - [UnhandledPromiseRejectionWarning: Error: Request workspace/configuration failed with message: Cannot read property 'source.fixAll.eslint' of null](https://github.com/microsoft/vscode-eslint/issues/950)
-- ["Do you want Code to open the external website?" on eslint errors](https://github.com/microsoft/vscode-eslint/issues/949)
+- ["Do you want Code to open the external website?" on ESLint errors](https://github.com/microsoft/vscode-eslint/issues/949)
 - [all suggestions being applied on save](https://github.com/microsoft/vscode-eslint/issues/947)
 - [Error: "Cannot read property 'source.fixAll.eslint' of null"](https://github.com/microsoft/vscode-eslint/issues/945)
 
@@ -118,8 +118,7 @@ Added support for ESLint V8.0 Beta. This release also provides an option to use 
 
 ### 2.0.14
 
-- Bug Fixes:
-  - [Auto fix made double comma to fix trailing comma](https://github.com/microsoft/vscode-eslint/issues/871)
+- [Auto fix made double comma to fix trailing comma](https://github.com/microsoft/vscode-eslint/issues/871)
 
 ### 2.0.13
 
@@ -206,11 +205,11 @@ A new major version of the extension. Major improvements are around code actions
 ### 1.4.12
 
 - Upgrade to latest version of the LSP libraries
-- Fixes [eslint server crashed 5 times in the last 3 minutes. the server will not be restarted.](https://github.com/Microsoft/vscode-eslint/issues/437)
+- Fixes [ESLint server crashed 5 times in the last 3 minutes. the server will not be restarted.](https://github.com/Microsoft/vscode-eslint/issues/437)
 
 ### 1.4.11
 
-Internal version to track down [eslint server crashed 5 times in the last 3 minutes. the server will not be restarted.](https://github.com/Microsoft/vscode-eslint/issues/437)
+Internal version to track down [ESLint server crashed 5 times in the last 3 minutes. the server will not be restarted.](https://github.com/Microsoft/vscode-eslint/issues/437)
 
 ### 1.4.10
 
@@ -231,7 +230,7 @@ Internal version to track down [eslint server crashed 5 times in the last 3 minu
 
 ### 1.4.6
 
-- [Rename server.js to a more specific name so that eslint is easily recognized by code --status](https://github.com/Microsoft/vscode-eslint/issues/406)
+- [Rename server.js to a more specific name so that ESLint is easily recognized by code --status](https://github.com/Microsoft/vscode-eslint/issues/406)
 
 ### 1.4.5
 
@@ -240,7 +239,7 @@ Internal version to track down [eslint server crashed 5 times in the last 3 minu
 
 ### 1.4.4
 
-- [request: better error message if eslint crashes](https://github.com/Microsoft/vscode-eslint/issues/391)
+- [request: better error message if ESLint crashes](https://github.com/Microsoft/vscode-eslint/issues/391)
 
 ### 1.4.3
 
@@ -257,17 +256,13 @@ Internal version to track down [eslint server crashed 5 times in the last 3 minu
 
 ### 1.4.0
 
-- Add support for [Yarn](https://yarnpkg.com/lang/en/). To use yarn instead of npm with the eslint extension set the settings `"eslint.packageManager": "yarn"`. To use npm set the value to `"npm"`.
+- Add support for [Yarn](https://yarnpkg.com/lang/en/). To use yarn instead of npm with the ESLint extension set the settings `"eslint.packageManager": "yarn"`. To use npm set the value to `"npm"`.
 
 ### 1.3.2
-
-Fixes:
 
 - [Latest update appears to have broken nodePath specification ](https://github.com/Microsoft/vscode-eslint/issues/298)
 
 ### 1.3.1
-
-Fixes:
 
 - [Failed to lint Untitled JavaScript file.](https://github.com/Microsoft/vscode-eslint/issues/295)
 
@@ -279,15 +274,13 @@ Fixes:
 
 ### 1.2.11
 
-Fixes:
-
 - [(Insiders/1.2.10) "Cannot read property 'then' of undefined](https://github.com/Microsoft/vscode-eslint/issues/240)
 
 ### 1.2.10
 
 Performance work around code actions and validation. Fixed:
 
-- [Slowdown on code assist with eslint enabled](https://github.com/Microsoft/vscode-eslint/issues/215)
+- [Slowdown on code assist with ESLint enabled](https://github.com/Microsoft/vscode-eslint/issues/215)
 
 ### 1.2.9
 
@@ -295,21 +288,15 @@ This version was an internal test release which wasn't available in the market p
 
 ### 1.2.8
 
-### Fixes:
-
 - [Linting is still enabled when viewing git diff.](https://github.com/Microsoft/vscode-eslint/issues/216)
 
 ### 1.2.7
-
-#### Fixes:
 
 - [Don't lint git diff.](https://github.com/Microsoft/vscode-eslint/issues/200)
 
 ### 1.2.6
 
-#### Fixes:
-
-- [Do not always run eslint from the project's root directory](https://github.com/Microsoft/vscode-eslint/issues/196)
+- [Do not always run ESLint from the project's root directory](https://github.com/Microsoft/vscode-eslint/issues/196)
 - [baseDir should be an absolute path](https://github.com/Microsoft/vscode-eslint/issues/202)
 
 
@@ -345,11 +332,10 @@ will validate files inside the server directory with the server directory as the
 
 ### 1.2.3
 
-- Bug fixes:
-  - [Does not respect nested eslintignore files](https://github.com/Microsoft/vscode-eslint/issues/111)
-  - [eslintrc configuration cascading not being honored ](https://github.com/Microsoft/vscode-eslint/issues/97)
-  - [autoFixOnSave not working with eslint.run=onSave](https://github.com/Microsoft/vscode-eslint/issues/158)
-  - [autoFixOnSave not listed under Settings Options in Readme](https://github.com/Microsoft/vscode-eslint/issues/188)
+- [Does not respect nested eslintignore files](https://github.com/Microsoft/vscode-eslint/issues/111)
+- [eslintrc configuration cascading not being honored ](https://github.com/Microsoft/vscode-eslint/issues/97)
+- [autoFixOnSave not working with eslint.run=onSave](https://github.com/Microsoft/vscode-eslint/issues/158)
+- [autoFixOnSave not listed under Settings Options in Readme](https://github.com/Microsoft/vscode-eslint/issues/188)
 
 ### 1.2.2
 
@@ -365,7 +351,7 @@ provide an object literal in the validate setting with the properties `language`
 
 - Added support to validate file types other than JavaScript. To enable this, you need to do the following:
   - Configure ESLint with an additional plugin to do the actual validation. For example, to validate HTML files install
-`eslint-plugin-html` using `npm install eslint-plugin-html --save-dev` and update the eslint configuration (e.g. .eslintrc.json file)
+`eslint-plugin-html` using `npm install eslint-plugin-html --save-dev` and update the ESLint configuration (e.g. .eslintrc.json file)
 with `"plugin": [ "html" ]`.
   - Add the corresponding language identifier to the `eslint.validate` setting. Something like `"eslint.validate": [ "javascript", "javascriptreact", "html" ]`.
 If the setting is missing, it defaults to `["javascript", "javascriptreact"]`
@@ -396,7 +382,7 @@ VS Code version 1.6 or newer.
 
 ### 1.0.4
 
-- Bug fixing: eslint is validating package.json files
+- Bug fixing: ESLint is validating package.json files
 
 ### 1.0.3
 
@@ -408,3 +394,4 @@ VS Code version 1.6 or newer.
 - Improved handling of missing corrupted configuration files.
 - The ESLint package is now loaded from parent folders as well.
 - Added an action to create a .eslintrc.json file.
+
