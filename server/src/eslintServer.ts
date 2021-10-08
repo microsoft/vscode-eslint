@@ -920,7 +920,7 @@ connection.console.info(`ESLint server running in node ${process.version}`);
 // Is instantiated in the initialize handle;
 let documents!: TextDocuments<TextDocument>;
 
-const _globalPaths: { [key: string]: { cache: string | undefined; get(): string | undefined; } } = {
+const _globalPaths: Record<string, { cache: string | undefined; get(): string | undefined; }> = {
 	yarn: {
 		cache: undefined,
 		get(): string | undefined {
