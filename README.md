@@ -123,7 +123,7 @@ If you are using an ESLint extension version < 2.x then please refer to the sett
 
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
-- `eslint.enable`: enable/disable ESLint. Is enabled by default. This setting got deprecated in favour of enabling / disabling the extension in the Extension's viewlet.
+- `eslint.enable`: enable/disable ESLint for the workspace folder. Is enabled by default.
 - `eslint.debug`: enables ESLint's debug mode (same as --debug  command line option). Please see the ESLint output channel for the debug output. This options is very helpful to track down configuration and installation problems with ESLint since it provides verbose information about how ESLint is validating a file.
 - `eslint.lintTask.enable`: whether the extension contributes a lint task to lint a whole workspace folder.
 - `eslint.lintTask.options`: Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
