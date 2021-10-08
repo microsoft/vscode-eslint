@@ -992,21 +992,21 @@ function realActivate(context: ExtensionContext): void {
 			}
 		},
 		middleware: {
-			didOpen: (document, next) => {
+			didOpen: async (document, next) => {
 				if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
-					next(document);
+					const result = next(document);
 					syncedDocuments.set(document.uri.toString(), document);
-					return;
+					return result;
 				}
 			},
-			didChange: (event, next) => {
+			didChange: async (event, next) => {
 				if (syncedDocuments.has(event.document.uri.toString())) {
-					next(event);
+					return next(event);
 				}
 			},
-			willSave: (event, next) => {
+			willSave: async (event, next) => {
 				if (syncedDocuments.has(event.document.uri.toString())) {
-					next(event);
+					return next(event);
 				}
 			},
 			willSaveWaitUntil: (event, next) => {
@@ -1016,16 +1016,16 @@ function realActivate(context: ExtensionContext): void {
 					return Promise.resolve([]);
 				}
 			},
-			didSave: (document, next) => {
+			didSave: async (document, next) => {
 				if (syncedDocuments.has(document.uri.toString())) {
-					next(document);
+					return next(document);
 				}
 			},
-			didClose: (document, next) => {
+			didClose: async (document, next) => {
 				const uri = document.uri.toString();
 				if (syncedDocuments.has(uri)) {
 					syncedDocuments.delete(uri);
-					next(document);
+					return next(document);
 				}
 			},
 			provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
@@ -1053,16 +1053,15 @@ function realActivate(context: ExtensionContext): void {
 			workspace: {
 				didChangeWatchedFile: (event, next) => {
 					probeFailed.clear();
-					next(event);
+					return next(event);
 				},
-				didChangeConfiguration: (sections, next) => {
+				didChangeConfiguration: async (sections, next) => {
 					if (migration !== undefined && (sections === undefined || sections.length === 0)) {
 						migration.captureDidChangeSetting(() => {
-							next(sections);
+							return next(sections);
 						});
-						return;
 					} else {
-						next(sections);
+						return next(sections);
 					}
 				},
 				configuration: async (params, _token, _next): Promise<any[]> => {
