@@ -931,7 +931,7 @@ function realActivate(context: ExtensionContext): void {
 	const eslintConfig = Workspace.getConfiguration('eslint');
 	const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
 	const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
-	const execArgv = sanitize(eslintConfig.get<string[] | null>('runtime.execArgv', null) ?? undefined, 'string', undefined);
+	const execArgv = sanitize(eslintConfig.get<string[] | null>('execArgv', null) ?? undefined, 'string', undefined);
 	const nodeEnv = sanitize(eslintConfig.get('nodeEnv', null) ?? undefined, 'string', undefined);
 
 	let env: { [key: string]: string | number | boolean } | undefined;

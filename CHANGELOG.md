@@ -1,3 +1,7 @@
+### 2.2.2
+
+- renamed the setting `eslint.runtime.execArgv` to `eslint.execArgv`. This is breaking but can't be fixed different due to how VS Code handles settings. See als [Issue 1358](https://github.com/microsoft/vscode-eslint/issues/1358)
+
 ### 2.2.1
 
 Added support for ESLint V8.0 Beta. This release also provides an option to use the new ESLint class API introduced in version 7 of the ESLint npm module. The corresponding setting is `eslint.useESLintClass`. In addition the rules taken into consideration during code action on save can now be configured. However this feature requires the new ESLint class API. So you either need to use ESLint version 8 or version 7 with `"eslint.useESLintClass": true`.
