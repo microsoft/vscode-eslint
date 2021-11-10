@@ -1446,10 +1446,7 @@ function setupDocumentsListeners() {
 		void resolveSettings(event.document).then((settings) => {
 			const uri = event.document.uri;
 			document2Settings.delete(uri);
-			const filePath = getFilePath(uri);
-			if (filePath) {
-				saveRuleConfigCache.delete(filePath);
-			}
+			saveRuleConfigCache.delete(uri);
 			codeActions.delete(uri);
 			const unregister = formatterRegistrations.get(event.document.uri);
 			if (unregister !== undefined) {
