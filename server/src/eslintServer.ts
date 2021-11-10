@@ -562,30 +562,29 @@ async function getSaveRuleConfig(filePath: string, settings: TextDocumentSetting
 		return result;
 	}
 	const rules = settings.codeActionOnSave.rules;
-	if (rules === undefined || !ESLintModule.hasESLintClass(settings.library) || !settings.useESLintClass) {
-		result = undefined;
-	} else {
-		result = await withESLintClass(async (eslint) => {
-			const config = await eslint.calculateConfigForFile(filePath);
-			if (config === undefined || config.rules === undefined || config.rules.length === 0) {
-				return undefined;
-			}
-			const offRules: Set<string> = new Set();
-			const onRules: Set<string> = new Set();
-			if (rules.length === 0) {
-				Object.keys(config.rules).forEach(ruleId => offRules.add(ruleId));
-			} else {
-				for (const ruleId of Object.keys(config.rules)) {
-					if (isOff(ruleId, rules)) {
-						offRules.add(ruleId);
-					} else {
-						onRules.add(ruleId);
-					}
+	result = await withESLintClass(async (eslint) => {
+		if (rules === undefined || eslint.isCLIEngine) {
+			return undefined;
+		}
+		const config = await eslint.calculateConfigForFile(filePath);
+		if (config === undefined || config.rules === undefined || config.rules.length === 0) {
+			return undefined;
+		}
+		const offRules: Set<string> = new Set();
+		const onRules: Set<string> = new Set();
+		if (rules.length === 0) {
+			Object.keys(config.rules).forEach(ruleId => offRules.add(ruleId));
+		} else {
+			for (const ruleId of Object.keys(config.rules)) {
+				if (isOff(ruleId, rules)) {
+					offRules.add(ruleId);
+				} else {
+					onRules.add(ruleId);
 				}
 			}
-			return offRules.size > 0 ? { offRules, onRules } : undefined;
-		}, settings);
-	}
+		}
+		return offRules.size > 0 ? { offRules, onRules } : undefined;
+	}, settings);
 	if (result === undefined || result === null) {
 		saveRuleConfigCache.set(filePath, null);
 		return undefined;
