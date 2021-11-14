@@ -2047,7 +2047,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 			// check previous line if there is a eslint-disable-next-line comment already present
 			const prevLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line - 2, uinteger.MAX_VALUE)));
-			const matched = prevLine && prevLine.match(/^\s*\/\/\s*eslint-disable-next-line/);
+			const matched = prevLine && prevLine.match(new RegExp(`${getLineComment(textDocument!.languageId)} eslint-disable-next-line`));
 			if (matched && matched.length) {
 				return TextEdit.insert(Position.create(editInfo.line - 2, uinteger.MAX_VALUE), `, ${editInfo.ruleId}`);
 			}
@@ -2058,7 +2058,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
 		const currentLine = textDocument?.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line -1, uinteger.MAX_VALUE)));
-		const matched = currentLine && /\/\/\s*eslint\-disable\-line/.exec(currentLine);
+		const matched = currentLine && new RegExp(`${getLineComment(textDocument!.languageId)} eslint-disable-line`).exec(currentLine);
 
 		const disableRuleContent = (matched && matched.length) ? `, ${editInfo.ruleId}` : ` ${getLineComment(textDocument!.languageId)} eslint-disable-line ${editInfo.ruleId}`;
 
