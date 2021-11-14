@@ -12,6 +12,10 @@ On new folders you might also need to create a `.eslintrc` configuration file. Y
 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md).
 
+### Version 2.2.0
+
+Added support for ESLint V8.0 Beta. To stay backwards compatible with eslint settings the version still uses the CLIEngine if available. However users can force the use of the new ESLint API using the setting `eslint.useESLintClass`.
+
 ### Version 2.1.22
 
 Adapt VS Code's workspace trust model. As a consequence the custom dialog ESLint introduced in version `2.1.7` got removed. In addition the `off` value got added to the eslint rule customization support.
@@ -119,7 +123,7 @@ If you are using an ESLint extension version < 2.x then please refer to the sett
 
 This extension contributes the following variables to the [settings](https://code.visualstudio.com/docs/customization/userandworkspace):
 
-- `eslint.enable`: enable/disable ESLint. Is enabled by default. This setting got deprecated in favour of enabling / disabling the extension in the Extension's viewlet.
+- `eslint.enable`: enable/disable ESLint for the workspace folder. Is enabled by default.
 - `eslint.debug`: enables ESLint's debug mode (same as --debug  command line option). Please see the ESLint output channel for the debug output. This options is very helpful to track down configuration and installation problems with ESLint since it provides verbose information about how ESLint is validating a file.
 - `eslint.lintTask.enable`: whether the extension contributes a lint task to lint a whole workspace folder.
 - `eslint.lintTask.options`: Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
@@ -130,16 +134,24 @@ This extension contributes the following variables to the [settings](https://cod
   }
   ```
 - `eslint.packageManager`: controls the package manager to be used to resolve the ESLint library. This has only an influence if the ESLint library is resolved globally. Valid values are `"npm"` or `"yarn"` or `"pnpm"`.
-- `eslint.options`: options to configure how ESLint is started using the [ESLint class API](http://eslint.org/docs/developer-guide/nodejs-api#eslint-class). (If you use ESLint<=v7, it will be used as an option for [CLI Engine](http://eslint.org/docs/developer-guide/nodejs-api#cliengine).) Defaults to an empty option bag.
-  An example to point to a custom `.eslintrc.json` file is:
+- `eslint.options`: options to configure how ESLint is started using either the [ESLint class API](http://eslint.org/docs/developer-guide/nodejs-api#eslint-class) or the [CLIEngine API](http://eslint.org/docs/developer-guide/nodejs-api#cliengine). The extension uses the ESLint class API if ESLint version 8 or higher is used or if ESLint version 7 is used and the setting `eslint.useESLintCLass` is set to true. I all other cases the CLIEngine API is used.
+  An example to point to a custom `.eslintrc.json` file using the new ESLint API is:
   ```json
   {
     "eslint.options": { "overrideConfigFile": "C:/mydirectory/.eslintrc.json" }
   }
   ```
+  An example to point to a custom `.eslintrc.json` file using the old CLIEngine API is:
+  ```json
+  {
+    "eslint.options": { "configFile": "C:/mydirectory/.eslintrc.json" }
+  }
+  ```
+- `eslint.useESLintClass` (@since 2.2.0) - whether to use the ESLint class API even if the CLIEngine API is present. The setting is only honor when using using ESLint version 7.x.
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.quiet` - ignore warnings.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under. [Use `"node"`](https://github.com/microsoft/vscode-eslint/issues/1233#issuecomment-815521280) if you want to use your default system version of node.
+- `eslint.runtime.execArgv` - use this setting to pass additional arguments to the node runtime like `--max_old_space_size=4096`
 - `eslint.nodeEnv` - use this setting if an ESLint plugin or configuration needs `process.env.NODE_ENV` to be defined.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
 - `eslint.probe` = an array for language identifiers for which the ESLint extension should be activated and should try to validate the file. If validation fails for probed languages the extension says silent. Defaults to `["javascript", "javascriptreact", "typescript", "typescriptreact", "html", "vue", "markdown"]`.
@@ -176,11 +188,41 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.codeAction.showDocumentation` - object with properties:
   - `enable` - show open lint rule documentation web page in the quick fix menu. `true` by default.
 
-- `eslint.codeActionsOnSave.mode` (@since 2.0.12): controls which problems are fix when running code actions on save
+- `eslint.codeActionsOnSave.mode` (@since 2.0.12) - controls which problems are fix when running code actions on save
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
-- `eslint.rules.customizations` (@since 2.1.20): force rules to report a different severity within VS Code compared to the project's true ESLint configuration. Contains two properties:
+- `eslint.codeActionsOnSave.rules` (@since 2.2.0) - controls the rules which are taken into consideration during code action on save execution. If not specified all rules specified via the normal ESLint configuration mechanism are consider. An empty array results in no rules being considered. If the array contains more than one entry the order matters and the first match determines the rule's on / off state. This setting is only honored if either ESLint version 8 or greater is used or ESLint version 7 is used and the setting `eslint.useESLintClass` is set to true.
+
+  In this example only semicolon related rules are considered:
+
+  ```json
+  "eslint.codeActionsOnSave.rules": [
+    "*semi*"
+  ]
+  ```
+
+  This example removes all TypeScript ESLint specific rules from the code action on save pass but keeps all other rules:
+
+  ```json
+  "eslint.codeActionsOnSave.rules": [
+    "!@typescript-eslint/*",
+    "*"
+  ]
+  ```
+
+  This example keeps the indent and semi rule from TypeScript ESLint, disables all other TypeScript ESLint rules and keeps the rest:
+
+  ```json
+  "eslint.codeActionsOnSave.rules": [
+	  "@typescript-eslint/semi",
+	  "@typescript-eslint/indent",
+	  "!@typescript-eslint/*",
+	  "*"
+  ]
+  ```
+
+- `eslint.rules.customizations` (@since 2.1.20) - force rules to report a different severity within VS Code compared to the project's true ESLint configuration. Contains two properties:
   - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "rule": "no-*", "severity": "warn" }`
     - Prefix the name with a `"!"` to target all rules that _don't_ match the name: `{ "rule": "!no-*", "severity": "info" }`
   - `"severity"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"default"`s them to their original severity
@@ -203,7 +245,7 @@ This extension contributes the following variables to the [settings](https://cod
   ]
   ```
 
-- `eslint.format.enable` (@since 2.0.0): uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
+- `eslint.format.enable` (@since 2.0.0) - uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
 - `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warnings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
 - `editor.codeActionsOnSave` (@since 2.0.0): this setting now supports an entry `source.fixAll.eslint`. If set to true all auto-fixable ESLint errors from all plugins will be fixed on save. You can also selectively enable and disabled specific languages using VS Code's language scoped settings. To disable `codeActionsOnSave` for HTML files use the following setting:
 

@@ -127,7 +127,7 @@ enum CodeActionsOnSaveMode {
 
 namespace CodeActionsOnSaveMode {
 	export function from(value: string | undefined | null): CodeActionsOnSaveMode {
-		if (value === undefined || value === null) {
+		if (value === undefined || value === null || !Is.string(value)) {
 			return CodeActionsOnSaveMode.all;
 		}
 		switch(value.toLowerCase()) {
@@ -139,9 +139,19 @@ namespace CodeActionsOnSaveMode {
 	}
 }
 
+namespace CodeActionsOnSaveRules {
+	export function from(value: string[] | undefined | null): string[] | undefined {
+		if (value === undefined || value === null || !Array.isArray(value)) {
+			return undefined;
+		}
+		return value.filter(item => Is.string(item));
+	}
+}
+
 interface CodeActionsOnSaveSettings {
 	enable: boolean;
-	mode: CodeActionsOnSaveMode
+	mode: CodeActionsOnSaveMode,
+	rules?: string[]
 }
 
 enum Validate {
@@ -195,6 +205,7 @@ interface RuleCustomization  {
 interface ConfigurationSettings {
 	validate: Validate;
 	packageManager: 'npm' | 'yarn' | 'pnpm';
+	useESLintClass: boolean;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -907,24 +918,35 @@ function realActivate(context: ExtensionContext): void {
 		}
 	}
 
+	function sanitize<T, D>(value: T, type: 'bigint' | 'boolean' | 'function' | 'number' | 'object' | 'string' | 'symbol' | 'undefined', def: D): T | D {
+		if (Array.isArray(value)) {
+			return value.filter(item => typeof item === type) as unknown as T;
+		} else if (typeof value !== type) {
+			return def;
+		}
+		return value;
+	}
+
 	const serverModule = Uri.joinPath(context.extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 	const eslintConfig = Workspace.getConfiguration('eslint');
-	const debug = eslintConfig.get<boolean>('debug', false) ?? false;
-	const runtime = eslintConfig.get<string | undefined>('runtime', undefined) ?? undefined;
+	const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
+	const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
+	const execArgv = sanitize(eslintConfig.get<string[] | null>('execArgv', null) ?? undefined, 'string', undefined);
+	const nodeEnv = sanitize(eslintConfig.get('nodeEnv', null) ?? undefined, 'string', undefined);
 
-	const nodeEnv = eslintConfig.get('nodeEnv', null);
 	let env: { [key: string]: string | number | boolean } | undefined;
 	if (debug) {
 		env = env || {};
 		env.DEBUG = 'eslint:*,-eslint:code-path';
 	}
-	if (nodeEnv) {
+	if (nodeEnv !== undefined) {
 		env = env || {};
 		env.NODE_ENV = nodeEnv;
 	}
+	const debugArgv = ['--nolazy', '--inspect=6011'];
 	const serverOptions: ServerOptions = {
-		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { cwd: process.cwd(), env } },
-		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: ['--nolazy', '--inspect=6011'], cwd: process.cwd(), env } }
+		run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd: process.cwd(), env } },
+		debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd: process.cwd(), env } }
 	};
 
 	let defaultErrorHandler: ErrorHandler;
@@ -970,21 +992,21 @@ function realActivate(context: ExtensionContext): void {
 			}
 		},
 		middleware: {
-			didOpen: (document, next) => {
+			didOpen: async (document, next) => {
 				if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
-					next(document);
+					const result = next(document);
 					syncedDocuments.set(document.uri.toString(), document);
-					return;
+					return result;
 				}
 			},
-			didChange: (event, next) => {
+			didChange: async (event, next) => {
 				if (syncedDocuments.has(event.document.uri.toString())) {
-					next(event);
+					return next(event);
 				}
 			},
-			willSave: (event, next) => {
+			willSave: async (event, next) => {
 				if (syncedDocuments.has(event.document.uri.toString())) {
-					next(event);
+					return next(event);
 				}
 			},
 			willSaveWaitUntil: (event, next) => {
@@ -994,16 +1016,16 @@ function realActivate(context: ExtensionContext): void {
 					return Promise.resolve([]);
 				}
 			},
-			didSave: (document, next) => {
+			didSave: async (document, next) => {
 				if (syncedDocuments.has(document.uri.toString())) {
-					next(document);
+					return next(document);
 				}
 			},
-			didClose: (document, next) => {
+			didClose: async (document, next) => {
 				const uri = document.uri.toString();
 				if (syncedDocuments.has(uri)) {
 					syncedDocuments.delete(uri);
-					next(document);
+					return next(document);
 				}
 			},
 			provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
@@ -1031,16 +1053,15 @@ function realActivate(context: ExtensionContext): void {
 			workspace: {
 				didChangeWatchedFile: (event, next) => {
 					probeFailed.clear();
-					next(event);
+					return next(event);
 				},
-				didChangeConfiguration: (sections, next) => {
+				didChangeConfiguration: async (sections, next) => {
 					if (migration !== undefined && (sections === undefined || sections.length === 0)) {
 						migration.captureDidChangeSetting(() => {
-							next(sections);
+							return next(sections);
 						});
-						return;
 					} else {
-						next(sections);
+						return next(sections);
 					}
 				},
 				configuration: async (params, _token, _next): Promise<any[]> => {
@@ -1055,10 +1076,12 @@ function realActivate(context: ExtensionContext): void {
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
 						const config = Workspace.getConfiguration('eslint', resource);
-						const workspaceFolder = Workspace.getWorkspaceFolder(resource);
+						const workspaceFolder = resource.scheme === 'untitled'
+							? Workspace.workspaceFolders !== undefined ? Workspace.workspaceFolders[0] : undefined
+							: Workspace.getWorkspaceFolder(resource);
 						await migrationSemaphore.lock(async () => {
 							const globalMigration = Workspace.getConfiguration('eslint').get('migration.2_x', 'on');
-							if (notNow === false && globalMigration === 'on'  /*&& !(workspaceFolder !== undefined ? noMigrationLocal!.workspaces[workspaceFolder.uri.toString()] : noMigrationLocal!.files[resource.toString()]) */) {
+							if (notNow === false && globalMigration === 'on') {
 								try {
 									migration = new Migration(resource);
 									migration.record();
@@ -1106,6 +1129,7 @@ function realActivate(context: ExtensionContext): void {
 						const settings: ConfigurationSettings = {
 							validate: Validate.off,
 							packageManager: config.get('packageManager', 'npm'),
+							useESLintClass: config.get('useESLintClass', false),
 							codeActionOnSave: {
 								enable: false,
 								mode: CodeActionsOnSaveMode.all
@@ -1136,6 +1160,7 @@ function realActivate(context: ExtensionContext): void {
 							settings.format = !!config.get('format.enable', false);
 							settings.codeActionOnSave.enable = readCodeActionsOnSaveSetting(document);
 							settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
+							settings.codeActionOnSave.rules = CodeActionsOnSaveRules.from(config.get('codeActionsOnSave.rules', null));
 						}
 						if (workspaceFolder !== undefined) {
 							settings.workspaceFolder = {
@@ -1231,7 +1256,8 @@ function realActivate(context: ExtensionContext): void {
 		void Window.showErrorMessage(`The ESLint extension couldn't be started. See the ESLint output channel for details.`);
 		return;
 	}
-	client.registerProposedFeatures();
+	// Currently we don't need any proposed features.
+	// client.registerProposedFeatures();
 
 	Workspace.onDidChangeConfiguration(() => {
 		probeFailed.clear();

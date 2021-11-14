@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.1.24",
+	"version": "2.2.2",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.58.0"
+		"vscode": "^1.61.0"
 	},
 	"activationEvents": [
 		"onStartupFinished"
@@ -50,8 +50,7 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether eslint is enabled or not.",
-					"deprecationMessage": "This setting is deprecated. Disable ESLint using the extensions viewlet."
+					"description": "Controls whether eslint is enabled or not."
 				},
 				"eslint.packageManager": {
 					"scope": "resource",
@@ -174,6 +173,12 @@
 					],
 					"default": "on",
 					"description": "Whether ESlint should migrate auto fix on save settings."
+				},
+				"eslint.useESLintClass": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Since version 7 ESLint offers a new API call ESLint. Use it even if the old CLIEngine is available. From version 8 on forward on ESLint class is available."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
@@ -321,7 +326,16 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "The location of the node binary to run ESLint under.\n\n- When specified as a user/machine setting, the Node version from `eslint.runtime` automatically replaces the built-in version.\n- When specified as a workspace setting, `eslint.runtime` allows you to switch to use that version with the `ESLint: Select Node version` command."
+					"markdownDescription": "The location of the node binary to run ESLint under."
+				},
+				"eslint.execArgv": {
+					"scope": "machine-overridable",
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": null,
+					"markdownDescription": "Additional exec argv argument passed to the runtime. This can for example be used to control the maximum heap space using --max_old_space_size"
 				},
 				"eslint.debug": {
 					"scope": "window",
@@ -383,7 +397,16 @@
 						"Only fixes reported problems that have non overlapping textual edits. This options runs a lot faster."
 					],
 					"default": "all",
-					"description": "Specifies the code action mode. Possible values are 'all' and 'problems'."
+					"markdownDescription": "Specifies the code action mode. Possible values are 'all' and 'problems'."
+				},
+				"eslint.codeActionsOnSave.rules": {
+					"scope": "resource",
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": null,
+					"markdownDescription": "The rules that should be executed when computing the code actions on save or formatting a file. Defaults to the rules configured via the ESLint configuration"
 				},
 				"eslint.format.enable": {
 					"scope": "resource",
@@ -392,7 +415,6 @@
 					"description": "Enables ESLint as a formatter."
 				},
 				"eslint.rules.customizations": {
-					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules.",
 					"items": {
 						"properties": {
 							"severity": {
@@ -414,7 +436,8 @@
 						"type": "object"
 					},
 					"scope": "resource",
-					"type": "array"
+					"type": "array",
+					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules."
 				}
 			}
 		},
@@ -495,15 +518,15 @@
 	"devDependencies": {
 		"@types/mocha": "^9.0.0",
 		"@types/node": "^14.14.31",
-		"@typescript-eslint/eslint-plugin": "^4.29.2",
-		"@typescript-eslint/parser": "^4.29.2",
+		"@typescript-eslint/eslint-plugin": "^4.32.0",
+		"@typescript-eslint/parser": "^4.32.0",
 		"eslint": "^7.32.0",
 		"merge-options": "^3.0.4",
-		"mocha": "^9.1.0",
+		"mocha": "^9.1.2",
 		"rimraf": "^3.0.2",
-		"ts-loader": "^9.2.5",
-		"typescript": "^4.3.5",
-		"webpack": "^5.51.1",
+		"ts-loader": "^9.2.6",
+		"typescript": "^4.4.3",
+		"webpack": "^5.55.1",
 		"webpack-cli": "^4.8.0"
 	}
 }

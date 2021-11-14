@@ -19,6 +19,13 @@
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
 	},
+	"eslint.useESLintClass": true,
+	"eslint.codeActionsOnSave.rules": [
+		"@typescript-eslint/semi",
+		"@typescript-eslint/indent",
+		"!@typescript-eslint/*",
+		"*"
+	],
 	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.workingDirectories": [
 		"./client",
