@@ -2041,20 +2041,20 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return action;
 	}
 
-	function createDisableLineTextEdit(editInfo: Problem, indentationText: string): TextEdit {
-		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}${getLineComment(textDocument!.languageId)} eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
+	function createDisableLineTextEdit(textDocument: TextDocument, editInfo: Problem, indentationText: string): TextEdit {
+		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}${getLineComment(textDocument.languageId)} eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
 
-	function createDisableSameLineTextEdit(editInfo: Problem): TextEdit {
+	function createDisableSameLineTextEdit(textDocument: TextDocument, editInfo: Problem): TextEdit {
 		// Todo@dbaeumer Use uinteger.MAX_VALUE instead.
-		return TextEdit.insert(Position.create(editInfo.line - 1, 2147483647), ` ${getLineComment(textDocument!.languageId)} eslint-disable-line ${editInfo.ruleId}`);
+		return TextEdit.insert(Position.create(editInfo.line - 1, 2147483647), ` ${getLineComment(textDocument.languageId)} eslint-disable-line ${editInfo.ruleId}`);
 	}
 
-	function createDisableFileTextEdit(editInfo: Problem): TextEdit {
+	function createDisableFileTextEdit(textDocument: TextDocument, editInfo: Problem): TextEdit {
 		// If firts line contains a shebang, insert on the next line instead.
-		const shebang = textDocument?.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
+		const shebang = textDocument.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
 		const line = shebang === '#!' ? 1 : 0;
-		const block = getBlockComment(textDocument!.languageId);
+		const block = getBlockComment(textDocument.languageId);
 		return TextEdit.insert(Position.create(line, 0), `${block[0]} eslint-disable ${editInfo.ruleId} ${block[1]}${EOL}`);
 	}
 
@@ -2154,13 +2154,13 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 			if (settings.codeAction.disableRuleComment.enable) {
 				let workspaceChange = new WorkspaceChange();
 				if (settings.codeAction.disableRuleComment.location === 'sameLine') {
-					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableSameLineTextEdit(editInfo));
+					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableSameLineTextEdit(textDocument, editInfo));
 				} else {
 					// Todo@dbaeumer Use uinteger.MAX_VALUE instead.
 					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, 2147483647)));
 					const matches = /^([ \t]*)/.exec(lineText);
 					const indentationText = matches !== null && matches.length > 0 ? matches[1] : '';
-					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableLineTextEdit(editInfo, indentationText));
+					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableLineTextEdit(textDocument, editInfo, indentationText));
 				}
 				changes.set(`${CommandIds.applyDisableLine}:${ruleId}`, workspaceChange);
 				result.get(ruleId).disable = createCodeAction(
@@ -2172,7 +2172,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 				if (result.get(ruleId).disableFile === undefined) {
 					workspaceChange = new WorkspaceChange();
-					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableFileTextEdit(editInfo));
+					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableFileTextEdit(textDocument, editInfo));
 					changes.set(`${CommandIds.applyDisableFile}:${ruleId}`, workspaceChange);
 					result.get(ruleId).disableFile = createCodeAction(
 						`Disable ${ruleId} for the entire file`,
