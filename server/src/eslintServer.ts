@@ -2068,7 +2068,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 
 	function createDisableFileTextEdit(textDocument: TextDocument, editInfo: Problem): TextEdit {
 		// If first line contains a shebang, insert on the next line instead.
-		const shebang = textDocument?.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
+		const shebang = textDocument.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
 		const line = shebang === '#!' ? 1 : 0;
 		const block = getBlockComment(textDocument.languageId);
 		return TextEdit.insert(Position.create(line, 0), `${block[0]} eslint-disable ${editInfo.ruleId} ${block[1]}${EOL}`);
