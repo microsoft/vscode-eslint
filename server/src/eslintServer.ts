@@ -553,9 +553,10 @@ function isOff(ruleId: string, matchers: string[]): boolean {
 	return true;
 }
 
-async function getSaveRuleConfig(filePath: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<SaveRuleConfigItem | undefined> {
-	let result = saveRuleConfigCache.get(filePath);
-	if (result === null) {
+async function getSaveRuleConfig(uri: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<SaveRuleConfigItem | undefined> {
+	const filePath = getFilePath(uri);
+	let result = saveRuleConfigCache.get(uri);
+	if (filePath === undefined || result === null) {
 		return undefined;
 	}
 	if (result !== undefined) {
@@ -586,10 +587,10 @@ async function getSaveRuleConfig(filePath: string, settings: TextDocumentSetting
 		return offRules.size > 0 ? { offRules, onRules } : undefined;
 	}, settings);
 	if (result === undefined || result === null) {
-		saveRuleConfigCache.set(filePath, null);
+		saveRuleConfigCache.set(uri, null);
 		return undefined;
 	} else {
-		saveRuleConfigCache.set(filePath, result);
+		saveRuleConfigCache.set(uri, result);
 		return result;
 	}
 }
@@ -2267,7 +2268,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 		connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
 		return result;
 	} else {
-		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await getSaveRuleConfig(filePath, settings) : undefined;
+		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await getSaveRuleConfig(uri, settings) : undefined;
 		const offRules = saveConfig?.offRules;
 		const onRules = saveConfig?.onRules;
 		let overrideConfig: Required<ConfigData> | undefined;
