@@ -17,7 +17,7 @@ import {
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
 	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
-	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage
+	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger
 } from 'vscode-languageserver/node';
 
 import {
@@ -2041,17 +2041,33 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 		return action;
 	}
 
+
 	function createDisableLineTextEdit(textDocument: TextDocument, editInfo: Problem, indentationText: string): TextEdit {
+		// if the concerned line is not the first  line of the file
+		if ( editInfo.line - 1 > 0) {
+
+			// check previous line if there is a eslint-disable-next-line comment already present
+			const prevLine = textDocument.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line - 2, uinteger.MAX_VALUE)));
+			const matched = prevLine && prevLine.match(new RegExp(`${getLineComment(textDocument.languageId)} eslint-disable-next-line`));
+			if (matched && matched.length) {
+				return TextEdit.insert(Position.create(editInfo.line - 2, uinteger.MAX_VALUE), `, ${editInfo.ruleId}`);
+			}
+
+		}
 		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}${getLineComment(textDocument.languageId)} eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
 
 	function createDisableSameLineTextEdit(textDocument: TextDocument, editInfo: Problem): TextEdit {
-		// Todo@dbaeumer Use uinteger.MAX_VALUE instead.
-		return TextEdit.insert(Position.create(editInfo.line - 1, 2147483647), ` ${getLineComment(textDocument.languageId)} eslint-disable-line ${editInfo.ruleId}`);
+		const currentLine = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line -1, uinteger.MAX_VALUE)));
+		const matched = currentLine && new RegExp(`${getLineComment(textDocument.languageId)} eslint-disable-line`).exec(currentLine);
+
+		const disableRuleContent = (matched && matched.length) ? `, ${editInfo.ruleId}` : ` ${getLineComment(textDocument.languageId)} eslint-disable-line ${editInfo.ruleId}`;
+
+		return TextEdit.insert(Position.create(editInfo.line - 1, uinteger.MAX_VALUE), disableRuleContent);
 	}
 
 	function createDisableFileTextEdit(textDocument: TextDocument, editInfo: Problem): TextEdit {
-		// If firts line contains a shebang, insert on the next line instead.
+		// If first line contains a shebang, insert on the next line instead.
 		const shebang = textDocument.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
 		const line = shebang === '#!' ? 1 : 0;
 		const block = getBlockComment(textDocument.languageId);
@@ -2156,8 +2172,7 @@ messageQueue.registerRequest(CodeActionRequest.type, (params) => {
 				if (settings.codeAction.disableRuleComment.location === 'sameLine') {
 					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableSameLineTextEdit(textDocument, editInfo));
 				} else {
-					// Todo@dbaeumer Use uinteger.MAX_VALUE instead.
-					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, 2147483647)));
+					const lineText = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, uinteger.MAX_VALUE)));
 					const matches = /^([ \t]*)/.exec(lineText);
 					const indentationText = matches !== null && matches.length > 0 ? matches[1] : '';
 					workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableLineTextEdit(textDocument, editInfo, indentationText));
