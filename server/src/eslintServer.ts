@@ -553,44 +553,44 @@ function isOff(ruleId: string, matchers: string[]): boolean {
 	return true;
 }
 
-async function getSaveRuleConfig(filePath: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<SaveRuleConfigItem | undefined> {
-	let result = saveRuleConfigCache.get(filePath);
-	if (result === null) {
+async function getSaveRuleConfig(uri: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<SaveRuleConfigItem | undefined> {
+	const filePath = getFilePath(uri);
+	let result = saveRuleConfigCache.get(uri);
+	if (filePath === undefined || result === null) {
 		return undefined;
 	}
 	if (result !== undefined) {
 		return result;
 	}
 	const rules = settings.codeActionOnSave.rules;
-	if (rules === undefined || !ESLintModule.hasESLintClass(settings.library) || !settings.useESLintClass) {
-		result = undefined;
-	} else {
-		result = await withESLintClass(async (eslint) => {
-			const config = await eslint.calculateConfigForFile(filePath);
-			if (config === undefined || config.rules === undefined || config.rules.length === 0) {
-				return undefined;
-			}
-			const offRules: Set<string> = new Set();
-			const onRules: Set<string> = new Set();
-			if (rules.length === 0) {
-				Object.keys(config.rules).forEach(ruleId => offRules.add(ruleId));
-			} else {
-				for (const ruleId of Object.keys(config.rules)) {
-					if (isOff(ruleId, rules)) {
-						offRules.add(ruleId);
-					} else {
-						onRules.add(ruleId);
-					}
+	result = await withESLintClass(async (eslint) => {
+		if (rules === undefined || eslint.isCLIEngine) {
+			return undefined;
+		}
+		const config = await eslint.calculateConfigForFile(filePath);
+		if (config === undefined || config.rules === undefined || config.rules.length === 0) {
+			return undefined;
+		}
+		const offRules: Set<string> = new Set();
+		const onRules: Set<string> = new Set();
+		if (rules.length === 0) {
+			Object.keys(config.rules).forEach(ruleId => offRules.add(ruleId));
+		} else {
+			for (const ruleId of Object.keys(config.rules)) {
+				if (isOff(ruleId, rules)) {
+					offRules.add(ruleId);
+				} else {
+					onRules.add(ruleId);
 				}
 			}
-			return offRules.size > 0 ? { offRules, onRules } : undefined;
-		}, settings);
-	}
+		}
+		return offRules.size > 0 ? { offRules, onRules } : undefined;
+	}, settings);
 	if (result === undefined || result === null) {
-		saveRuleConfigCache.set(filePath, null);
+		saveRuleConfigCache.set(uri, null);
 		return undefined;
 	} else {
-		saveRuleConfigCache.set(filePath, result);
+		saveRuleConfigCache.set(uri, result);
 		return result;
 	}
 }
@@ -2283,7 +2283,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 		connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
 		return result;
 	} else {
-		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await getSaveRuleConfig(filePath, settings) : undefined;
+		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await getSaveRuleConfig(uri, settings) : undefined;
 		const offRules = saveConfig?.offRules;
 		const onRules = saveConfig?.onRules;
 		let overrideConfig: Required<ConfigData> | undefined;
