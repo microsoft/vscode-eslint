@@ -14,8 +14,8 @@ import {
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
-	ErrorAction, CloseAction, State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest,
-	ExecuteCommandParams, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
+	ErrorHandlerResult, CloseAction, CloseHandlerResult, State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier,
+	ExecuteCommandRequest, ExecuteCommandParams, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
 	WorkspaceFolder, NotificationType0
 } from 'vscode-languageclient/node';
 
@@ -981,12 +981,12 @@ function realActivate(context: ExtensionContext): void {
 			return false;
 		},
 		errorHandler: {
-			error: (error, message, count): ErrorAction => {
+			error: (error, message, count): ErrorHandlerResult => {
 				return defaultErrorHandler.error(error, message, count);
 			},
-			closed: (): CloseAction => {
+			closed: (): CloseHandlerResult => {
 				if (serverCalledProcessExit) {
-					return CloseAction.DoNotRestart;
+					return { action: CloseAction.DoNotRestart };
 				}
 				return defaultErrorHandler.closed();
 			}

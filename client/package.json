@@ -17,10 +17,11 @@
 		"vscode": "^1.61.0"
 	},
 	"devDependencies": {
+		"@types/minimatch": "^3.0.5",
 		"@types/vscode": "1.61.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "8.0.0-next.4"
+		"vscode-languageclient": "8.0.0-next.7"
 	},
 	"scripts": {
 		"test": "node ../node_modules/mocha/bin/_mocha",

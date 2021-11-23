@@ -2339,7 +2339,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 
 messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 	let workspaceChange: WorkspaceChange | undefined;
-	const commandParams: CommandParams = params.arguments![0];
+	const commandParams: CommandParams = params.arguments![0] as CommandParams;
 	if (params.command === CommandIds.applyAllFixes) {
 		const edits = await computeAllFixes(commandParams, AllFixesMode.command);
 		if (edits !== undefined) {
@@ -2374,7 +2374,7 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 		connection.console.error(`Failed to apply command: ${params.command}`);
 	});
 }, (params): number | undefined => {
-	const commandParam: CommandParams = params.arguments![0];
+	const commandParam: CommandParams = params.arguments![0] as CommandParams;
 	if (changes.isUsable(commandParam.uri, commandParam.version)) {
 		return commandParam.version;
 	} else {
