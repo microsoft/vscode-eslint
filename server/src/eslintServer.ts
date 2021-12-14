@@ -1772,7 +1772,7 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 	return undefined;
 }
 
-const ignoredErrors: string[] = [];
+const ignoredErrors: Set<string> = new Set();
 
 function showErrorMessage(error: any, document: TextDocument): Status {
 	const errorMessage = `ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`;
@@ -1780,13 +1780,13 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 		{ title: 'Open Output', id: 1},
 		{ title: 'Ignore for this Session', id: 2}
 	];
-	if (!ignoredErrors.includes(errorMessage)) {
+	if (!ignoredErrors.has(errorMessage)) {
 		void connection.window.showErrorMessage(errorMessage, ...actions).then((value) => {
 			if (value !== undefined) {
 				if (value.id === 1) {
 					connection.sendNotification(ShowOutputChannel.type);
 				} else if (value.id === 2) {
-					ignoredErrors.push(errorMessage);
+					ignoredErrors.add(errorMessage);
 				}
 			}
 		});
