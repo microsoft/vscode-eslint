@@ -188,11 +188,16 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.codeAction.showDocumentation` - object with properties:
   - `enable` - show open lint rule documentation web page in the quick fix menu. `true` by default.
 
-- `eslint.codeActionsOnSave.mode` (@since 2.0.12) - controls which problems are fix when running code actions on save
+- `eslint.codeActionsOnSave.mode` (@since 2.0.12) - controls which problems are fix when running code actions on save.
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
   - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
-- `eslint.codeActionsOnSave.rules` (@since 2.2.0) - controls the rules which are taken into consideration during code action on save execution. If not specified all rules specified via the normal ESLint configuration mechanism are consider. An empty array results in no rules being considered. If the array contains more than one entry the order matters and the first match determines the rule's on / off state. This setting is only honored if either ESLint version 8 or greater is used or ESLint version 7 is used and the setting `eslint.useESLintClass` is set to true.
+  Please note that if `eslint.codeActionsOnSave.mode` is set to `problems`, the `eslint.codeActionsOnSave.rules` is ignored.
+
+- `eslint.codeActionsOnSave.rules` (@since 2.2.0) - controls the rules which are taken into consideration during code action on save execution. If not specified all rules specified via the normal ESLint configuration mechanism are consider. An empty array results in no rules being considered. If the array contains more than one entry the order matters and the first match determines the rule's on / off state. This setting is only honored under the following cases:
+
+  - `eslint.codeActionsOnSave.mode` has a different value than `problems`
+  -  the ESLint version used is either version 8 or higher or the version is 7.x and the setting `eslint.useESLintClass` is set to true (version >= 8 || (version == 7.x && eslint.useESLintClass)).
 
   In this example only semicolon related rules are considered:
 
