@@ -597,10 +597,10 @@ async function getSaveRuleConfig(uri: string, settings: TextDocumentSettings  & 
 
 function makeDiagnostic(settings: TextDocumentSettings, problem: ESLintProblem): [Diagnostic, RuleSeverity | undefined] {
 	const message = problem.message;
-	const startLine = Is.nullOrUndefined(problem.line) ? 0 : Math.max(0, problem.line - 1);
-	const startChar = Is.nullOrUndefined(problem.column) ? 0 : Math.max(0, problem.column - 1);
-	const endLine = Is.nullOrUndefined(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
-	const endChar = Is.nullOrUndefined(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+	const startLine = typeof problem.line !== 'number' ? 0 : Math.max(0, problem.line - 1);
+	const startChar = typeof problem.column !== 'number' ? 0 : Math.max(0, problem.column - 1);
+	const endLine = typeof problem.endLine !== 'number' ? startLine : Math.max(0, problem.endLine - 1);
+	const endChar = typeof problem.endColumn !== 'number' ? startChar : Math.max(0, problem.endColumn - 1);
 	const override = getSeverityOverride(problem.ruleId, settings.rulesCustomizations);
 	const result: Diagnostic = {
 		message: message,
