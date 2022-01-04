@@ -1651,9 +1651,12 @@ function withESLintClass<T>(func: (eslintClass: ESLintClass) => T, settings: Tex
 	const cwd = process.cwd();
 	try {
 		if (settings.workingDirectory) {
-			newOptions.cwd = normalizeDriveLetter(settings.workingDirectory.directory);
-			if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(settings.workingDirectory.directory)) {
-				process.chdir(settings.workingDirectory.directory);
+			// A lot of libs are sensitive to drive letter casing and assume a
+			// capital drive letter. Make sure we support that correctly.
+			const newCWD = normalizeDriveLetter(settings.workingDirectory.directory);
+			newOptions.cwd = newCWD;
+			if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(newCWD)) {
+				process.chdir(newCWD);
 			}
 		}
 
