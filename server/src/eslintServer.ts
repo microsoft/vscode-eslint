@@ -542,6 +542,12 @@ function getSeverityOverride(ruleId: string, customizations: RuleCustomization[]
 
 type SaveRuleConfigItem = { offRules: Set<string>, onRules: Set<string>};
 const saveRuleConfigCache = new LRUCache<string, SaveRuleConfigItem | null>(128);
+/**
+ * Whether the rule ID matches any of the exclusion matchers
+ * @param {string} ruleId - The ID of the rule.
+ * @param {arraytype} matchers - an array of strings that match the ruleId.
+ * @returns a boolean indicating if the ruleId matches any of the exclusion matchers
+ */
 function isOff(ruleId: string, matchers: string[]): boolean {
 	for (const matcher of matchers) {
 		if (matcher.startsWith('!') && new RegExp(`^${matcher.slice(1).replace(/\*/g, '.*')}$`, 'g').test(ruleId)) {
@@ -667,6 +673,11 @@ namespace SuggestionsProblem {
 	}
 }
 
+/**
+ * Compute a key for a diagnostic that can be used to group diagnostics.
+ * @param {Diagnostic} diagnostic - The diagnostic to be rendered.
+ * @returns A map of key to diagnostic.
+ */
 function computeKey(diagnostic: Diagnostic): string {
 	const range = diagnostic.range;
 	let message: string | undefined;
@@ -700,6 +711,12 @@ function recordCodeAction(document: TextDocument, diagnostic: Diagnostic, proble
 	 });
 }
 
+/**
+ * Adjusts the severity of a rule based on how the user has decided to overridde it
+ * @param {uniontype} severity - The severity of the rule as defined in the configuration file.
+ * @param {RuleSeverity} severityOverride - The severity override.
+ * @returns The severity of the rule.
+ */
 function adjustSeverityForOverride(severity: number | RuleSeverity, severityOverride?: RuleSeverity) {
 	switch (severityOverride) {
 		case RuleSeverity.off:
@@ -731,6 +748,11 @@ function adjustSeverityForOverride(severity: number | RuleSeverity, severityOver
 	}
 }
 
+/**
+ * Convert the severity of a rule to a diagnostic severity.
+ * @param {uniontype} severity - The severity of the rule.
+ * @returns The diagnostic severity
+ */
 function convertSeverityToDiagnostic(severity: number | RuleSeverity) {
 	// RuleSeverity concerns an overridden rule. A number is direct from ESLint.
 	switch (severity) {
@@ -748,9 +770,14 @@ function convertSeverityToDiagnostic(severity: number | RuleSeverity) {
 	}
 }
 
+/**
+ * Convert the severity of a rule to a diagnostic severity adjusted by the user's override.
+ * @param {uniontype} severity - The severity of the rule.
+ * @param {uniontype} severityOverride - The severity override for the rule.
+ * @returns The adjusted severity.
+ */
 function convertSeverityToDiagnosticWithOverride(severity: number | RuleSeverity, severityOverride: RuleSeverity | undefined): DiagnosticSeverity {
 	return convertSeverityToDiagnostic(adjustSeverityForOverride(severity, severityOverride));
-
 }
 
 const enum CharCode {
@@ -804,6 +831,11 @@ function isUNC(path: string): boolean {
 	return true;
 }
 
+/**
+ * Normalize the drive letter of a path to upper case.
+ * @param {string} path - The path to normalize.
+ * @returns The normalized path.
+ */
 function normalizeDriveLetter(path: string): string {
 	if (process.platform !== 'win32' || path.length < 2 || path[1] !== ':') {
 		return path;
@@ -1297,6 +1329,13 @@ class BufferedMessageQueue {
 		this.notificationHandlers = new Map();
 	}
 
+	/**
+	 * it registers a request handler for a given request type.
+	 * @param {RequestType} type - The request type.
+	 * @param {RequestHandler} handler - The handler function that will be called when the request is received.
+	 * @param {VersionProvider} versionProvider
+	 * @returns A Promise that resolves to the result of the request.
+	 */
 	public registerRequest<P, R, E>(type: RequestType<P, R, E>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
 		this.connection.onRequest(type, (params, token) => {
 			return new Promise<R>((resolve, reject) => {
@@ -1314,6 +1353,12 @@ class BufferedMessageQueue {
 		this.requestHandlers.set(type.method, { handler, versionProvider });
 	}
 
+	/**
+	 * Register a handler for a notification.
+	 * @param {NotificationType} type - The notification type the handler will receive.
+	 * @param {NotificationHandler} handler
+	 * @param {functiontype} versionProvider
+	 */
 	public registerNotification<P>(type: NotificationType<P>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
 		connection.onNotification(type, (params) => {
 			this.queue.push({
@@ -1536,6 +1581,12 @@ const singleErrorHandlers: ((error: any, document: TextDocument, library: ESLint
 	showErrorMessage
 ];
 
+/**
+ * Validates a single document.
+ * @param {TextDocument} document - TextDocument — The document to validate.
+ * @param {boolean} publishDiagnostics
+ * @returns A Promise
+ */
 function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
@@ -1643,6 +1694,13 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 	}, settings);
 }
 
+/**
+ * It creates an ESLintClass instance, and calls the function with it.
+ * @param {functiontype} func - The function to call.
+ * @param {intersectiontype} settings - TextDocumentSettings & { library: ESLintModule }
+ * @param {uniontype} options - The options to pass to the ESLint class.
+ * @returns The ESLint class.
+ */
 function withESLintClass<T>(func: (eslintClass: ESLintClass) => T, settings: TextDocumentSettings & { library: ESLintModule }, options?: ESLintClassOptions | CLIOptions): T {
 	const newOptions: ESLintClassOptions | CLIOptions = options === undefined
 		? Object.assign(Object.create(null), settings.options)
@@ -1839,6 +1897,11 @@ class Fixes {
 		return this.edits.values().next().value.documentVersion;
 	}
 
+	/**
+	 * Get the edits that are scoped to the current file.
+	 * @param {arraytype} diagnostics - The diagnostics to be scoped.
+	 * @returns The Problems
+	 */
 	public getScoped(diagnostics: Diagnostic[]): Problem[] {
 		const result: Problem[] = [];
 		for (const diagnostic of diagnostics) {
@@ -1851,6 +1914,10 @@ class Fixes {
 		return result;
 	}
 
+	/**
+	 * Get all the fixable problems and sort them by their start offset.
+	 * @returns A sorted array of fixable problems.
+	 */
 	public getAllSorted(): FixableProblem[] {
 		const result: FixableProblem[] = [];
 		for (const value of this.edits.values()) {
