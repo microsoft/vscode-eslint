@@ -7,6 +7,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * "Given a file path, return a promise that resolves to true if the file exists, and false if it
+does not."
+ * @param {string} file - string - The file to check for existence.
+ * @returns A Promise<boolean>
+ */
 function exists(file: string): Promise<boolean> {
 	return new Promise<boolean>((resolve, _reject) => {
 		fs.exists(file, (value) => {
@@ -15,6 +21,12 @@ function exists(file: string): Promise<boolean> {
 	});
 }
 
+/**
+ * If the eslint command is in the node_modules/.bin folder, then return that path. Otherwise,
+return the eslint command.
+ * @param {string} rootPath - The path to the root of the project.
+ * @returns The path to the eslint binary.
+ */
 export async function findEslint(rootPath: string): Promise<string> {
 	const platform = process.platform;
 	if (platform === 'win32' && await exists(path.join(rootPath, 'node_modules', '.bin', 'eslint.cmd'))) {
@@ -70,6 +82,11 @@ interface BraceNode {
 
 type Node = TextNode | SeparatorNode | QuestionMarkNode | StarNode | GlobStarNode | BracketNode | BraceNode;
 
+/**
+ * Returns a string with all the special characters escaped.
+ * @param {string} value - The value to escape.
+ * @returns the string with the escape characters
+ */
 function escapeRegExpCharacters(value: string): string {
 	return value.replace(/[\\\{\}\*\+\?\|\^\$\.\[\]\(\)]/g, '\\$&');
 }
@@ -89,6 +106,11 @@ class PatternParser {
 		this.stopChar = mode === 'pattern' ? undefined :  '}';
 	}
 
+	/**
+	 * Create a text node with the substring from the start index to the current index.
+	 * @param {number} start - The index of the first character of the text node.
+	 * @returns A text node
+	 */
 	private makeTextNode(start: number): Node {
 		return { type: NodeType.text, value: escapeRegExpCharacters(this.value.substring(start, this.index)) };
 	}
@@ -181,6 +203,11 @@ class PatternParser {
 	}
 }
 
+/**
+ * Takes a pattern string and converts it to a regular expression.
+ * @param {string} pattern - The pattern to convert.
+ * @returns A RegExp object.
+ */
 export function convert2RegExp(pattern: string): RegExp | undefined {
 	const separator = process.platform === 'win32' ? '\\\\' : '\\/';
 	const fileChar = `[^${separator}]`;
@@ -227,6 +254,11 @@ export function convert2RegExp(pattern: string): RegExp | undefined {
 	}
 }
 
+/**
+ * Convert a Windows or Unix-style path based on the user's device
+ * @param {string} path - The path to the file or directory you want to convert.
+ * @returns The path to the file.
+ */
 export function toOSPath(path: string): string {
 	if (process.platform === 'win32') {
 		path = path.replace(/^\/(\w)\//, '$1:\\');
@@ -236,6 +268,11 @@ export function toOSPath(path: string): string {
 	}
 }
 
+/**
+ * Convert a path to the POSIX format if the user doesn't have Windows.
+ * @param {string} path - The path to the file you want to convert.
+ * @returns The path to the file.
+ */
 export function toPosixPath(path: string): string {
 	if (process.platform !== 'win32') {
 		return path;

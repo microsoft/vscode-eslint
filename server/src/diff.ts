@@ -29,6 +29,14 @@ export interface IDiffChange {
 	modifiedLength: number;
 }
 
+/**
+ * Computes the difference between the original and modified strings.
+ * @param {string} original - The original string.
+ * @param {string} modified - The modified string to compare against.
+ * @param {boolean} pretty - If it's pretty
+ * @returns An array of IDiffChange objects. Each IDiffChange object represents
+ * a single change in the original string.
+ */
 export function stringDiff(original: string, modified: string, pretty: boolean): IDiffChange[] {
 	return new LcsDiff(new StringDiffSequence(original), new StringDiffSequence(modified)).ComputeDiff(pretty).changes;
 }
