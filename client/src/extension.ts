@@ -832,18 +832,26 @@ function realActivate(context: ExtensionContext): void {
 		let tooltip: string | undefined;
 		let text: string = 'ESLint';
 		let backgroundColor: ThemeColor | undefined;
+		let foregroundColor: ThemeColor | undefined;
 		switch (status) {
 			case Status.ok:
 				icon = undefined;
+				foregroundColor = new ThemeColor('statusBarItem.foreground');
+				backgroundColor = new ThemeColor('statusBarItem.background');
 				break;
 			case Status.warn:
 				icon = '$(alert)';
+				foregroundColor = new ThemeColor('statusBarItem.warningForeground');
+				backgroundColor = new ThemeColor('statusBarItem.warningBackground');
 				break;
 			case Status.error:
 				icon = '$(issue-opened)';
+				foregroundColor = new ThemeColor('statusBarItem.errorForeground');
+				backgroundColor = new ThemeColor('statusBarItem.errorBackground');
 				break;
 		}
 		statusBarItem.text = icon !== undefined ? `${icon} ${text}` : text;
+		statusBarItem.color = foregroundColor;
 		statusBarItem.backgroundColor = backgroundColor;
 		statusBarItem.tooltip = tooltip ? tooltip : serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
 		const alwaysShow = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
