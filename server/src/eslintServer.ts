@@ -1772,12 +1772,27 @@ function tryHandleMissingModule(error: any, document: TextDocument, library: ESL
 	return undefined;
 }
 
+const ignoredErrors: Set<string> = new Set();
+
 function showErrorMessage(error: any, document: TextDocument): Status {
-	void connection.window.showErrorMessage(`ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
-		if (value !== undefined && value.id === 1) {
-			connection.sendNotification(ShowOutputChannel.type);
-		}
-	});
+	const errorMessage = `ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`;
+	const actions = [
+		{ title: 'Open Output', id: 1},
+		{ title: 'Ignore for this Session', id: 2}
+	];
+	if (!ignoredErrors.has(errorMessage)) {
+		void connection.window.showErrorMessage(errorMessage, ...actions).then((value) => {
+			if (value !== undefined) {
+				if (value.id === 1) {
+					connection.sendNotification(ShowOutputChannel.type);
+				} else if (value.id === 2) {
+					ignoredErrors.add(errorMessage);
+				}
+			}
+		});
+	} else {
+		connection.console.error(errorMessage);
+	}
 	if (Is.string(error.stack)) {
 		connection.console.error('ESLint stack trace:');
 		connection.console.error(error.stack);
