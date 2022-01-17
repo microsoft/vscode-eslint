@@ -21,7 +21,7 @@
 		"@types/vscode": "1.61.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "8.0.0-next.7"
+		"vscode-languageclient": "8.0.0-next.8"
 	},
 	"scripts": {
 		"test": "node ../node_modules/mocha/bin/_mocha",
