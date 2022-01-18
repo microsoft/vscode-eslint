@@ -31,6 +31,10 @@
 		"workspace"
 	],
 	"main": "./client/out/extension",
+	"enabledApiProposals": [
+		"tabs",
+		"notebookEditor"
+	],
 	"capabilities": {
 		"virtualWorkspaces": {
 			"supported": false,

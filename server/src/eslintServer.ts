@@ -17,7 +17,8 @@ import {
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
 	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
-	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger
+	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger,
+	ServerCapabilities, Proposed
 } from 'vscode-languageserver/node';
 
 import {
@@ -853,11 +854,18 @@ function getFilePath(documentOrUri: string | TextDocument | URI | undefined): st
 	if (!documentOrUri) {
 		return undefined;
 	}
-	const uri = getUri(documentOrUri);
-	if (uri.scheme !== 'file') {
-		return undefined;
+	let uri = getUri(documentOrUri);
+	if (uri.scheme === 'file') {
+		return getFileSystemPath(uri);
 	}
-	return getFileSystemPath(uri);
+	const notebookDocument = notebookCells.get(uri.toString());
+	if (notebookDocument !== undefined ) {
+		uri = URI.parse(notebookDocument.uri);
+		if (uri.scheme === 'file') {
+			return getFilePath(uri);
+		}
+	}
+	return undefined;
 }
 
 const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
@@ -1425,12 +1433,16 @@ function setupDocumentsListeners() {
 	documents.onDidChangeContent((event) => {
 		const uri = event.document.uri;
 		codeActions.delete(uri);
-		void resolveSettings(event.document).then((settings) => {
-			if (settings.validate !== Validate.on || settings.run !== 'onType') {
-				return;
-			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
-		});
+		if (URI.parse(uri).scheme === 'vscode-notebook-cell') {
+			cellTextDocumentChanged(event.document);
+		} else {
+			void resolveSettings(event.document).then((settings) => {
+				if (settings.validate !== Validate.on || settings.run !== 'onType') {
+					return;
+				}
+				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+			});
+		}
 	});
 
 	// A text document has been saved. Validate the document according the run setting.
@@ -1485,34 +1497,40 @@ connection.onInitialize((_params, _cancel, progress) => {
 	documents = new TextDocuments(TextDocument);
 	setupDocumentsListeners();
 	progress.done();
-	return {
-		capabilities: {
-			textDocumentSync: {
-				openClose: true,
-				change: syncKind,
-				willSaveWaitUntil: false,
-				save: {
-					includeText: false
-				}
-			},
-			workspace: {
-				workspaceFolders: {
-					supported: true
-				}
-			},
-			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
-			executeCommandProvider: {
-				commands: [
-					CommandIds.applySingleFix,
-					CommandIds.applySuggestion,
-					CommandIds.applySameFixes,
-					CommandIds.applyAllFixes,
-					CommandIds.applyDisableLine,
-					CommandIds.applyDisableFile,
-					CommandIds.openRuleDoc,
-				]
+	const capabilities: ServerCapabilities & Proposed.$NotebookDocumentServerCapabilities = {
+		textDocumentSync: {
+			openClose: true,
+			change: syncKind,
+			willSaveWaitUntil: false,
+			save: {
+				includeText: false
 			}
+		},
+		notebookDocumentSync: {
+			notebookDocumentSelector: [{
+				notebookDocumentFilter: { scheme: 'file' }
+			}]
+		},
+		workspace: {
+			workspaceFolders: {
+				supported: true
+			}
+		},
+		codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
+		executeCommandProvider: {
+			commands: [
+				CommandIds.applySingleFix,
+				CommandIds.applySuggestion,
+				CommandIds.applySameFixes,
+				CommandIds.applyAllFixes,
+				CommandIds.applyDisableLine,
+				CommandIds.applyDisableFile,
+				CommandIds.openRuleDoc,
+			]
 		}
+	};
+	return {
+		capabilities
 	};
 });
 
@@ -2411,4 +2429,67 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	const document = documents.get(params.textDocument.uri);
 	return document !== undefined ? document.version : undefined;
 });
+
+const notebookDocuments: Map<string, Proposed.NotebookDocument> = new Map();
+const notebookCells: Map<string, Proposed.NotebookDocument> = new Map();
+messageQueue.registerNotification(Proposed.DidOpenNotebookDocumentNotification.type, (params) => {
+	notebookDocuments.set(params.notebookDocument.uri, params.notebookDocument);
+	for (const cell of params.notebookDocument.cells) {
+		notebookCells.set(cell.document, params.notebookDocument);
+	}
+	validateNotebookDocument(params.notebookDocument);
+});
+
+messageQueue.registerNotification(Proposed.DidChangeNotebookDocumentNotification.type, (params) => {
+	const notebookDocument = notebookDocuments.get(params.notebookDocument.uri);
+	if (notebookDocument === undefined) {
+		return;
+	}
+	const cells= notebookDocument.cells;
+	for (const cell of cells) {
+		notebookCells.delete(cell.document);
+	}
+	for (const change of params.changes) {
+		if (change.cells.cells !== undefined) {
+			cells.splice(change.cells.start, change.cells.deleteCount, ...change.cells.cells);
+		} else {
+			cells.splice(change.cells.start, change.cells.deleteCount);
+		}
+	}
+	for (const cell of cells) {
+		notebookCells.set(cell.document, notebookDocument);
+	}
+});
+
+messageQueue.registerNotification(Proposed.DidCloseNotebookDocumentNotification.type, (params) => {
+	const notebookDocument = notebookDocuments.get(params.notebookDocument.uri);
+	if (notebookDocument !== undefined) {
+		notebookDocuments.delete(notebookDocument.uri);
+		for (const cell of notebookDocument.cells) {
+			notebookCells.delete(cell.document);
+		}
+	}
+});
+
+function cellTextDocumentChanged(textDocument: TextDocument): void {
+	const notebookDocument = notebookCells.get(textDocument.uri);
+	if (notebookDocument !== undefined) {
+		validateNotebookDocument(notebookDocument);
+	}
+}
+
+function validateNotebookDocument(notebookDocument: Proposed.NotebookDocument): void {
+	for (const cell of notebookDocument.cells) {
+		const document = documents.get(cell.document);
+		if (document !== undefined) {
+			void resolveSettings(document).then((settings) => {
+				if (settings.validate !== Validate.on || settings.run !== 'onType') {
+					return;
+				}
+				messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+			});
+		}
+	}
+}
+
 connection.listen();

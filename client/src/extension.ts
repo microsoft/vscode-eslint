@@ -969,7 +969,12 @@ function realActivate(context: ExtensionContext): void {
 	let notNow: boolean = false;
 	const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
+		documentSelector: [
+			{ scheme: 'file' },
+			{ scheme: 'untitled' },
+			{ notebookDocument: { scheme: 'file'} },
+			{ notebookDocument: { scheme: 'untitled'} }
+		],
 		diagnosticCollectionName: 'eslint',
 		revealOutputChannelOn: RevealOutputChannelOn.Never,
 		initializationOptions: {
@@ -1260,6 +1265,7 @@ function realActivate(context: ExtensionContext): void {
 	let client: LanguageClient;
 	try {
 		client = new LanguageClient('ESLint', serverOptions, clientOptions);
+		client.registerProposedFeatures();
 	} catch (err) {
 		void Window.showErrorMessage(`The ESLint extension couldn't be started. See the ESLint output channel for details.`);
 		return;
