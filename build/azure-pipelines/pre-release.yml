@@ -15,7 +15,7 @@ resources:
       endpoint: Monaco
 
 extends:
-  template: azure-pipelines/extension/stable.yml@templates
+  template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
     buildSteps:
       - script: |
