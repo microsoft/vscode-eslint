@@ -864,7 +864,6 @@ function realActivate(context: ExtensionContext): void {
 
 	function readCodeActionsOnSaveSetting(document: TextDocument): boolean {
 		let result: boolean | undefined = undefined;
-		const languageConfig = Workspace.getConfiguration(undefined, document.uri).get<LanguageSettings>(`[${document.languageId}]`);
 
 		function isEnabled(value: CodeActionsOnSave | string[]): boolean | undefined {
 			if (value === undefined || value === null) {
@@ -878,17 +877,9 @@ function realActivate(context: ExtensionContext): void {
 			}
 		}
 
-		if (languageConfig !== undefined) {
-			const codeActionsOnSave = languageConfig?.['editor.codeActionsOnSave'];
-			if (codeActionsOnSave !== undefined) {
-				result = isEnabled(codeActionsOnSave);
-			}
-		}
-		if (result === undefined) {
-			const codeActionsOnSave = Workspace.getConfiguration('editor', document.uri).get<CodeActionsOnSave>('codeActionsOnSave');
-			if (codeActionsOnSave !== undefined) {
-				result = isEnabled(codeActionsOnSave);
-			}
+		const codeActionsOnSave = Workspace.getConfiguration('editor', document).get<CodeActionsOnSave>('codeActionsOnSave');
+		if (codeActionsOnSave !== undefined) {
+			result = isEnabled(codeActionsOnSave);
 		}
 		return result ?? false;
 	}

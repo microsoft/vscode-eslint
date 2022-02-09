@@ -54,6 +54,11 @@
 		"source.fixAll": true,
 		"source.fixAll.eslint": true
 	},
+	// "[javascript][typescript]": {
+	// 	"editor.codeActionsOnSave": {
+	// 		"source.fixAll.eslint": true
+	// 	}
+	// },
 	"eslint.codeActionsOnSave.rules": [
 		"*semi*"
 	]
