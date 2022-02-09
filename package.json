@@ -22,13 +22,18 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.63.0"
+		"vscode": "^1.64.0"
 	},
 	"activationEvents": [
 		"onStartupFinished"
 	],
 	"extensionKind": [
 		"workspace"
+	],
+	"enabledApiProposals": [
+		"tabs",
+		"notebookEditor",
+		"notebookCellExecutionState"
 	],
 	"main": "./client/out/extension",
 	"capabilities": {

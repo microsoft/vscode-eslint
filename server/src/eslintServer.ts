@@ -17,7 +17,8 @@ import {
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
 	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
-	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger
+	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger, ServerCapabilities,
+	Proposed, ProposedFeatures
 } from 'vscode-languageserver/node';
 
 import {
@@ -865,7 +866,7 @@ const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 const nodeExit = process.exit;
 process.exit = ((code?: number): void => {
 	const stack = new Error('stack');
-	connection.sendNotification(exitCalled, [code ? code : 0, stack.stack]);
+	void connection.sendNotification(exitCalled, [code ? code : 0, stack.stack]);
 	setTimeout(() => {
 		nodeExit(code);
 	}, 1000);
@@ -902,7 +903,7 @@ function isRequestMessage(message: LMessage | undefined): message is LRequestMes
 	return candidate && typeof candidate.method === 'string' && (typeof candidate.id === 'string' || typeof candidate.id === 'number');
 }
 
-const connection = createConnection({
+const connection: ProposedFeatures.Connection = createConnection(ProposedFeatures.all, {
 	cancelUndispatched: (message: LMessage) => {
 		// Code actions can savely be cancel on request.
 		if (isRequestMessage(message) && message.method === 'textDocument/codeAction') {
@@ -917,8 +918,7 @@ const connection = createConnection({
 	}
 });
 connection.console.info(`ESLint server running in node ${process.version}`);
-// Is instantiated in the initialize handle;
-let documents!: TextDocuments<TextDocument>;
+const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 const _globalPaths: Record<string, { cache: string | undefined; get(): string | undefined; }> = {
 	yarn: {
@@ -1406,60 +1406,73 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 	return document.version;
 });
 
-function setupDocumentsListeners() {
-	// The documents manager listen for text document create, change
-	// and close on the connection
-	documents.listen(connection);
-	documents.onDidOpen((event) => {
-		void resolveSettings(event.document).then((settings) => {
+namespace Documents {
+	export async function onDidOpen(document: TextDocument): Promise<void> {
+		return resolveSettings(document).then((settings) => {
 			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 				return;
 			}
 			if (settings.run === 'onSave') {
-				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+				messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 			}
 		});
-	});
+	}
 
-	// A text document has changed. Validate the document according the run setting.
-	documents.onDidChangeContent((event) => {
-		const uri = event.document.uri;
+	export async function onDidChange(document: TextDocument): Promise<void> {
+		const uri = document.uri;
 		codeActions.delete(uri);
-		void resolveSettings(event.document).then((settings) => {
+		return resolveSettings(document).then((settings) => {
 			if (settings.validate !== Validate.on || settings.run !== 'onType') {
 				return;
 			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+			messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 		});
-	});
+	}
 
-	// A text document has been saved. Validate the document according the run setting.
-	documents.onDidSave((event) => {
-		void resolveSettings(event.document).then((settings) => {
+	export async function onDidSave(document: TextDocument): Promise<void> {
+		return resolveSettings(document).then((settings) => {
 			if (settings.validate !== Validate.on || settings.run !== 'onSave') {
 				return;
 			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+			messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 		});
-	});
+	}
 
-	documents.onDidClose((event) => {
-		void resolveSettings(event.document).then((settings) => {
-			const uri = event.document.uri;
+	export async function onDidClose(document: TextDocument): Promise<void> {
+		return resolveSettings(document).then((settings) => {
+			const uri = document.uri;
 			document2Settings.delete(uri);
 			saveRuleConfigCache.delete(uri);
 			codeActions.delete(uri);
-			const unregister = formatterRegistrations.get(event.document.uri);
+			const unregister = formatterRegistrations.get(document.uri);
 			if (unregister !== undefined) {
 				void unregister.then(disposable => disposable.dispose());
-				formatterRegistrations.delete(event.document.uri);
+				formatterRegistrations.delete(document.uri);
 			}
 			if (settings.validate === Validate.on) {
-				connection.sendDiagnostics({ uri: uri, diagnostics: [] });
+				void connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 			}
 		});
-	});
+	}
 }
+
+documents.onDidOpen((event) => {
+	void Documents.onDidOpen(event.document);
+});
+
+// A text document has changed. Validate the document according the run setting.
+documents.onDidChangeContent((event) => {
+	void Documents.onDidChange(event.document);
+});
+
+// A text document has been saved. Validate the document according the run setting.
+documents.onDidSave((event) => {
+	void Documents.onDidSave(event.document);
+});
+
+documents.onDidClose((event) => {
+	void Documents.onDidClose(event.document);
+});
 
 function environmentChanged() {
 	document2Settings.clear();
@@ -1482,38 +1495,41 @@ function trace(message: string, verbose?: string): void {
 connection.onInitialize((_params, _cancel, progress) => {
 	progress.begin('Initializing ESLint Server');
 	const syncKind: TextDocumentSyncKind = TextDocumentSyncKind.Incremental;
-	documents = new TextDocuments(TextDocument);
-	setupDocumentsListeners();
 	progress.done();
-	return {
-		capabilities: {
-			textDocumentSync: {
-				openClose: true,
-				change: syncKind,
-				willSaveWaitUntil: false,
-				save: {
-					includeText: false
-				}
-			},
-			workspace: {
-				workspaceFolders: {
-					supported: true
-				}
-			},
-			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
-			executeCommandProvider: {
-				commands: [
-					CommandIds.applySingleFix,
-					CommandIds.applySuggestion,
-					CommandIds.applySameFixes,
-					CommandIds.applyAllFixes,
-					CommandIds.applyDisableLine,
-					CommandIds.applyDisableFile,
-					CommandIds.openRuleDoc,
-				]
+	const capabilities: ServerCapabilities & Proposed.$NotebookDocumentSyncServerCapabilities = {
+		textDocumentSync: {
+			openClose: true,
+			change: syncKind,
+			willSaveWaitUntil: false,
+			save: {
+				includeText: false
 			}
+		},
+		workspace: {
+			workspaceFolders: {
+				supported: true
+			}
+		},
+		codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
+		executeCommandProvider: {
+			commands: [
+				CommandIds.applySingleFix,
+				CommandIds.applySuggestion,
+				CommandIds.applySameFixes,
+				CommandIds.applyAllFixes,
+				CommandIds.applyDisableLine,
+				CommandIds.applyDisableFile,
+				CommandIds.openRuleDoc,
+			]
+		},
+		notebookDocumentSync: {
+			notebookDocumentSelector: [{
+				cellSelector: [{ language: 'javascript' }]
+			}],
+			mode: 'notebook'
 		}
 	};
+	return { capabilities };
 });
 
 connection.onInitialized(() => {
@@ -1548,11 +1564,11 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 		}
 		try {
 			await validate(document, settings, publishDiagnostics);
-			connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
+			void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		} catch (err) {
 			// if an exception has occurred while validating clear all errors to ensure
 			// we are not showing any stale once
-			connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+			void connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 			if (!settings.silent) {
 				let status: Status | undefined = undefined;
 				for (const handler of singleErrorHandlers) {
@@ -1562,10 +1578,10 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 					}
 				}
 				status = status || Status.error;
-				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: status });
+				void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: status });
 			} else {
 				connection.console.info(getMessage(err, document));
-				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
+				void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 			}
 		}
 	});
@@ -1638,7 +1654,7 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 			}
 		}
 		if (publishDiagnostics) {
-			connection.sendDiagnostics({ uri, diagnostics });
+			void connection.sendDiagnostics({ uri, diagnostics });
 		}
 	}, settings);
 }
@@ -1784,7 +1800,7 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 		void connection.window.showErrorMessage(errorMessage, ...actions).then((value) => {
 			if (value !== undefined) {
 				if (value.id === 1) {
-					connection.sendNotification(ShowOutputChannel.type);
+					void connection.sendNotification(ShowOutputChannel.type);
 				} else if (value.id === 2) {
 					ignoredErrors.add(errorMessage);
 				}
@@ -2400,7 +2416,6 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 	}
 });
 
-
 messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	const textDocument = documents.get(params.textDocument.uri);
 	if (textDocument === undefined) {
@@ -2411,4 +2426,12 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	const document = documents.get(params.textDocument.uri);
 	return document !== undefined ? document.version : undefined;
 });
+
+const notebooks = new ProposedFeatures.NotebookDocuments(TextDocument);
+notebooks.cellTextDocuments.onDidOpen(event => void Documents.onDidOpen(event.document));
+notebooks.cellTextDocuments.onDidChangeContent(event => void Documents.onDidChange(event.document));
+notebooks.cellTextDocuments.onDidClose(event => void Documents.onDidClose(event.document));
+
+documents.listen(connection);
+notebooks.listen(connection);
 connection.listen();
