@@ -1037,7 +1037,31 @@ function realActivate(context: ExtensionContext): void {
 				}
 			},
 			notebooks: {
-				didOpen: (document, cells, next) => {
+				didOpen: (notebookDocument, cells, next) => {
+					const result = next(notebookDocument, cells);
+					for (const cell of cells) {
+						syncedDocuments.set(cell.document.uri.toString(), cell.document);
+					}
+					return result;
+				},
+				didChange: (notebookDocument, event, next) => {
+					if (event.cells?.structure?.didOpen !== undefined) {
+						for (const open of event.cells.structure.didOpen) {
+							syncedDocuments.set(open.document.uri.toString(), open.document);
+						}
+					}
+					if (event.cells?.structure?.didClose !== undefined) {
+						for (const closed of event.cells.structure.didClose) {
+							syncedDocuments.delete(closed.document.uri.toString());
+						}
+					}
+					return next(notebookDocument, event);
+				},
+				didClose: (document, cells, next) => {
+					for (const cell of cells) {
+						const key = cell.document.uri.toString();
+						syncedDocuments.delete(key);
+					}
 					return next(document, cells);
 				}
 			},

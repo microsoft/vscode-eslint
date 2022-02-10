@@ -854,11 +854,19 @@ function getFilePath(documentOrUri: string | TextDocument | URI | undefined): st
 	if (!documentOrUri) {
 		return undefined;
 	}
-	const uri = getUri(documentOrUri);
-	if (uri.scheme !== 'file') {
-		return undefined;
+	let uri = getUri(documentOrUri);
+	if (uri.scheme === 'file') {
+		return getFileSystemPath(uri);
 	}
-	return getFileSystemPath(uri);
+
+	const notebookDocument = notebooks.findNotebookDocumentForCell(uri.toString());
+	if (notebookDocument !== undefined ) {
+		uri = URI.parse(notebookDocument.uri);
+		if (uri.scheme === 'file') {
+			return getFilePath(uri);
+		}
+	}
+	return undefined;
 }
 
 const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
@@ -2427,10 +2435,9 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	return document !== undefined ? document.version : undefined;
 });
 
-const notebooks = new ProposedFeatures.NotebookDocuments(TextDocument);
-notebooks.cellTextDocuments.onDidOpen(event => void Documents.onDidOpen(event.document));
-notebooks.cellTextDocuments.onDidChangeContent(event => void Documents.onDidChange(event.document));
-notebooks.cellTextDocuments.onDidClose(event => void Documents.onDidClose(event.document));
+// The notebooks manager is using the normal document manager for the cell documents.
+// So all validatin will work out of the box since normal document events will fire.
+const notebooks = new ProposedFeatures.NotebookDocuments(documents);
 
 documents.listen(connection);
 notebooks.listen(connection);
