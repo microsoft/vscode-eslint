@@ -1529,12 +1529,6 @@ connection.onInitialize((_params, _cancel, progress) => {
 				CommandIds.applyDisableFile,
 				CommandIds.openRuleDoc,
 			]
-		},
-		notebookDocumentSync: {
-			notebookDocumentSelector: [{
-				cellSelector: [{ language: 'javascript' }]
-			}],
-			mode: 'notebook'
 		}
 	};
 	return { capabilities };
@@ -2436,7 +2430,7 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 });
 
 // The notebooks manager is using the normal document manager for the cell documents.
-// So all validatin will work out of the box since normal document events will fire.
+// So all validating will work out of the box since normal document events will fire.
 const notebooks = new ProposedFeatures.NotebookDocuments(documents);
 
 documents.listen(connection);

@@ -10,13 +10,13 @@ import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri,
 	StatusBarAlignment, TextDocument, CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem,
 	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind,
-	WorkspaceConfiguration, ThemeColor
+	WorkspaceConfiguration, ThemeColor, NotebookCell
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorHandlerResult, CloseAction, CloseHandlerResult, State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, ExecuteCommandParams, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder, NotificationType0, ProposedFeatures
+	WorkspaceFolder, NotificationType0, ProposedFeatures, Proposed
 } from 'vscode-languageclient/node';
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
@@ -1283,6 +1283,18 @@ function realActivate(context: ExtensionContext): void {
 					return result;
 				}
 			}
+		},
+		notebookDocumentOptions: {
+			filterCells: (_notebookDocument, cells) => {
+				const result: NotebookCell[] = [];
+				for (const cell of cells) {
+					const document = cell.document;
+					if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
+						result.push(cell);
+					}
+				}
+				return result;
+			}
 		}
 	};
 
@@ -1460,6 +1472,19 @@ function realActivate(context: ExtensionContext): void {
 				}
 			}
 		});
+
+		const notebookFeature = client.getFeature(Proposed.NotebookDocumentSyncRegistrationType.method);
+		if (notebookFeature !== undefined) {
+			notebookFeature.register({
+				id: String(Date.now()),
+				registerOptions: {
+					notebookDocumentSelector: [{
+						notebookDocumentFilter: { scheme: 'file' }
+					}],
+					mode: 'notebook'
+				}
+			});
+		}
 	};
 
 	client.onReady().then(readyHandler).catch((error) => client.error(`On ready failed`, error));
