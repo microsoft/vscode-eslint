@@ -16,7 +16,7 @@ From version 2.2.3 on forward odd major, minor or patch version numbers indicate
 
 ### Version 2.2.0
 
-Added support for ESLint V8.0 Beta. To stay backwards compatible with eslint settings the version still uses the CLIEngine if available. However users can force the use of the new ESLint API using the setting `eslint.useESLintClass`.
+Added support for ESLint V8.0 Beta. To stay backwards compatible with eslint settings the version still uses the CLIEngine if available. However users can force the use of the new ESLint API using the setting `eslint.useESLintClass`. Be ware that the ESLint npm module changed how options are interpreted. It also changed the names of certain options. If you used `eslint.options` to pass special options to the ESLint npm module you might need to adapt the setting to the new [form](https://eslint.org/docs/developer-guide/nodejs-api#-new-eslintoptions).
 
 ### Version 2.1.22
 
