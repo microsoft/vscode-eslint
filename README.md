@@ -281,8 +281,6 @@ This extension contributes the following commands to the Command palette.
 
 - `Create '.eslintrc.json' file`: creates a new `.eslintrc.json` file.
 - `Fix all auto-fixable problems`: applies ESLint auto-fix resolutions to all fixable problems.
-- `Reset Library Decisions`: Resets the ESLint library validation confirmations.
-- `Manage Library Execution`: Opens the library execution confirmation dialog.
 
 ## Using the extension with VS Code's task running
 
