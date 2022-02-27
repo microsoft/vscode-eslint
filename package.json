@@ -444,6 +444,11 @@
 					"type": "array",
 					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules."
 				}
+			},   
+			"eslint.notebooks.config": {
+				"scope": "resource",
+				"type": "string",
+				"description": "A special eslint configuration file to be used when validating cells in notebook documents"
 			}
 		},
 		"commands": [

@@ -69,52 +69,52 @@ enum Status {
 	error = 3
 }
 
-interface StatusParams {
+type StatusParams = {
 	uri: string;
 	state: Status;
-}
+};
 
 namespace StatusNotification {
 	export const type = new NotificationType<StatusParams>('eslint/status');
 }
 
-interface NoConfigParams {
+type NoConfigParams = {
 	message: string;
 	document: TextDocumentIdentifier;
-}
+};
 
-interface NoConfigResult {
-}
+type NoConfigResult = {
+};
 
 namespace NoConfigRequest {
 	export const type = new RequestType<NoConfigParams, NoConfigResult, void>('eslint/noConfig');
 }
 
-interface NoESLintLibraryParams {
+type NoESLintLibraryParams = {
 	source: TextDocumentIdentifier;
-}
+};
 
-interface NoESLintLibraryResult {
-}
+type NoESLintLibraryResult = {
+};
 
 namespace NoESLintLibraryRequest {
 	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void>('eslint/noLibrary');
 }
 
-interface OpenESLintDocParams {
+type OpenESLintDocParams = {
 	url: string;
-}
+};
 
-interface OpenESLintDocResult {
-}
+type OpenESLintDocResult = {
+};
 
 namespace OpenESLintDocRequest {
 	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void>('eslint/openDoc');
 }
 
-interface ProbeFailedParams {
+type ProbeFailedParams = {
 	textDocument: TextDocumentIdentifier;
-}
+};
 
 namespace ProbeFailedRequest {
 	export const type = new RequestType<ProbeFailedParams, void, void>('eslint/probeFailed');
@@ -228,6 +228,9 @@ interface CommonSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
+	notebooks: undefined | {
+		config: string | undefined;
+	}
 }
 
 interface ConfigurationSettings extends CommonSettings {
@@ -302,6 +305,7 @@ interface ESLintClassOptions {
 	fixTypes?: string[];
 	fix?: boolean;
 	overrideConfig?: ConfigData;
+	overrideConfigFile?: string | null;
 }
 
 type RuleMetaData = {
@@ -1678,6 +1682,9 @@ function withESLintClass<T>(func: (eslintClass: ESLintClass) => T, settings: Tex
 			}
 		}
 
+		if ( typeof settings.notebooks?.config === 'string' && (newOptions as ESLintClassOptions).overrideConfig === undefined) {
+			(newOptions as ESLintClassOptions).overrideConfigFile = settings.notebooks.config;
+		}
 		const eslintClass = ESLintClass.newESLintClass(settings.library, newOptions, settings.useESLintClass);
 		return func(eslintClass);
 	} finally {

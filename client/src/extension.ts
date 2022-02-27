@@ -217,6 +217,9 @@ interface ConfigurationSettings {
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
+	notebooks: undefined | {
+		config: string | undefined;
+	}
 }
 
 interface NoESLintState {
@@ -1183,7 +1186,8 @@ function realActivate(context: ExtensionContext): void {
 							codeAction: {
 								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
-							}
+							},
+							notebooks: undefined
 						};
 						const document: TextDocument | undefined = syncedDocuments.get(item.scopeUri);
 						if (document === undefined) {
@@ -1192,6 +1196,10 @@ function realActivate(context: ExtensionContext): void {
 						}
 						if (config.get('enabled', true)) {
 							settings.validate = computeValidate(document);
+						}
+						const notebookConfig = config.get('notebooks.config', undefined);
+						if (typeof notebookConfig === 'string') {
+							settings.notebooks = { config: notebookConfig };
 						}
 						if (settings.validate !== Validate.off) {
 							settings.format = !!config.get('format.enable', false);
