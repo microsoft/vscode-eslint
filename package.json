@@ -22,13 +22,18 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.63.0"
+		"vscode": "^1.64.0"
 	},
 	"activationEvents": [
 		"onStartupFinished"
 	],
 	"extensionKind": [
 		"workspace"
+	],
+	"enabledApiProposals": [
+		"tabs",
+		"notebookEditor",
+		"notebookCellExecutionState"
 	],
 	"main": "./client/out/extension",
 	"capabilities": {
@@ -438,6 +443,31 @@
 					"scope": "resource",
 					"type": "array",
 					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules."
+				},
+				"eslint.notebooks.rules.customizations": {
+						"items": {
+							"properties": {
+								"severity": {
+									"enum": [
+										"downgrade",
+										"error",
+										"info",
+										"default",
+										"upgrade",
+										"warn",
+										"off"
+									],
+									"type": "string"
+								},
+								"rule": {
+									"type": "string"
+								}
+							},
+							"type": "object"
+						},
+						"scope": "resource",
+						"type": "array",
+						"description": "A special rules customization section for text cells in notebook documents."
 				}
 			}
 		},
@@ -513,7 +543,8 @@
 		"test": "cd client && npm test && cd ..",
 		"lint": "node ./build/bin/all.js run lint",
 		"clean": "rimraf client/out && rimraf server/out",
-		"postinstall": "node ./build/bin/all.js install"
+		"postinstall": "node ./build/bin/all.js install",
+		"dev:symlink": "node ./build/bin/symlink.js"
 	},
 	"devDependencies": {
 		"@types/mocha": "^9.1.0",
@@ -527,6 +558,7 @@
 		"ts-loader": "^9.2.6",
 		"typescript": "^4.5.5",
 		"webpack": "^5.55.1",
-		"webpack-cli": "^4.8.0"
+		"webpack-cli": "^4.8.0",
+		"shelljs": "^0.8.5"
 	}
 }

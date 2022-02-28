@@ -17,7 +17,8 @@ import {
 	ExecuteCommandRequest, DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, WorkspaceFolder,
 	DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position, DocumentFormattingRequest,
 	DocumentFormattingRegistrationOptions, Disposable, DocumentFilter, TextDocumentEdit, LSPErrorCodes, DiagnosticTag, NotificationType0,
-	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger
+	Message as LMessage, RequestMessage as LRequestMessage, ResponseMessage as LResponseMessage, uinteger, ServerCapabilities,
+	Proposed, ProposedFeatures
 } from 'vscode-languageserver/node';
 
 import {
@@ -68,52 +69,52 @@ enum Status {
 	error = 3
 }
 
-interface StatusParams {
+type StatusParams = {
 	uri: string;
 	state: Status;
-}
+};
 
 namespace StatusNotification {
 	export const type = new NotificationType<StatusParams>('eslint/status');
 }
 
-interface NoConfigParams {
+type NoConfigParams = {
 	message: string;
 	document: TextDocumentIdentifier;
-}
+};
 
-interface NoConfigResult {
-}
+type NoConfigResult = {
+};
 
 namespace NoConfigRequest {
 	export const type = new RequestType<NoConfigParams, NoConfigResult, void>('eslint/noConfig');
 }
 
-interface NoESLintLibraryParams {
+type NoESLintLibraryParams = {
 	source: TextDocumentIdentifier;
-}
+};
 
-interface NoESLintLibraryResult {
-}
+type NoESLintLibraryResult = {
+};
 
 namespace NoESLintLibraryRequest {
 	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void>('eslint/noLibrary');
 }
 
-interface OpenESLintDocParams {
+type OpenESLintDocParams = {
 	url: string;
-}
+};
 
-interface OpenESLintDocResult {
-}
+type OpenESLintDocResult = {
+};
 
 namespace OpenESLintDocRequest {
 	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void>('eslint/openDoc');
 }
 
-interface ProbeFailedParams {
+type ProbeFailedParams = {
 	textDocument: TextDocumentIdentifier;
-}
+};
 
 namespace ProbeFailedRequest {
 	export const type = new RequestType<ProbeFailedParams, void, void>('eslint/probeFailed');
@@ -301,6 +302,7 @@ interface ESLintClassOptions {
 	fixTypes?: string[];
 	fix?: boolean;
 	overrideConfig?: ConfigData;
+	overrideConfigFile?: string | null;
 }
 
 type RuleMetaData = {
@@ -854,10 +856,32 @@ function getFilePath(documentOrUri: string | TextDocument | URI | undefined): st
 		return undefined;
 	}
 	const uri = getUri(documentOrUri);
-	if (uri.scheme !== 'file') {
-		return undefined;
+	if (uri.scheme === 'file') {
+		return getFileSystemPath(uri);
 	}
-	return getFileSystemPath(uri);
+
+	const notebookDocument = notebooks.findNotebookDocumentForCell(uri.toString());
+	if (notebookDocument !== undefined ) {
+		const notebookUri = URI.parse(notebookDocument.uri);
+		if (notebookUri.scheme === 'file') {
+			const filePath = getFileSystemPath(uri);
+			if (filePath !== undefined) {
+				const textDocument = documents.get(uri.toString());
+				if (textDocument !== undefined) {
+					const extension = getDefaultExtension(textDocument.languageId);
+					if (extension !== undefined) {
+						const extname = path.extname(filePath);
+						if (extname.length === 0 && filePath[0] === '.') {
+							return `${filePath}.${extension}`;
+						} else if (extname.length > 0 && extname !== extension) {
+							return `${filePath.substring(0, filePath.length - extname.length)}.${extension}`;
+						}
+					}
+				}
+			}
+		}
+	}
+	return undefined;
 }
 
 const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
@@ -865,7 +889,7 @@ const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 const nodeExit = process.exit;
 process.exit = ((code?: number): void => {
 	const stack = new Error('stack');
-	connection.sendNotification(exitCalled, [code ? code : 0, stack.stack]);
+	void connection.sendNotification(exitCalled, [code ? code : 0, stack.stack]);
 	setTimeout(() => {
 		nodeExit(code);
 	}, 1000);
@@ -902,7 +926,7 @@ function isRequestMessage(message: LMessage | undefined): message is LRequestMes
 	return candidate && typeof candidate.method === 'string' && (typeof candidate.id === 'string' || typeof candidate.id === 'number');
 }
 
-const connection = createConnection({
+const connection: ProposedFeatures.Connection = createConnection(ProposedFeatures.all, {
 	cancelUndispatched: (message: LMessage) => {
 		// Code actions can savely be cancel on request.
 		if (isRequestMessage(message) && message.method === 'textDocument/codeAction') {
@@ -917,8 +941,7 @@ const connection = createConnection({
 	}
 });
 connection.console.info(`ESLint server running in node ${process.version}`);
-// Is instantiated in the initialize handle;
-let documents!: TextDocuments<TextDocument>;
+const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 const _globalPaths: Record<string, { cache: string | undefined; get(): string | undefined; }> = {
 	yarn: {
@@ -964,8 +987,8 @@ const languageId2Config: Map<string, LanguageConfig> = new Map([
 	['javascriptreact', { ext: 'jsx', lineComment: '//', blockComment: ['/*', '*/'] }],
 	['typescript', { ext: 'ts', lineComment: '//', blockComment: ['/*', '*/'] } ],
 	['typescriptreact', { ext: 'tsx', lineComment: '//', blockComment: ['/*', '*/'] } ],
-	['html', { ext: 'html', lineComment: '//', blockComment: ['/*', '*/'] }],
-	['vue', { ext: 'vue', lineComment: '//', blockComment: ['/*', '*/'] }],
+	['html', { ext: 'html', lineComment: '//', blockComment: ['<!--', '-->'] }],
+	['vue', { ext: 'vue', lineComment: '//', blockComment: ['<!--', '-->'] }],
 	['coffeescript', { ext: 'coffee', lineComment: '#', blockComment: ['###', '###'] }],
 	['yaml', { ext: 'yaml', lineComment: '#', blockComment: ['#', ''] }],
 	['graphql', { ext: 'graphql', lineComment: '#', blockComment: ['#', ''] }]
@@ -977,6 +1000,10 @@ function getLineComment(languageId: string): string {
 
 function getBlockComment(languageId: string): [string, string] {
 	return languageId2Config.get(languageId)?.blockComment ?? ['/**', '*/'];
+}
+
+function getDefaultExtension(languageId: string): string | undefined {
+	return languageId2Config.get(languageId)?.ext;
 }
 
 const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
@@ -1030,10 +1057,10 @@ function getESLintFilePath(document: TextDocument | undefined, settings: TextDoc
 	const uri = URI.parse(document.uri);
 	if (uri.scheme === 'untitled') {
 		if (settings.workspaceFolder !== undefined) {
-			const ext = languageId2Config.get(document.languageId);
+			const ext = getDefaultExtension(document.languageId);
 			const workspacePath = getFilePath(settings.workspaceFolder.uri);
 			if (workspacePath !== undefined && ext !== undefined) {
-				return path.join(workspacePath, `test${ext}`);
+				return path.join(workspacePath, `test.${ext}`);
 			}
 		}
 		return undefined;
@@ -1406,60 +1433,73 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 	return document.version;
 });
 
-function setupDocumentsListeners() {
-	// The documents manager listen for text document create, change
-	// and close on the connection
-	documents.listen(connection);
-	documents.onDidOpen((event) => {
-		void resolveSettings(event.document).then((settings) => {
+namespace Documents {
+	export async function onDidOpen(document: TextDocument): Promise<void> {
+		return resolveSettings(document).then((settings) => {
 			if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 				return;
 			}
 			if (settings.run === 'onSave') {
-				messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+				messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 			}
 		});
-	});
+	}
 
-	// A text document has changed. Validate the document according the run setting.
-	documents.onDidChangeContent((event) => {
-		const uri = event.document.uri;
+	export async function onDidChange(document: TextDocument): Promise<void> {
+		const uri = document.uri;
 		codeActions.delete(uri);
-		void resolveSettings(event.document).then((settings) => {
+		return resolveSettings(document).then((settings) => {
 			if (settings.validate !== Validate.on || settings.run !== 'onType') {
 				return;
 			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+			messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 		});
-	});
+	}
 
-	// A text document has been saved. Validate the document according the run setting.
-	documents.onDidSave((event) => {
-		void resolveSettings(event.document).then((settings) => {
+	export async function onDidSave(document: TextDocument): Promise<void> {
+		return resolveSettings(document).then((settings) => {
 			if (settings.validate !== Validate.on || settings.run !== 'onSave') {
 				return;
 			}
-			messageQueue.addNotificationMessage(ValidateNotification.type, event.document, event.document.version);
+			messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 		});
-	});
+	}
 
-	documents.onDidClose((event) => {
-		void resolveSettings(event.document).then((settings) => {
-			const uri = event.document.uri;
+	export async function onDidClose(document: TextDocument): Promise<void> {
+		return resolveSettings(document).then((settings) => {
+			const uri = document.uri;
 			document2Settings.delete(uri);
 			saveRuleConfigCache.delete(uri);
 			codeActions.delete(uri);
-			const unregister = formatterRegistrations.get(event.document.uri);
+			const unregister = formatterRegistrations.get(document.uri);
 			if (unregister !== undefined) {
 				void unregister.then(disposable => disposable.dispose());
-				formatterRegistrations.delete(event.document.uri);
+				formatterRegistrations.delete(document.uri);
 			}
 			if (settings.validate === Validate.on) {
-				connection.sendDiagnostics({ uri: uri, diagnostics: [] });
+				void connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 			}
 		});
-	});
+	}
 }
+
+documents.onDidOpen((event) => {
+	void Documents.onDidOpen(event.document);
+});
+
+// A text document has changed. Validate the document according the run setting.
+documents.onDidChangeContent((event) => {
+	void Documents.onDidChange(event.document);
+});
+
+// A text document has been saved. Validate the document according the run setting.
+documents.onDidSave((event) => {
+	void Documents.onDidSave(event.document);
+});
+
+documents.onDidClose((event) => {
+	void Documents.onDidClose(event.document);
+});
 
 function environmentChanged() {
 	document2Settings.clear();
@@ -1482,38 +1522,35 @@ function trace(message: string, verbose?: string): void {
 connection.onInitialize((_params, _cancel, progress) => {
 	progress.begin('Initializing ESLint Server');
 	const syncKind: TextDocumentSyncKind = TextDocumentSyncKind.Incremental;
-	documents = new TextDocuments(TextDocument);
-	setupDocumentsListeners();
 	progress.done();
-	return {
-		capabilities: {
-			textDocumentSync: {
-				openClose: true,
-				change: syncKind,
-				willSaveWaitUntil: false,
-				save: {
-					includeText: false
-				}
-			},
-			workspace: {
-				workspaceFolders: {
-					supported: true
-				}
-			},
-			codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
-			executeCommandProvider: {
-				commands: [
-					CommandIds.applySingleFix,
-					CommandIds.applySuggestion,
-					CommandIds.applySameFixes,
-					CommandIds.applyAllFixes,
-					CommandIds.applyDisableLine,
-					CommandIds.applyDisableFile,
-					CommandIds.openRuleDoc,
-				]
+	const capabilities: ServerCapabilities & Proposed.$NotebookDocumentSyncServerCapabilities = {
+		textDocumentSync: {
+			openClose: true,
+			change: syncKind,
+			willSaveWaitUntil: false,
+			save: {
+				includeText: false
 			}
+		},
+		workspace: {
+			workspaceFolders: {
+				supported: true
+			}
+		},
+		codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
+		executeCommandProvider: {
+			commands: [
+				CommandIds.applySingleFix,
+				CommandIds.applySuggestion,
+				CommandIds.applySameFixes,
+				CommandIds.applyAllFixes,
+				CommandIds.applyDisableLine,
+				CommandIds.applyDisableFile,
+				CommandIds.openRuleDoc,
+			]
 		}
 	};
+	return { capabilities };
 });
 
 connection.onInitialized(() => {
@@ -1548,11 +1585,11 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 		}
 		try {
 			await validate(document, settings, publishDiagnostics);
-			connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
+			void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		} catch (err) {
 			// if an exception has occurred while validating clear all errors to ensure
 			// we are not showing any stale once
-			connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+			void connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 			if (!settings.silent) {
 				let status: Status | undefined = undefined;
 				for (const handler of singleErrorHandlers) {
@@ -1562,10 +1599,10 @@ function validateSingle(document: TextDocument, publishDiagnostics: boolean = tr
 					}
 				}
 				status = status || Status.error;
-				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: status });
+				void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: status });
 			} else {
 				connection.console.info(getMessage(err, document));
-				connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
+				void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 			}
 		}
 	});
@@ -1638,7 +1675,7 @@ async function validate(document: TextDocument, settings: TextDocumentSettings &
 			}
 		}
 		if (publishDiagnostics) {
-			connection.sendDiagnostics({ uri, diagnostics });
+			void connection.sendDiagnostics({ uri, diagnostics });
 		}
 	}, settings);
 }
@@ -1784,7 +1821,7 @@ function showErrorMessage(error: any, document: TextDocument): Status {
 		void connection.window.showErrorMessage(errorMessage, ...actions).then((value) => {
 			if (value !== undefined) {
 				if (value.id === 1) {
-					connection.sendNotification(ShowOutputChannel.type);
+					void connection.sendNotification(ShowOutputChannel.type);
 				} else if (value.id === 2) {
 					ignoredErrors.add(errorMessage);
 				}
@@ -2400,7 +2437,6 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 	}
 });
 
-
 messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	const textDocument = documents.get(params.textDocument.uri);
 	if (textDocument === undefined) {
@@ -2411,4 +2447,11 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	const document = documents.get(params.textDocument.uri);
 	return document !== undefined ? document.version : undefined;
 });
+
+// The notebooks manager is using the normal document manager for the cell documents.
+// So all validating will work out of the box since normal document events will fire.
+const notebooks = new ProposedFeatures.NotebookDocuments(documents);
+
+documents.listen(connection);
+notebooks.listen(connection);
 connection.listen();

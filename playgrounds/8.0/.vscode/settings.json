@@ -65,7 +65,10 @@
 	// ,"eslint.execArgv": [
 	// 	"--max_old_space_size=4096"
 	// ]
-	, "eslint.useESLintClass": false
+	, "eslint.useESLintClass": false,
+	"eslint.notebooks.rules.customizations" : [
+		{ "rule": "no-unused-vars", "severity": "off" },
+	]
 }
 
 

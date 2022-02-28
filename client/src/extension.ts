@@ -10,13 +10,13 @@ import {
 	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri,
 	StatusBarAlignment, TextDocument, CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem,
 	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind,
-	WorkspaceConfiguration, ThemeColor
+	WorkspaceConfiguration, ThemeColor, NotebookCell
 } from 'vscode';
 import {
 	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
 	ErrorHandlerResult, CloseAction, CloseHandlerResult, State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier,
 	ExecuteCommandRequest, ExecuteCommandParams, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder, NotificationType0
+	WorkspaceFolder, NotificationType0, ProposedFeatures, Proposed
 } from 'vscode-languageclient/node';
 
 import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
@@ -378,23 +378,6 @@ function computeValidate(textDocument: TextDocument): Validate {
 		}
 	}
 	return Validate.off;
-}
-
-function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
-	if (!rawConfig || !Array.isArray(rawConfig)) {
-		return [];
-	}
-
-	return rawConfig.map(rawValue => {
-		if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
-			return {
-				severity: rawValue.severity,
-				rule: rawValue.rule,
-			};
-		}
-
-		return undefined;
-	}).filter((value): value is RuleCustomization => !!value);
 }
 
 let taskProvider: TaskProvider;
@@ -926,6 +909,39 @@ function realActivate(context: ExtensionContext): void {
 		return value;
 	}
 
+	function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
+		if (!rawConfig || !Array.isArray(rawConfig)) {
+			return [];
+		}
+
+		return rawConfig.map(rawValue => {
+			if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
+				return {
+					severity: rawValue.severity,
+					rule: rawValue.rule,
+				};
+			}
+
+			return undefined;
+		}).filter((value): value is RuleCustomization => !!value);
+	}
+
+	function getRuleCustomizations(config: WorkspaceConfiguration, uri: Uri): RuleCustomization[] {
+		let customizations: any = undefined;
+		if (uri.scheme === 'vscode-notebook-cell') {
+			customizations = config.get('notebooks.rules.customizations', undefined);
+		}
+		if (customizations === undefined || customizations === null) {
+			customizations = config.get('rules.customizations');
+		}
+		return parseRulesCustomizations(customizations);
+	}
+
+	function getTextDocument(uri: Uri): TextDocument | undefined {
+		return syncedDocuments.get(uri.toString());
+
+	}
+
 	const serverModule = Uri.joinPath(context.extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 	const eslintConfig = Workspace.getConfiguration('eslint');
 	const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
@@ -1027,6 +1043,35 @@ function realActivate(context: ExtensionContext): void {
 					return next(document);
 				}
 			},
+			notebooks: {
+				didOpen: (notebookDocument, cells, next) => {
+					const result = next(notebookDocument, cells);
+					for (const cell of cells) {
+						syncedDocuments.set(cell.document.uri.toString(), cell.document);
+					}
+					return result;
+				},
+				didChange: (notebookDocument, event, next) => {
+					if (event.cells?.structure?.didOpen !== undefined) {
+						for (const open of event.cells.structure.didOpen) {
+							syncedDocuments.set(open.document.uri.toString(), open.document);
+						}
+					}
+					if (event.cells?.structure?.didClose !== undefined) {
+						for (const closed of event.cells.structure.didClose) {
+							syncedDocuments.delete(closed.document.uri.toString());
+						}
+					}
+					return next(notebookDocument, event);
+				},
+				didClose: (document, cells, next) => {
+					for (const cell of cells) {
+						const key = cell.document.uri.toString();
+						syncedDocuments.delete(key);
+					}
+					return next(document, cells);
+				}
+			},
 			provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
 				if (!syncedDocuments.has(document.uri.toString())) {
 					return [];
@@ -1074,7 +1119,8 @@ function realActivate(context: ExtensionContext): void {
 							continue;
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
-						const config = Workspace.getConfiguration('eslint', resource);
+						const textDocument = getTextDocument(resource);
+						const config = Workspace.getConfiguration('eslint', textDocument ?? resource);
 						const workspaceFolder = resource.scheme === 'untitled'
 							? Workspace.workspaceFolders !== undefined ? Workspace.workspaceFolders[0] : undefined
 							: Workspace.getWorkspaceFolder(resource);
@@ -1137,7 +1183,7 @@ function realActivate(context: ExtensionContext): void {
 							quiet: config.get('quiet', false),
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
-							rulesCustomizations: parseRulesCustomizations(config.get('rules.customizations')),
+							rulesCustomizations: getRuleCustomizations(config, resource),
 							run: config.get('run', 'onType'),
 							nodePath: config.get<string | undefined>('nodePath', undefined) ?? null,
 							workingDirectory: undefined,
@@ -1245,6 +1291,18 @@ function realActivate(context: ExtensionContext): void {
 					return result;
 				}
 			}
+		},
+		notebookDocumentOptions: {
+			filterCells: (_notebookDocument, cells) => {
+				const result: NotebookCell[] = [];
+				for (const cell of cells) {
+					const document = cell.document;
+					if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
+						result.push(cell);
+					}
+				}
+				return result;
+			}
 		}
 	};
 
@@ -1255,8 +1313,7 @@ function realActivate(context: ExtensionContext): void {
 		void Window.showErrorMessage(`The ESLint extension couldn't be started. See the ESLint output channel for details.`);
 		return;
 	}
-	// Currently we don't need any proposed features.
-	// client.registerProposedFeatures();
+	client.registerFeature(ProposedFeatures.createNotebookDocumentSyncFeature(client));
 
 	Workspace.onDidChangeConfiguration(() => {
 		probeFailed.clear();
@@ -1423,6 +1480,19 @@ function realActivate(context: ExtensionContext): void {
 				}
 			}
 		});
+
+		const notebookFeature = client.getFeature(Proposed.NotebookDocumentSyncRegistrationType.method);
+		if (notebookFeature !== undefined) {
+			notebookFeature.register({
+				id: String(Date.now()),
+				registerOptions: {
+					notebookDocumentSelector: [{
+						notebookDocumentFilter: { scheme: 'file' }
+					}],
+					mode: 'notebook'
+				}
+			});
+		}
 	};
 
 	client.onReady().then(readyHandler).catch((error) => client.error(`On ready failed`, error));

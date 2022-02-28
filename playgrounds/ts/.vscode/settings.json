@@ -6,4 +6,7 @@
 	"eslint.format.enable": true,
 	"eslint.trace.server": "messages",
 	"eslint.debug": true,
+	"eslint.notebooks.rules.customizations": [
+		{ "rule": "eol-last", "severity": "off" }
+	]
 }
