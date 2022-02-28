@@ -228,9 +228,6 @@ interface CommonSettings {
 	run: RunValues;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
-	notebooks: undefined | {
-		config: string | undefined;
-	}
 }
 
 interface ConfigurationSettings extends CommonSettings {
@@ -858,16 +855,30 @@ function getFilePath(documentOrUri: string | TextDocument | URI | undefined): st
 	if (!documentOrUri) {
 		return undefined;
 	}
-	let uri = getUri(documentOrUri);
+	const uri = getUri(documentOrUri);
 	if (uri.scheme === 'file') {
 		return getFileSystemPath(uri);
 	}
 
 	const notebookDocument = notebooks.findNotebookDocumentForCell(uri.toString());
 	if (notebookDocument !== undefined ) {
-		uri = URI.parse(notebookDocument.uri);
-		if (uri.scheme === 'file') {
-			return getFilePath(uri);
+		const notebookUri = URI.parse(notebookDocument.uri);
+		if (notebookUri.scheme === 'file') {
+			const filePath = getFileSystemPath(uri);
+			if (filePath !== undefined) {
+				const textDocument = documents.get(uri.toString());
+				if (textDocument !== undefined) {
+					const extension = getDefaultExtension(textDocument.languageId);
+					if (extension !== undefined) {
+						const extname = path.extname(filePath);
+						if (extname.length === 0 && filePath[0] === '.') {
+							return `${filePath}.${extension}`;
+						} else if (extname.length > 0 && extname !== extension) {
+							return `${filePath.substring(0, filePath.length - extname.length)}.${extension}`;
+						}
+					}
+				}
+			}
 		}
 	}
 	return undefined;
@@ -991,6 +1002,10 @@ function getBlockComment(languageId: string): [string, string] {
 	return languageId2Config.get(languageId)?.blockComment ?? ['/**', '*/'];
 }
 
+function getDefaultExtension(languageId: string): string | undefined {
+	return languageId2Config.get(languageId)?.ext;
+}
+
 const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
 	const result = new Map<string, RegExp[]>();
 	const typescript = /\/@typescript-eslint\/parser\//;
@@ -1042,10 +1057,10 @@ function getESLintFilePath(document: TextDocument | undefined, settings: TextDoc
 	const uri = URI.parse(document.uri);
 	if (uri.scheme === 'untitled') {
 		if (settings.workspaceFolder !== undefined) {
-			const ext = languageId2Config.get(document.languageId);
+			const ext = getDefaultExtension(document.languageId);
 			const workspacePath = getFilePath(settings.workspaceFolder.uri);
 			if (workspacePath !== undefined && ext !== undefined) {
-				return path.join(workspacePath, `test${ext}`);
+				return path.join(workspacePath, `test.${ext}`);
 			}
 		}
 		return undefined;
@@ -1682,9 +1697,6 @@ function withESLintClass<T>(func: (eslintClass: ESLintClass) => T, settings: Tex
 			}
 		}
 
-		if ( typeof settings.notebooks?.config === 'string' && (newOptions as ESLintClassOptions).overrideConfig === undefined) {
-			(newOptions as ESLintClassOptions).overrideConfigFile = settings.notebooks.config;
-		}
 		const eslintClass = ESLintClass.newESLintClass(settings.library, newOptions, settings.useESLintClass);
 		return func(eslintClass);
 	} finally {

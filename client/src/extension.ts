@@ -217,9 +217,6 @@ interface ConfigurationSettings {
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
-	notebooks: undefined | {
-		config: string | undefined;
-	}
 }
 
 interface NoESLintState {
@@ -381,23 +378,6 @@ function computeValidate(textDocument: TextDocument): Validate {
 		}
 	}
 	return Validate.off;
-}
-
-function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
-	if (!rawConfig || !Array.isArray(rawConfig)) {
-		return [];
-	}
-
-	return rawConfig.map(rawValue => {
-		if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
-			return {
-				severity: rawValue.severity,
-				rule: rawValue.rule,
-			};
-		}
-
-		return undefined;
-	}).filter((value): value is RuleCustomization => !!value);
 }
 
 let taskProvider: TaskProvider;
@@ -938,6 +918,39 @@ function realActivate(context: ExtensionContext): void {
 		return value;
 	}
 
+	function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
+		if (!rawConfig || !Array.isArray(rawConfig)) {
+			return [];
+		}
+
+		return rawConfig.map(rawValue => {
+			if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
+				return {
+					severity: rawValue.severity,
+					rule: rawValue.rule,
+				};
+			}
+
+			return undefined;
+		}).filter((value): value is RuleCustomization => !!value);
+	}
+
+	function getRuleCustomizations(config: WorkspaceConfiguration, uri: Uri): RuleCustomization[] {
+		let customizations: any = undefined;
+		if (uri.scheme === 'vscode-notebook-cell') {
+			customizations = config.get('notebooks.rules.customizations', undefined);
+		}
+		if (customizations === undefined || customizations === null) {
+			customizations = config.get('rules.customizations');
+		}
+		return parseRulesCustomizations(customizations);
+	}
+
+	function getTextDocument(uri: Uri): TextDocument | undefined {
+		return syncedDocuments.get(uri.toString());
+
+	}
+
 	const serverModule = Uri.joinPath(context.extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 	const eslintConfig = Workspace.getConfiguration('eslint');
 	const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
@@ -1115,7 +1128,8 @@ function realActivate(context: ExtensionContext): void {
 							continue;
 						}
 						const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
-						const config = Workspace.getConfiguration('eslint', resource);
+						const textDocument = getTextDocument(resource);
+						const config = Workspace.getConfiguration('eslint', textDocument ?? resource);
 						const workspaceFolder = resource.scheme === 'untitled'
 							? Workspace.workspaceFolders !== undefined ? Workspace.workspaceFolders[0] : undefined
 							: Workspace.getWorkspaceFolder(resource);
@@ -1178,7 +1192,7 @@ function realActivate(context: ExtensionContext): void {
 							quiet: config.get('quiet', false),
 							onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 							options: config.get('options', {}),
-							rulesCustomizations: parseRulesCustomizations(config.get('rules.customizations')),
+							rulesCustomizations: getRuleCustomizations(config, resource),
 							run: config.get('run', 'onType'),
 							nodePath: config.get<string | undefined>('nodePath', undefined) ?? null,
 							workingDirectory: undefined,
@@ -1186,8 +1200,7 @@ function realActivate(context: ExtensionContext): void {
 							codeAction: {
 								disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
 								showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
-							},
-							notebooks: undefined
+							}
 						};
 						const document: TextDocument | undefined = syncedDocuments.get(item.scopeUri);
 						if (document === undefined) {
@@ -1196,10 +1209,6 @@ function realActivate(context: ExtensionContext): void {
 						}
 						if (config.get('enabled', true)) {
 							settings.validate = computeValidate(document);
-						}
-						const notebookConfig = config.get('notebooks.config', undefined);
-						if (typeof notebookConfig === 'string') {
-							settings.notebooks = { config: notebookConfig };
 						}
 						if (settings.validate !== Validate.off) {
 							settings.format = !!config.get('format.enable', false);
