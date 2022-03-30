@@ -20,6 +20,9 @@
 		"vscode-uri": "^3.0.3"
 	},
 	"scripts": {
+		"webpack": "npm run clean && webpack --mode production --config ./webpack.config.js",
+		"webpack:dev": "npm run clean && webpack --mode none --config ./webpack.config.js",
+		"clean": "rimraf ./out",
 		"lint": "node ../node_modules/eslint/bin/eslint.js --ext ts src"
 	}
 }
