@@ -335,10 +335,16 @@
 				},
 				"eslint.execArgv": {
 					"scope": "machine-overridable",
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}, {
+							"type": "null"
+						}
+					],
 					"default": null,
 					"markdownDescription": "Additional exec argv argument passed to the runtime. This can for example be used to control the maximum heap space using --max_old_space_size"
 				},
@@ -406,10 +412,16 @@
 				},
 				"eslint.codeActionsOnSave.rules": {
 					"scope": "resource",
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}, {
+							"type": "null"
+						}
+					],
 					"default": null,
 					"markdownDescription": "The rules that should be executed when computing the code actions on save or formatting a file. Defaults to the rules configured via the ESLint configuration"
 				},
