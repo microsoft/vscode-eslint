@@ -5,11 +5,16 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { Disposable } from 'vscode-languageclient';
 
 import { findEslint } from './utils';
 
+/**
+ * A special task definition for ESLint tasks
+ */
 interface EslintTaskDefinition extends vscode.TaskDefinition {
 }
+
 
 class FolderTaskProvider {
 	constructor(private _workspaceFolder: vscode.WorkspaceFolder) {
@@ -56,31 +61,58 @@ class FolderTaskProvider {
 	}
 }
 
+/**
+ * A task provider that adds ESLint checking tasks.
+ */
 export class TaskProvider {
 
+	/**
+	 * A Disposable to unregister the task provider inside
+	 * VS Code.
+	 */
 	private taskProvider: vscode.Disposable | undefined;
-	private providers: Map<string, FolderTaskProvider> = new Map();
+
+	/**
+	 * The actual providers per workspace folder.
+	 */
+	private readonly providers: Map<string, FolderTaskProvider>;
+
+	/**
+	 * A disposable to unregister event listeners
+	 */
+	private disposable: Disposable | undefined;
 
 	constructor() {
+		this.providers = new Map();
 	}
 
 	public start(): void {
 		const folders = vscode.workspace.workspaceFolders;
-		if (folders) {
+		if (folders !== undefined) {
 			this.updateWorkspaceFolders(folders, []);
 		}
-		vscode.workspace.onDidChangeWorkspaceFolders((event) => this.updateWorkspaceFolders(event.added, event.removed));
-		vscode.workspace.onDidChangeConfiguration(this.updateConfiguration, this);
+
+		const disposables: vscode.Disposable[] = [];
+		disposables.push(vscode.workspace.onDidChangeWorkspaceFolders((event) => this.updateWorkspaceFolders(event.added, event.removed)));
+		disposables.push(vscode.workspace.onDidChangeConfiguration(this.updateConfiguration, this));
+		this.disposable = vscode.Disposable.from(...disposables);
 	}
 
 	public dispose(): void {
-		if (this.taskProvider) {
+		if (this.taskProvider !== undefined) {
 			this.taskProvider.dispose();
 			this.taskProvider = undefined;
+		}
+		if (this.disposable !== undefined) {
+			this.disposable.dispose();
+			this.disposable = undefined;
 		}
 		this.providers.clear();
 	}
 
+	/**
+	 * The workspace folders have changed.
+	 */
 	private updateWorkspaceFolders(added: ReadonlyArray<vscode.WorkspaceFolder>, removed: ReadonlyArray<vscode.WorkspaceFolder>): void {
 		for (let remove of removed) {
 			const provider = this.providers.get(remove.uri.toString());
@@ -99,6 +131,9 @@ export class TaskProvider {
 		this.updateProvider();
 	}
 
+	/**
+	 * The configuration has changed.
+	 */
 	private updateConfiguration(): void {
 		for (let detector of this.providers.values()) {
 			if (!detector.isEnabled()) {
@@ -123,7 +158,7 @@ export class TaskProvider {
 
 	private updateProvider(): void {
 		if (!this.taskProvider && this.providers.size > 0) {
-			this.taskProvider = vscode.workspace.registerTaskProvider('eslint', {
+			this.taskProvider = vscode.tasks.registerTaskProvider('eslint', {
 				provideTasks: () => {
 					return this.getTasks();
 				},
@@ -131,24 +166,22 @@ export class TaskProvider {
 					return undefined;
 				}
 			});
-		}
-		else if (this.taskProvider && this.providers.size === 0) {
+		} else if (this.taskProvider && this.providers.size === 0) {
 			this.taskProvider.dispose();
 			this.taskProvider = undefined;
 		}
 	}
 
-	private getTasks(): Promise<vscode.Task[]> {
+	private async getTasks(): Promise<vscode.Task[]> {
 		if (this.providers.size === 0) {
-			return Promise.resolve([]);
+			return [];
 		} else {
 			const promises: Promise<vscode.Task | undefined>[] = [];
 			for (let provider of this.providers.values()) {
 				promises.push(provider.getTask());
 			}
-			return Promise.all(promises).then((values) => {
-				return values.filter(value => value !== undefined) as vscode.Task[];
-			});
+			const values = await Promise.all(promises);
+			return values.filter<vscode.Task>((value): value is vscode.Task => { return value !== undefined; });
 		}
 	}
 }
