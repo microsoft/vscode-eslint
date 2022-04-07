@@ -2,7 +2,6 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-'use strict';
 
 import * as path from 'path';
 import * as fs from 'fs';
@@ -13,281 +12,30 @@ import {
 	WorkspaceConfiguration, ThemeColor, NotebookCell
 } from 'vscode';
 import {
-	LanguageClient, LanguageClientOptions, RequestType, TransportKind, TextDocumentIdentifier, NotificationType, ErrorHandler,
-	ErrorHandlerResult, CloseAction, CloseHandlerResult, State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier,
-	ExecuteCommandRequest, ExecuteCommandParams, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	WorkspaceFolder, NotificationType0, ProposedFeatures, Proposed
+	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, ErrorHandlerResult, CloseAction, CloseHandlerResult,
+	State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
+	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification, ProposedFeatures, Proposed
 } from 'vscode-languageclient/node';
 
-import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore } from './utils';
+import { findEslint, convert2RegExp, toOSPath, toPosixPath, Semaphore, Is } from './utils';
 import { TaskProvider } from './tasks';
-
-namespace Is {
-	const toString = Object.prototype.toString;
-
-	export function boolean(value: any): value is boolean {
-		return value === true || value === false;
-	}
-
-	export function string(value: any): value is string {
-		return toString.call(value) === '[object String]';
-	}
-
-	export function objectLiteral(value: any): value is object {
-		return value !== null && value !== undefined && !Array.isArray(value) && typeof value === 'object';
-	}
-}
-
-interface ValidateItem {
-	language: string;
-	autoFix?: boolean;
-}
-
-namespace ValidateItem {
-	export function is(item: any): item is ValidateItem {
-		const candidate = item as ValidateItem;
-		return candidate && Is.string(candidate.language) && (Is.boolean(candidate.autoFix) || candidate.autoFix === void 0);
-	}
-}
-
-interface LegacyDirectoryItem {
-	directory: string;
-	changeProcessCWD: boolean;
-}
-
-namespace LegacyDirectoryItem {
-	export function is(item: any): item is LegacyDirectoryItem {
-		const candidate = item as LegacyDirectoryItem;
-		return candidate && Is.string(candidate.directory) && Is.boolean(candidate.changeProcessCWD);
-	}
-}
-
-enum ModeEnum {
-	auto = 'auto',
-	location = 'location'
-}
-
-namespace ModeEnum {
-	export function is(value: string): value is ModeEnum {
-		return value === ModeEnum.auto || value === ModeEnum.location;
-	}
-}
-
-interface ModeItem {
-	mode: ModeEnum
-}
-
-namespace ModeItem {
-	export function is(item: any): item is ModeItem {
-		const candidate = item as ModeItem;
-		return candidate && ModeEnum.is(candidate.mode);
-	}
-}
-
-interface DirectoryItem {
-	directory: string;
-	'!cwd'?: boolean;
-}
-
-namespace DirectoryItem {
-	export function is(item: any): item is DirectoryItem {
-		const candidate = item as DirectoryItem;
-		return candidate && Is.string(candidate.directory) && (Is.boolean(candidate['!cwd']) || candidate['!cwd'] === undefined);
-	}
-}
-
-interface PatternItem {
-	pattern: string;
-	'!cwd'?: boolean;
-}
-
-namespace PatternItem {
-	export function is(item: any): item is PatternItem {
-		const candidate = item as PatternItem;
-		return candidate && Is.string(candidate.pattern) && (Is.boolean(candidate['!cwd']) || candidate['!cwd'] === undefined);
-	}
-}
-
-type RunValues = 'onType' | 'onSave';
-
-interface CodeActionSettings {
-	disableRuleComment: {
-		enable: boolean;
-		location: 'separateLine' | 'sameLine';
-	};
-	showDocumentation: {
-		enable: boolean;
-	};
-}
-
-enum CodeActionsOnSaveMode {
-	all = 'all',
-	problems = 'problems'
-}
-
-namespace CodeActionsOnSaveMode {
-	export function from(value: string | undefined | null): CodeActionsOnSaveMode {
-		if (value === undefined || value === null || !Is.string(value)) {
-			return CodeActionsOnSaveMode.all;
-		}
-		switch(value.toLowerCase()) {
-			case CodeActionsOnSaveMode.problems:
-				return CodeActionsOnSaveMode.problems;
-			default:
-				return CodeActionsOnSaveMode.all;
-		}
-	}
-}
-
-namespace CodeActionsOnSaveRules {
-	export function from(value: string[] | undefined | null): string[] | undefined {
-		if (value === undefined || value === null || !Array.isArray(value)) {
-			return undefined;
-		}
-		return value.filter(item => Is.string(item));
-	}
-}
-
-interface CodeActionsOnSaveSettings {
-	enable: boolean;
-	mode: CodeActionsOnSaveMode,
-	rules?: string[]
-}
-
-enum Validate {
-	on = 'on',
-	off = 'off',
-	probe = 'probe'
-}
-
-enum ESLintSeverity {
-	off = 'off',
-	warn = 'warn',
-	error = 'error'
-}
-
-namespace ESLintSeverity {
-	export function from(value: string | undefined | null): ESLintSeverity {
-		if (value === undefined || value === null) {
-			return ESLintSeverity.off;
-		}
-		switch (value.toLowerCase()) {
-			case ESLintSeverity.off:
-				return ESLintSeverity.off;
-			case ESLintSeverity.warn:
-				return ESLintSeverity.warn;
-			case ESLintSeverity.error:
-				return ESLintSeverity.error;
-			default:
-				return ESLintSeverity.off;
-		}
-	}
-}
-
-enum RuleSeverity {
-	// Original ESLint values
-	info = 'info',
-	warn = 'warn',
-	error = 'error',
-	off = 'off',
-
-	// Added severity override changes
-	default = 'default',
-	downgrade = 'downgrade',
-	upgrade = 'upgrade'
-}
-
-interface RuleCustomization  {
-	rule: string;
-	severity: RuleSeverity;
-}
-
-interface ConfigurationSettings {
-	validate: Validate;
-	packageManager: 'npm' | 'yarn' | 'pnpm';
-	useESLintClass: boolean;
-	codeAction: CodeActionSettings;
-	codeActionOnSave: CodeActionsOnSaveSettings;
-	format: boolean;
-	quiet: boolean;
-	onIgnoredFiles: ESLintSeverity;
-	options: any | undefined;
-	rulesCustomizations: RuleCustomization[];
-	run: RunValues;
-	nodePath: string | null;
-	workspaceFolder: WorkspaceFolder | undefined;
-	workingDirectory: ModeItem | DirectoryItem | undefined;
-}
+import {
+	CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeItem,
+	RuleCustomization, Validate
+} from './sharedSettings';
+import {
+	LegacyDirectoryItem, PatternItem, ValidateItem
+} from './settings';
+import {
+	ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status,
+	StatusNotification, StatusParams
+} from './customMessages';
 
 interface NoESLintState {
 	global?: boolean;
 	workspaces?: { [key: string]: boolean };
 }
 
-enum Status {
-	ok = 1,
-	warn = 2,
-	error = 3
-}
-
-interface StatusParams {
-	uri: string;
-	state: Status;
-}
-
-namespace StatusNotification {
-	export const type = new NotificationType<StatusParams>('eslint/status');
-}
-
-interface NoConfigParams {
-	message: string;
-	document: TextDocumentIdentifier;
-}
-
-interface NoConfigResult {
-}
-
-namespace NoConfigRequest {
-	export const type = new RequestType<NoConfigParams, NoConfigResult, void>('eslint/noConfig');
-}
-
-
-interface NoESLintLibraryParams {
-	source: TextDocumentIdentifier;
-}
-
-interface NoESLintLibraryResult {
-}
-
-namespace NoESLintLibraryRequest {
-	export const type = new RequestType<NoESLintLibraryParams, NoESLintLibraryResult, void>('eslint/noLibrary');
-}
-
-interface OpenESLintDocParams {
-	url: string;
-}
-
-interface OpenESLintDocResult {
-
-}
-
-namespace OpenESLintDocRequest {
-	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void>('eslint/openDoc');
-}
-
-interface ProbeFailedParams {
-	textDocument: TextDocumentIdentifier;
-}
-
-namespace ProbeFailedRequest {
-	export const type = new RequestType<ProbeFailedParams, void, void>('eslint/probeFailed');
-}
-
-namespace ShowOutputChannel {
-	export const type = new NotificationType0('eslint/showOutputChannel');
-}
-
-const exitCalled = new NotificationType<[number, string]>('eslint/exitCalled');
 
 interface WorkspaceFolderItem extends QuickPickItem {
 	folder: VWorkspaceFolder;
@@ -1363,7 +1111,7 @@ function realActivate(context: ExtensionContext): void {
 			updateDocumentStatus(params);
 		});
 
-		client.onNotification(exitCalled, (params) => {
+		client.onNotification(ExitCalled.type, (params) => {
 			serverCalledProcessExit = true;
 			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
 			void Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {

@@ -6,6 +6,22 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+export namespace Is {
+	const toString = Object.prototype.toString;
+
+	export function boolean(value: any): value is boolean {
+		return value === true || value === false;
+	}
+
+	export function string(value: any): value is string {
+		return toString.call(value) === '[object String]';
+	}
+
+	export function objectLiteral(value: any): value is object {
+		return value !== null && value !== undefined && !Array.isArray(value) && typeof value === 'object';
+	}
+}
+
 /**
  * Converts a path to the OS representation,
  * @param path the path to convert.
