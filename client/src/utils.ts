@@ -2,29 +2,65 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-'use strict';
 
 import * as fs from 'fs';
 import * as path from 'path';
 
-function exists(file: string): Promise<boolean> {
-	return new Promise<boolean>((resolve, _reject) => {
-		fs.exists(file, (value) => {
-			resolve(value);
-		});
-	});
+/**
+ * Converts a path to the OS representation,
+ * @param path the path to convert.
+ * @returns the converted path.
+ */
+export function toOSPath(path: string): string {
+	if (process.platform === 'win32') {
+		path = path.replace(/^\/(\w)\//, '$1:\\');
+		return path.replace(/\//g, '\\');
+	} else {
+		return path;
+	}
 }
 
+/**
+ * Converts a path to a posix path.
+ * @param path the path to convert.
+ * @returns the posix path.
+ */
+export function toPosixPath(path: string): string {
+	if (process.platform !== 'win32') {
+		return path;
+	}
+	return path.replace(/\\/g, '/');
+}
+
+/**
+ * Find a ESLint installation at a given root path.
+ * @param rootPath the root path.
+ * @returns the eslint installation or the unresolved command eslint.
+ */
 export async function findEslint(rootPath: string): Promise<string> {
 	const platform = process.platform;
-	if (platform === 'win32' && await exists(path.join(rootPath, 'node_modules', '.bin', 'eslint.cmd'))) {
+	if (platform === 'win32' && await existFile(path.join(rootPath, 'node_modules', '.bin', 'eslint.cmd'))) {
 		return path.join('.', 'node_modules', '.bin', 'eslint.cmd');
-	} else if ((platform === 'linux' || platform === 'darwin') && await exists(path.join(rootPath, 'node_modules', '.bin', 'eslint'))) {
+	} else if ((platform === 'linux' || platform === 'darwin') && await existFile(path.join(rootPath, 'node_modules', '.bin', 'eslint'))) {
 		return path.join('.', 'node_modules', '.bin', 'eslint');
 	} else {
 		return 'eslint';
 	}
 }
+
+function existFile(file: string): Promise<boolean> {
+	return new Promise<boolean>((resolve, _reject) => {
+		fs.stat(file, (error, stats) => {
+			if (error !== null) {
+				resolve(false);
+			}
+			resolve(stats.isFile());
+
+		});
+	});
+}
+
+// ----- Glob pattern parser
 
 enum NodeType {
 	text = 'text',
@@ -36,37 +72,43 @@ enum NodeType {
 	globStar = 'globStar'
 }
 
-interface TextNode {
+// Text inside the pattern
+type TextNode = {
 	type: NodeType.text;
 	value: string;
-}
+};
 
-interface SeparatorNode {
+// A separator
+type SeparatorNode = {
 	type: NodeType.separator;
-}
+};
 
-interface QuestionMarkNode {
+// The character ?
+type QuestionMarkNode = {
 	type: NodeType.questionMark;
-}
+};
 
-interface StarNode {
+// The character *
+type StarNode = {
 	type: NodeType.star;
-}
+};
 
-interface GlobStarNode {
+// The sequence **
+type GlobStarNode = {
 	type: NodeType.globStar;
-}
+};
 
-interface BracketNode {
+// A bracket
+type BracketNode = {
 	type: NodeType.bracket;
 	value: string;
-}
+};
 
-type BraceAlternative = (TextNode | QuestionMarkNode | StarNode | BracketNode | BraceNode);
-interface BraceNode {
+type BraceAlternative = TextNode | QuestionMarkNode | StarNode | BracketNode | BraceNode;
+type BraceNode = {
 	type: NodeType.brace;
 	alternatives: BraceAlternative[];
-}
+};
 
 type Node = TextNode | SeparatorNode | QuestionMarkNode | StarNode | GlobStarNode | BracketNode | BraceNode;
 
@@ -74,6 +116,9 @@ function escapeRegExpCharacters(value: string): string {
 	return value.replace(/[\\\{\}\*\+\?\|\^\$\.\[\]\(\)]/g, '\\$&');
 }
 
+/**
+ * A parser to parse a pattern in string form.
+ */
 class PatternParser {
 
 	private value: string;
@@ -181,6 +226,12 @@ class PatternParser {
 	}
 }
 
+/**
+ * Converts a pattern in string from to a regular expression.
+ *
+ * @param pattern the pattern as a string to be converted
+ * @returns the regular expression or undefined if the pattern can't be converted.
+ */
 export function convert2RegExp(pattern: string): RegExp | undefined {
 	const separator = process.platform === 'win32' ? '\\\\' : '\\/';
 	const fileChar = `[^${separator}]`;
@@ -227,32 +278,27 @@ export function convert2RegExp(pattern: string): RegExp | undefined {
 	}
 }
 
-export function toOSPath(path: string): string {
-	if (process.platform === 'win32') {
-		path = path.replace(/^\/(\w)\//, '$1:\\');
-		return path.replace(/\//g, '\\');
-	} else {
-		return path;
-	}
-}
+// ----- semaphore implementation
 
-export function toPosixPath(path: string): string {
-	if (process.platform !== 'win32') {
-		return path;
-	}
-	return path.replace(/\\/g, '/');
-}
-
+/**
+ * A piece of work.
+ */
 interface Thunk<T> {
 	(): T;
 }
 
+/**
+ * A thunk waiting in the queue.
+ */
 interface Waiting<T> {
 	thunk: Thunk<T | PromiseLike<T>>;
 	resolve: (value: T | PromiseLike<T>) => void;
 	reject: (reason?: any) => void;
 }
 
+/**
+ * A semaphore implementation.
+ */
 export class Semaphore<T = void> {
 
 	private _capacity: number;
@@ -268,6 +314,11 @@ export class Semaphore<T = void> {
 		this._waiting = [];
 	}
 
+	/**
+	 * Takes a lock and executes the thunk.
+	 * @param thunk the thunk to execute
+	 * @returns a promise for the result of the thunk
+	 */
 	public lock(thunk: () => T | PromiseLike<T>): Promise<T> {
 		return new Promise((resolve, reject) => {
 			this._waiting.push({ thunk, resolve, reject });
@@ -275,6 +326,9 @@ export class Semaphore<T = void> {
 		});
 	}
 
+	/**
+	 * Returns the numbers of the active thunks.
+	 */
 	public get active(): number {
 		return this._active;
 	}
