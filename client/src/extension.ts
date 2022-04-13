@@ -22,7 +22,7 @@ import { TaskProvider } from './tasks';
 import {
 	CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeItem,
 	RuleCustomization, Validate
-} from './sharedSettings';
+} from './shared/settings';
 import {
 	CodeActionsOnSave,
 	LegacyDirectoryItem, Migration, PatternItem, ValidateItem
@@ -30,7 +30,7 @@ import {
 import {
 	ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status,
 	StatusNotification, StatusParams
-} from './customMessages';
+} from './shared/customMessages';
 
 interface NoESLintState {
 	global?: boolean;
@@ -129,21 +129,7 @@ function computeValidate(textDocument: TextDocument): Validate {
 }
 
 let taskProvider: TaskProvider;
-
-// Copied from LSP libraries. We should have a flag in the client to know whether the
-// client runs in debugger mode.
-function isInDebugMode(): boolean {
-	const debugStartWith: string[] = ['--debug=', '--debug-brk=', '--inspect=', '--inspect-brk='];
-	const debugEquals: string[] = ['--debug', '--debug-brk', '--inspect', '--inspect-brk'];
-	let args: string[] = (process as any).execArgv;
-	if (args) {
-		return args.some((arg) => {
-			return debugStartWith.some(value => arg.startsWith(value)) ||
-					debugEquals.some(value => arg === value);
-		});
-	}
-	return false;
-}
+let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
 
@@ -471,7 +457,7 @@ function realActivate(context: ExtensionContext): void {
 					}
 					return result;
 				},
-				didChange: (notebookDocument, event, next) => {
+				didChange: (event, next) => {
 					if (event.cells?.structure?.didOpen !== undefined) {
 						for (const open of event.cells.structure.didOpen) {
 							syncedDocuments.set(open.document.uri.toString(), open.document);
@@ -482,7 +468,7 @@ function realActivate(context: ExtensionContext): void {
 							syncedDocuments.delete(closed.document.uri.toString());
 						}
 					}
-					return next(notebookDocument, event);
+					return next(event);
 				},
 				didClose: (document, cells, next) => {
 					for (const cell of cells) {
@@ -726,7 +712,6 @@ function realActivate(context: ExtensionContext): void {
 		}
 	};
 
-	let client: LanguageClient;
 	try {
 		client = new LanguageClient('ESLint', serverOptions, clientOptions);
 	} catch (err) {
@@ -739,12 +724,8 @@ function realActivate(context: ExtensionContext): void {
 		probeFailed.clear();
 		for (const textDocument of syncedDocuments.values()) {
 			if (computeValidate(textDocument) === Validate.off) {
-				try {
-					const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
-					provider?.send(textDocument);
-				} catch (err) {
-					// A feature currently throws if no provider can be found. So for now we catch the exception.
-				}
+				const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
+				provider?.send(textDocument);
 			}
 		}
 		for (const textDocument of Workspace.textDocuments) {
@@ -774,148 +755,144 @@ function realActivate(context: ExtensionContext): void {
 		updateStatusBar(undefined);
 	});
 
-	const readyHandler = () => {
-		client.onNotification(ShowOutputChannel.type, () => {
-			client.outputChannel.show();
-		});
+	client.onNotification(ShowOutputChannel.type, () => {
+		client.outputChannel.show();
+	});
 
-		client.onNotification(StatusNotification.type, (params) => {
-			updateDocumentStatus(params);
-		});
+	client.onNotification(StatusNotification.type, (params) => {
+		updateDocumentStatus(params);
+	});
 
-		client.onNotification(ExitCalled.type, (params) => {
-			serverCalledProcessExit = true;
-			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
-			void Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
-				if (value !== undefined && value.id === 1) {
-					client.outputChannel.show();
-				}
-			});
-		});
-
-		client.onRequest(NoConfigRequest.type, (params) => {
-			const document = Uri.parse(params.document.uri);
-			const workspaceFolder = Workspace.getWorkspaceFolder(document);
-			const fileLocation = document.fsPath;
-			if (workspaceFolder) {
-				client.warn([
-					'',
-					`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
-					`File will not be validated. Consider running 'eslint --init' in the workspace folder ${workspaceFolder.name}`,
-					`Alternatively you can disable ESLint by executing the 'Disable ESLint' command.`
-				].join('\n'));
-			} else {
-				client.warn([
-					'',
-					`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
-					`File will not be validated. Alternatively you can disable ESLint by executing the 'Disable ESLint' command.`
-				].join('\n'));
-			}
-
-			updateDocumentStatus({ uri: params.document.uri, state: Status.error });
-			return {};
-		});
-
-		client.onRequest(NoESLintLibraryRequest.type, (params) => {
-			const key = 'noESLintMessageShown';
-			const state = context.globalState.get<NoESLintState>(key, {});
-
-			const uri: Uri = Uri.parse(params.source.uri);
-			const workspaceFolder = Workspace.getWorkspaceFolder(uri);
-			const packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
-			const localInstall = {
-				npm: 'npm install eslint',
-				pnpm: 'pnpm install eslint',
-				yarn: 'yarn add eslint',
-			};
-			const globalInstall = {
-				npm: 'npm install -g eslint',
-				pnpm: 'pnpm install -g eslint',
-				yarn: 'yarn global add eslint'
-			};
-			const isPackageManagerNpm = packageManager === 'npm';
-			interface ButtonItem extends MessageItem {
-				id: number;
-			}
-			const outputItem: ButtonItem = {
-				title: 'Go to output',
-				id: 1
-			};
-			if (workspaceFolder) {
-				client.info([
-					'',
-					`Failed to load the ESLint library for the document ${uri.fsPath}`,
-					'',
-					`To use ESLint please install eslint by running ${localInstall[packageManager]} in the workspace folder ${workspaceFolder.name}`,
-					`or globally using '${globalInstall[packageManager]}'. You need to reopen the workspace after installing eslint.`,
-					'',
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
-					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
-				].filter((str => (str !== null))).join('\n'));
-
-				if (state.workspaces === undefined) {
-					state.workspaces = {};
-				}
-				if (!state.workspaces[workspaceFolder.uri.toString()]) {
-					state.workspaces[workspaceFolder.uri.toString()] = true;
-					void context.globalState.update(key, state);
-					void Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
-						if (item && item.id === 1) {
-							client.outputChannel.show(true);
-						}
-					});
-				}
-			} else {
-				client.info([
-					`Failed to load the ESLint library for the document ${uri.fsPath}`,
-					`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
-					'You need to reopen VS Code after installing eslint.',
-				].filter((str => (str !== null))).join('\n'));
-
-				if (!state.global) {
-					state.global = true;
-					void context.globalState.update(key, state);
-					void Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
-						if (item && item.id === 1) {
-							client.outputChannel.show(true);
-						}
-					});
-				}
-			}
-			return {};
-		});
-
-		client.onRequest(OpenESLintDocRequest.type, async (params) => {
-			await Commands.executeCommand('vscode.open', Uri.parse(params.url));
-			return {};
-		});
-
-		client.onRequest(ProbeFailedRequest.type, (params) => {
-			probeFailed.add(params.textDocument.uri);
-			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
-			for (const document of Workspace.textDocuments) {
-				if (document.uri.toString() === params.textDocument.uri) {
-					closeFeature.getProvider(document)?.send(document);
-				}
+	client.onNotification(ExitCalled.type, (params) => {
+		serverCalledProcessExit = true;
+		client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
+		void Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+			if (value !== undefined && value.id === 1) {
+				client.outputChannel.show();
 			}
 		});
+	});
 
-		const notebookFeature = client.getFeature(Proposed.NotebookDocumentSyncRegistrationType.method);
-		if (notebookFeature !== undefined) {
-			notebookFeature.register({
-				id: String(Date.now()),
-				registerOptions: {
-					notebookDocumentSelector: [{
-						notebookDocumentFilter: { scheme: 'file' }
-					}],
-					mode: 'notebook'
-				}
-			});
+	client.onRequest(NoConfigRequest.type, (params) => {
+		const document = Uri.parse(params.document.uri);
+		const workspaceFolder = Workspace.getWorkspaceFolder(document);
+		const fileLocation = document.fsPath;
+		if (workspaceFolder) {
+			client.warn([
+				'',
+				`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
+				`File will not be validated. Consider running 'eslint --init' in the workspace folder ${workspaceFolder.name}`,
+				`Alternatively you can disable ESLint by executing the 'Disable ESLint' command.`
+			].join('\n'));
+		} else {
+			client.warn([
+				'',
+				`No ESLint configuration (e.g .eslintrc) found for file: ${fileLocation}`,
+				`File will not be validated. Alternatively you can disable ESLint by executing the 'Disable ESLint' command.`
+			].join('\n'));
 		}
-	};
 
-	client.onReady().then(readyHandler).catch((error) => client.error(`On ready failed`, error));
+		updateDocumentStatus({ uri: params.document.uri, state: Status.error });
+		return {};
+	});
+
+	client.onRequest(NoESLintLibraryRequest.type, (params) => {
+		const key = 'noESLintMessageShown';
+		const state = context.globalState.get<NoESLintState>(key, {});
+
+		const uri: Uri = Uri.parse(params.source.uri);
+		const workspaceFolder = Workspace.getWorkspaceFolder(uri);
+		const packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
+		const localInstall = {
+			npm: 'npm install eslint',
+			pnpm: 'pnpm install eslint',
+			yarn: 'yarn add eslint',
+		};
+		const globalInstall = {
+			npm: 'npm install -g eslint',
+			pnpm: 'pnpm install -g eslint',
+			yarn: 'yarn global add eslint'
+		};
+		const isPackageManagerNpm = packageManager === 'npm';
+		interface ButtonItem extends MessageItem {
+			id: number;
+		}
+		const outputItem: ButtonItem = {
+			title: 'Go to output',
+			id: 1
+		};
+		if (workspaceFolder) {
+			client.info([
+				'',
+				`Failed to load the ESLint library for the document ${uri.fsPath}`,
+				'',
+				`To use ESLint please install eslint by running ${localInstall[packageManager]} in the workspace folder ${workspaceFolder.name}`,
+				`or globally using '${globalInstall[packageManager]}'. You need to reopen the workspace after installing eslint.`,
+				'',
+				isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+				`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
+			].filter((str => (str !== null))).join('\n'));
+
+			if (state.workspaces === undefined) {
+				state.workspaces = {};
+			}
+			if (!state.workspaces[workspaceFolder.uri.toString()]) {
+				state.workspaces[workspaceFolder.uri.toString()] = true;
+				void context.globalState.update(key, state);
+				void Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+					if (item && item.id === 1) {
+						client.outputChannel.show(true);
+					}
+				});
+			}
+		} else {
+			client.info([
+				`Failed to load the ESLint library for the document ${uri.fsPath}`,
+				`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
+				isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
+				'You need to reopen VS Code after installing eslint.',
+			].filter((str => (str !== null))).join('\n'));
+
+			if (!state.global) {
+				state.global = true;
+				void context.globalState.update(key, state);
+				void Window.showInformationMessage(`Failed to load the ESLint library for the document ${uri.fsPath}. See the output for more information.`, outputItem).then((item) => {
+					if (item && item.id === 1) {
+						client.outputChannel.show(true);
+					}
+				});
+			}
+		}
+		return {};
+	});
+
+	client.onRequest(OpenESLintDocRequest.type, async (params) => {
+		await Commands.executeCommand('vscode.open', Uri.parse(params.url));
+		return {};
+	});
+
+	client.onRequest(ProbeFailedRequest.type, (params) => {
+		probeFailed.add(params.textDocument.uri);
+		const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
+		for (const document of Workspace.textDocuments) {
+			if (document.uri.toString() === params.textDocument.uri) {
+				closeFeature.getProvider(document)?.send(document);
+			}
+		}
+	});
+
+	const notebookFeature = client.getFeature(Proposed.NotebookDocumentSyncRegistrationType.method);
+	if (notebookFeature !== undefined) {
+		notebookFeature.register({
+			id: String(Date.now()),
+			registerOptions: {
+				notebookSelector: [{
+					notebook: { scheme: 'file' }
+				}],
+				mode: 'notebook'
+			}
+		});
+	}
 
 	if (onActivateCommands) {
 		onActivateCommands.forEach(command => command.dispose());
@@ -923,7 +900,6 @@ function realActivate(context: ExtensionContext): void {
 	}
 
 	context.subscriptions.push(
-		client.start(),
 		Window.onDidChangeActiveTextEditor(() => {
 			updateStatusBar(undefined);
 		}),
@@ -945,7 +921,7 @@ function realActivate(context: ExtensionContext): void {
 				command: 'eslint.applyAllFixes',
 				arguments: [textDocument]
 			};
-			await client.onReady();
+			await client.start();
 			client.sendRequest(ExecuteCommandRequest.type, params).then(undefined, () => {
 				void Window.showErrorMessage('Failed to apply ESLint fixes to the document. Please consider opening an issue with steps to reproduce.');
 			});
@@ -956,21 +932,12 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			void migrateSettings();
 		}),
-		Commands.registerCommand('eslint.restart', async () => {
-			await client.stop();
-			// Wait a little to free debugger port. Can not happen in production
-			// So we should add a dev flag.
-			const start = () => {
-				client.start();
-				client.onReady().then(readyHandler).catch((error) => client.error(`On ready failed`, error));
-			};
-			if (isInDebugMode()) {
-				setTimeout(start, 1000);
-			} else {
-				start();
-			}
+		Commands.registerCommand('eslint.restart', () => {
+			client.restart().catch((error) => client.error(`Restarting client failed`, error, 'force'));
 		})
 	);
+
+	client.start().catch((error) => client.error(`Starting the server failed.`, error, 'force'));
 }
 
 export function deactivate() {
@@ -981,4 +948,6 @@ export function deactivate() {
 	if (taskProvider) {
 		taskProvider.dispose();
 	}
+
+	return client.stop();
 }

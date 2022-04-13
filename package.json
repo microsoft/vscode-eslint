@@ -22,7 +22,7 @@
 		"multi-root ready"
 	],
 	"engines": {
-		"vscode": "^1.64.0"
+		"vscode": "^1.66.0"
 	},
 	"activationEvents": [
 		"onStartupFinished"
@@ -556,7 +556,7 @@
 		"lint": "node ./build/bin/all.js run lint",
 		"clean": "rimraf client/out && rimraf server/out",
 		"postinstall": "node ./build/bin/all.js install",
-		"dev:symlink": "node ./build/bin/symlink.js"
+		"symlink:lsp": "node ./build/bin/symlink.js"
 	},
 	"devDependencies": {
 		"@types/mocha": "^9.1.0",

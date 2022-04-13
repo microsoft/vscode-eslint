@@ -6,7 +6,7 @@
 import { workspace as Workspace, Uri, WorkspaceConfiguration, ConfigurationTarget } from 'vscode';
 
 import { Is } from './utils';
-import { DirectoryItem, ModeItem } from './sharedSettings';
+import { DirectoryItem, ModeItem } from './shared/settings';
 
 // Defines settings locally to the client or deprecated settings that are converted to
 // shared settings
