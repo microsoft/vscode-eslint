@@ -1,0 +1,396 @@
+
+/* --------------------------------------------------------------------------------------------
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for license information.
+ * ------------------------------------------------------------------------------------------ */
+
+import {
+	workspace as Workspace, window as Window, commands as Commands, languages as Languages, Disposable, ExtensionContext, Uri,
+	StatusBarAlignment, TextDocument, CodeActionContext, Diagnostic, ProviderResult, Command, QuickPickItem,
+	WorkspaceFolder as VWorkspaceFolder, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind,
+	WorkspaceConfiguration, ThemeColor, NotebookCell
+} from 'vscode';
+
+import {
+	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, ErrorHandlerResult, CloseAction, CloseHandlerResult,
+	State as ClientState, RevealOutputChannelOn, VersionedTextDocumentIdentifier, ExecuteCommandRequest, ExecuteCommandParams,
+	ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification, ProposedFeatures, Proposed
+} from 'vscode-languageclient/node';
+
+function sanitize<T, D>(value: T, type: 'bigint' | 'boolean' | 'function' | 'number' | 'object' | 'string' | 'symbol' | 'undefined', def: D): T | D {
+	if (Array.isArray(value)) {
+		return value.filter(item => typeof item === type) as unknown as T;
+	} else if (typeof value !== type) {
+		return def;
+	}
+	return value;
+}
+
+class ESLintClient  extends LanguageClient {
+	readonly #syncedDocuments: Map<string, TextDocument>;
+	constructor(extensionUri: Uri) {
+		super('ESLint', ESLintClient.createServerOptions(extensionUri), ESLintClient.createClientOptions({
+			client: () => this,
+			syncedDocuments: () => { this.#syncedDocuments; }
+		}));
+		this.#syncedDocuments = new Map();
+	}
+
+	private static createServerOptions(extensionUri: Uri): ServerOptions {
+		const serverModule = Uri.joinPath(extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
+		const eslintConfig = Workspace.getConfiguration('eslint');
+		const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
+		const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
+		const execArgv = sanitize(eslintConfig.get<string[] | null>('execArgv', null) ?? undefined, 'string', undefined);
+		const nodeEnv = sanitize(eslintConfig.get('nodeEnv', null) ?? undefined, 'string', undefined);
+
+		let env: { [key: string]: string | number | boolean } | undefined;
+		if (debug) {
+			env = env || {};
+			env.DEBUG = 'eslint:*,-eslint:code-path';
+		}
+		if (nodeEnv !== undefined) {
+			env = env || {};
+			env.NODE_ENV = nodeEnv;
+		}
+		const debugArgv = ['--nolazy', '--inspect=6011'];
+		const result: ServerOptions = {
+			run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd: process.cwd(), env } },
+			debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd: process.cwd(), env } }
+		};
+		return result;
+	}
+
+	private static createClientOptions(accessor: any): LanguageClientOptions {
+		const clientOptions: LanguageClientOptions = {
+			documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
+			diagnosticCollectionName: 'eslint',
+			revealOutputChannelOn: RevealOutputChannelOn.Never,
+			initializationOptions: {
+			},
+			progressOnInitialization: true,
+			synchronize: {
+				fileEvents: [
+					Workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
+					Workspace.createFileSystemWatcher('**/.eslintignore'),
+					Workspace.createFileSystemWatcher('**/package.json')
+				]
+			},
+			initializationFailedHandler: (error) => {
+				client.error('Server initialization failed.', error);
+				client.outputChannel.show(true);
+				return false;
+			},
+			errorHandler: {
+				error: (error, message, count): ErrorHandlerResult => {
+					return defaultErrorHandler.error(error, message, count);
+				},
+				closed: (): CloseHandlerResult => {
+					if (serverCalledProcessExit) {
+						return { action: CloseAction.DoNotRestart };
+					}
+					return defaultErrorHandler.closed();
+				}
+			},
+			middleware: {
+				didOpen: async (document, next) => {
+					if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
+						const result = next(document);
+						syncedDocuments.set(document.uri.toString(), document);
+						return result;
+					}
+				},
+				didChange: async (event, next) => {
+					if (syncedDocuments.has(event.document.uri.toString())) {
+						return next(event);
+					}
+				},
+				willSave: async (event, next) => {
+					if (syncedDocuments.has(event.document.uri.toString())) {
+						return next(event);
+					}
+				},
+				willSaveWaitUntil: (event, next) => {
+					if (syncedDocuments.has(event.document.uri.toString())) {
+						return next(event);
+					} else {
+						return Promise.resolve([]);
+					}
+				},
+				didSave: async (document, next) => {
+					if (syncedDocuments.has(document.uri.toString())) {
+						return next(document);
+					}
+				},
+				didClose: async (document, next) => {
+					const uri = document.uri.toString();
+					if (syncedDocuments.has(uri)) {
+						syncedDocuments.delete(uri);
+						return next(document);
+					}
+				},
+				notebooks: {
+					didOpen: (notebookDocument, cells, next) => {
+						const result = next(notebookDocument, cells);
+						for (const cell of cells) {
+							syncedDocuments.set(cell.document.uri.toString(), cell.document);
+						}
+						return result;
+					},
+					didChange: (event, next) => {
+						if (event.cells?.structure?.didOpen !== undefined) {
+							for (const open of event.cells.structure.didOpen) {
+								syncedDocuments.set(open.document.uri.toString(), open.document);
+							}
+						}
+						if (event.cells?.structure?.didClose !== undefined) {
+							for (const closed of event.cells.structure.didClose) {
+								syncedDocuments.delete(closed.document.uri.toString());
+							}
+						}
+						return next(event);
+					},
+					didClose: (document, cells, next) => {
+						for (const cell of cells) {
+							const key = cell.document.uri.toString();
+							syncedDocuments.delete(key);
+						}
+						return next(document, cells);
+					}
+				},
+				provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
+					if (!syncedDocuments.has(document.uri.toString())) {
+						return [];
+					}
+					if (context.only !== undefined && !supportedQuickFixKinds.has(context.only.value)) {
+						return [];
+					}
+					if (context.only === undefined && (!context.diagnostics || context.diagnostics.length === 0)) {
+						return [];
+					}
+					const eslintDiagnostics: Diagnostic[] = [];
+					for (const diagnostic of context.diagnostics) {
+						if (diagnostic.source === 'eslint') {
+							eslintDiagnostics.push(diagnostic);
+						}
+					}
+					if (context.only === undefined && eslintDiagnostics.length === 0) {
+						return [];
+					}
+					const newContext: CodeActionContext = Object.assign({}, context, { diagnostics: eslintDiagnostics });
+					return next(document, range, newContext, token);
+				},
+				workspace: {
+					didChangeWatchedFile: (event, next) => {
+						probeFailed.clear();
+						return next(event);
+					},
+					didChangeConfiguration: async (sections, next) => {
+						if (migration !== undefined && (sections === undefined || sections.length === 0)) {
+							migration.captureDidChangeSetting(() => {
+								return next(sections);
+							});
+						} else {
+							return next(sections);
+						}
+					},
+					configuration: async (params, _token, _next): Promise<any[]> => {
+						if (params.items === undefined) {
+							return [];
+						}
+						const result: (ConfigurationSettings | null)[] = [];
+						for (const item of params.items) {
+							if (item.section || !item.scopeUri) {
+								result.push(null);
+								continue;
+							}
+							const resource = client.protocol2CodeConverter.asUri(item.scopeUri);
+							const textDocument = getTextDocument(resource);
+							const config = Workspace.getConfiguration('eslint', textDocument ?? resource);
+							const workspaceFolder = resource.scheme === 'untitled'
+								? Workspace.workspaceFolders !== undefined ? Workspace.workspaceFolders[0] : undefined
+								: Workspace.getWorkspaceFolder(resource);
+							await migrationSemaphore.lock(async () => {
+								const globalMigration = Workspace.getConfiguration('eslint').get('migration.2_x', 'on');
+								if (notNow === false && globalMigration === 'on') {
+									try {
+										migration = new Migration(resource);
+										migration.record();
+										interface Item extends MessageItem {
+											id: 'yes' | 'no' | 'readme' | 'global' | 'local';
+										}
+										if (migration.needsUpdate()) {
+											const folder = workspaceFolder?.name;
+											const file = path.basename(resource.fsPath);
+											const selected = await Window.showInformationMessage<Item>(
+												[
+													`The ESLint 'autoFixOnSave' setting needs to be migrated to the new 'editor.codeActionsOnSave' setting`,
+													folder !== undefined ? `for the workspace folder: ${folder}.` : `for the file: ${file}.`,
+													`For compatibility reasons the 'autoFixOnSave' remains and needs to be removed manually.`,
+													`Do you want to migrate the setting?`
+												].join(' '),
+												{ modal: true},
+												{ id: 'yes', title: 'Yes'},
+												{ id: 'global', title: 'Never migrate Settings' },
+												{ id: 'readme', title: 'Open Readme' },
+												{ id: 'no', title: 'Not now', isCloseAffordance: true }
+											);
+											if (selected !== undefined) {
+												if (selected.id === 'yes') {
+													try {
+														await migration.update();
+													} catch (error) {
+														migrationFailed(error);
+													}
+												} else if (selected.id === 'no') {
+													notNow = true;
+												} else if (selected.id === 'global') {
+													await config.update('migration.2_x', 'off', ConfigurationTarget.Global);
+												} else if (selected.id === 'readme') {
+													notNow = true;
+													void Env.openExternal(Uri.parse('https://github.com/microsoft/vscode-eslint#settings-migration'));
+												}
+											}
+										}
+									} finally {
+										migration = undefined;
+									}
+								}
+							});
+							const settings: ConfigurationSettings = {
+								validate: Validate.off,
+								packageManager: config.get('packageManager', 'npm'),
+								useESLintClass: config.get('useESLintClass', false),
+								codeActionOnSave: {
+									enable: false,
+									mode: CodeActionsOnSaveMode.all
+								},
+								format: false,
+								quiet: config.get('quiet', false),
+								onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
+								options: config.get('options', {}),
+								rulesCustomizations: getRuleCustomizations(config, resource),
+								run: config.get('run', 'onType'),
+								nodePath: config.get<string | undefined>('nodePath', undefined) ?? null,
+								workingDirectory: undefined,
+								workspaceFolder: undefined,
+								codeAction: {
+									disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
+									showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
+								}
+							};
+							const document: TextDocument | undefined = syncedDocuments.get(item.scopeUri);
+							if (document === undefined) {
+								result.push(settings);
+								continue;
+							}
+							if (config.get('enabled', true)) {
+								settings.validate = computeValidate(document);
+							}
+							if (settings.validate !== Validate.off) {
+								settings.format = !!config.get('format.enable', false);
+								settings.codeActionOnSave.enable = readCodeActionsOnSaveSetting(document);
+								settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
+								settings.codeActionOnSave.rules = CodeActionsOnSaveRules.from(config.get('codeActionsOnSave.rules', null));
+							}
+							if (workspaceFolder !== undefined) {
+								settings.workspaceFolder = {
+									name: workspaceFolder.name,
+									uri: client.code2ProtocolConverter.asUri(workspaceFolder.uri)
+								};
+							}
+							const workingDirectories = config.get<(string | LegacyDirectoryItem | DirectoryItem | PatternItem | ModeItem)[] | undefined>('workingDirectories', undefined);
+							if (Array.isArray(workingDirectories)) {
+								let workingDirectory: ModeItem | DirectoryItem | undefined = undefined;
+								const workspaceFolderPath = workspaceFolder && workspaceFolder.uri.scheme === 'file' ? workspaceFolder.uri.fsPath : undefined;
+								for (const entry of workingDirectories) {
+									let directory: string | undefined;
+									let pattern: string | undefined;
+									let noCWD = false;
+									if (Is.string(entry)) {
+										directory = entry;
+									} else if (LegacyDirectoryItem.is(entry)) {
+										directory = entry.directory;
+										noCWD = !entry.changeProcessCWD;
+									} else if (DirectoryItem.is(entry)) {
+										directory = entry.directory;
+										if (entry['!cwd'] !== undefined) {
+											noCWD = entry['!cwd'];
+										}
+									} else if (PatternItem.is(entry)) {
+										pattern = entry.pattern;
+										if (entry['!cwd'] !== undefined) {
+											noCWD = entry['!cwd'];
+										}
+									} else if (ModeItem.is(entry)) {
+										workingDirectory = entry;
+										continue;
+									}
+
+									let itemValue: string | undefined;
+									if (directory !== undefined || pattern !== undefined) {
+										const filePath = document.uri.scheme === 'file' ? document.uri.fsPath : undefined;
+										if (filePath !== undefined) {
+											if (directory !== undefined) {
+												directory = toOSPath(directory);
+												if (!path.isAbsolute(directory) && workspaceFolderPath !== undefined) {
+													directory = path.join(workspaceFolderPath, directory);
+												}
+												if (directory.charAt(directory.length - 1) !== path.sep) {
+													directory = directory + path.sep;
+												}
+												if (filePath.startsWith(directory)) {
+													itemValue = directory;
+												}
+											} else if (pattern !== undefined && pattern.length > 0) {
+												if (!path.posix.isAbsolute(pattern) && workspaceFolderPath !== undefined) {
+													pattern = path.posix.join(toPosixPath(workspaceFolderPath), pattern);
+												}
+												if (pattern.charAt(pattern.length - 1) !== path.posix.sep) {
+													pattern = pattern + path.posix.sep;
+												}
+												const regExp: RegExp | undefined = convert2RegExp(pattern);
+												if (regExp !== undefined) {
+													const match = regExp.exec(filePath);
+													if (match !== null && match.length > 0) {
+														itemValue = match[0];
+													}
+												}
+											}
+										}
+									}
+									if (itemValue !== undefined) {
+										if (workingDirectory === undefined || ModeItem.is(workingDirectory)) {
+											workingDirectory = { directory: itemValue, '!cwd': noCWD };
+										} else {
+											if (workingDirectory.directory.length < itemValue.length) {
+												workingDirectory.directory = itemValue;
+												workingDirectory['!cwd'] = noCWD;
+											}
+										}
+									}
+								}
+								settings.workingDirectory = workingDirectory;
+							}
+							result.push(settings);
+						}
+						return result;
+					}
+				}
+			},
+			notebookDocumentOptions: {
+				filterCells: (_notebookDocument, cells) => {
+					const result: NotebookCell[] = [];
+					for (const cell of cells) {
+						const document = cell.document;
+						if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || computeValidate(document) !== Validate.off) {
+							result.push(cell);
+						}
+					}
+					return result;
+				}
+			}
+		};
+		return clientOptions;
+	}
+}
