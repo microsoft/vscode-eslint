@@ -14,7 +14,7 @@ import {
 import {
 	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, ErrorHandlerResult, CloseAction, CloseHandlerResult, Proposed,
 	RevealOutputChannelOn, ServerOptions, DocumentFilter, ProposedFeatures, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams, CancellationToken, LSPAny
+	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams
 } from 'vscode-languageclient/node';
 
 import { CodeActionsOnSave, LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
@@ -720,106 +720,106 @@ export namespace ESLintClient {
 		}
 
 		function parseRulesCustomizations(rawConfig: unknown): RuleCustomization[] {
-    	if (!rawConfig || !Array.isArray(rawConfig)) {
-    		return [];
-    	}
+			if (!rawConfig || !Array.isArray(rawConfig)) {
+				return [];
+			}
 
-    	return rawConfig.map(rawValue => {
-    		if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
-    			return {
-    				severity: rawValue.severity,
-    				rule: rawValue.rule,
-    			};
-    		}
+			return rawConfig.map(rawValue => {
+				if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
+					return {
+						severity: rawValue.severity,
+						rule: rawValue.rule,
+					};
+				}
 
-    		return undefined;
-    	}).filter((value): value is RuleCustomization => !!value);
+				return undefined;
+			}).filter((value): value is RuleCustomization => !!value);
 		}
 
 		function getRuleCustomizations(config: WorkspaceConfiguration, uri: Uri): RuleCustomization[] {
-    	let customizations: any = undefined;
-    	if (uri.scheme === 'vscode-notebook-cell') {
-    		customizations = config.get('notebooks.rules.customizations', undefined);
-    	}
-    	if (customizations === undefined || customizations === null) {
-    		customizations = config.get('rules.customizations');
-    	}
-    	return parseRulesCustomizations(customizations);
+			let customizations: any = undefined;
+			if (uri.scheme === 'vscode-notebook-cell') {
+				customizations = config.get('notebooks.rules.customizations', undefined);
+			}
+			if (customizations === undefined || customizations === null) {
+				customizations = config.get('rules.customizations');
+			}
+			return parseRulesCustomizations(customizations);
 		}
 
 		function readCodeActionsOnSaveSetting(document: TextDocument): boolean {
-    	let result: boolean | undefined = undefined;
+			let result: boolean | undefined = undefined;
 
-    	function isEnabled(value: CodeActionsOnSave | string[]): boolean | undefined {
-    		if (value === undefined || value === null) {
-    			return undefined;
-    		}
-    		if (Array.isArray(value)) {
-    			const result = value.some((element) => { return element === 'source.fixAll.eslint' || element === 'source.fixAll'; });
-    			return result === true ? true : undefined;
-    		} else {
-    			return value['source.fixAll.eslint'] ?? value['source.fixAll'];
-    		}
-    	}
+			function isEnabled(value: CodeActionsOnSave | string[]): boolean | undefined {
+				if (value === undefined || value === null) {
+					return undefined;
+				}
+				if (Array.isArray(value)) {
+					const result = value.some((element) => { return element === 'source.fixAll.eslint' || element === 'source.fixAll'; });
+					return result === true ? true : undefined;
+				} else {
+					return value['source.fixAll.eslint'] ?? value['source.fixAll'];
+				}
+			}
 
-    	const codeActionsOnSave = Workspace.getConfiguration('editor', document).get<CodeActionsOnSave>('codeActionsOnSave');
-    	if (codeActionsOnSave !== undefined) {
-    		result = isEnabled(codeActionsOnSave);
-    	}
-    	return result ?? false;
+			const codeActionsOnSave = Workspace.getConfiguration('editor', document).get<CodeActionsOnSave>('codeActionsOnSave');
+			if (codeActionsOnSave !== undefined) {
+				result = isEnabled(codeActionsOnSave);
+			}
+			return result ?? false;
 		}
 
 		function getTextDocument(uri: Uri): TextDocument | undefined {
-    	return syncedDocuments.get(uri.toString());
+			return syncedDocuments.get(uri.toString());
 		}
 
 		function updateDocumentStatus(params: StatusParams): void {
-    	documentStatus.set(params.uri, params.state);
-    	updateStatusBar(params.uri);
+			documentStatus.set(params.uri, params.state);
+			updateStatusBar(params.uri);
 		}
 
 		function updateStatusBar(uri: string | undefined) {
-    	const status = function() {
-    		if (serverRunning === false) {
-    			return Status.error;
-    		}
-    		if (uri === undefined) {
-    			uri = Window.activeTextEditor?.document.uri.toString();
-    		}
-    		return (uri !== undefined ? documentStatus.get(uri) : undefined) ?? Status.ok;
-    	}();
-    	let icon: string| undefined;
-    	let tooltip: string | undefined;
-    	let text: string = 'ESLint';
-    	let backgroundColor: ThemeColor | undefined;
-    	let foregroundColor: ThemeColor | undefined;
-    	switch (status) {
-    		case Status.ok:
-    			icon = undefined;
-    			foregroundColor = new ThemeColor('statusBarItem.foreground');
-    			backgroundColor = new ThemeColor('statusBarItem.background');
-    			break;
-    		case Status.warn:
-    			icon = '$(alert)';
-    			foregroundColor = new ThemeColor('statusBarItem.warningForeground');
-    			backgroundColor = new ThemeColor('statusBarItem.warningBackground');
-    			break;
-    		case Status.error:
-    			icon = '$(issue-opened)';
-    			foregroundColor = new ThemeColor('statusBarItem.errorForeground');
-    			backgroundColor = new ThemeColor('statusBarItem.errorBackground');
-    			break;
-    	}
-    	statusBarItem.text = icon !== undefined ? `${icon} ${text}` : text;
-    	statusBarItem.color = foregroundColor;
-    	statusBarItem.backgroundColor = backgroundColor;
-    	statusBarItem.tooltip = tooltip ? tooltip : serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
-    	const alwaysShow = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
-    	if (alwaysShow || status !== Status.ok) {
-    		statusBarItem.show();
-    	} else {
-    		statusBarItem.hide();
-    	}
+			const status = function() {
+				if (serverRunning === false) {
+					return Status.error;
+				}
+				if (uri === undefined) {
+					uri = Window.activeTextEditor?.document.uri.toString();
+				}
+				return (uri !== undefined ? documentStatus.get(uri) : undefined) ?? Status.ok;
+			}();
+			let icon: string| undefined;
+			let tooltip: string | undefined;
+			let text: string = 'ESLint';
+			let backgroundColor: ThemeColor | undefined;
+			let foregroundColor: ThemeColor | undefined;
+			switch (status) {
+				case Status.ok:
+					icon = undefined;
+					foregroundColor = new ThemeColor('statusBarItem.foreground');
+					backgroundColor = new ThemeColor('statusBarItem.background');
+					break;
+				case Status.warn:
+					icon = '$(alert)';
+					foregroundColor = new ThemeColor('statusBarItem.warningForeground');
+					backgroundColor = new ThemeColor('statusBarItem.warningBackground');
+					break;
+				case Status.error:
+					icon = '$(issue-opened)';
+					foregroundColor = new ThemeColor('statusBarItem.errorForeground');
+					backgroundColor = new ThemeColor('statusBarItem.errorBackground');
+					break;
+			}
+			statusBarItem.text = icon !== undefined ? `${icon} ${text}` : text;
+			statusBarItem.color = foregroundColor;
+			statusBarItem.backgroundColor = backgroundColor;
+			statusBarItem.tooltip = tooltip ? tooltip : serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
+			const alwaysShow = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
+			if (alwaysShow || status !== Status.ok) {
+				statusBarItem.show();
+			} else {
+				statusBarItem.hide();
+			}
 		}
 	}
 }

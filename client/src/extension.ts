@@ -120,12 +120,12 @@ export function activate(context: ExtensionContext) {
 
 function realActivate(context: ExtensionContext): void {
 
-	client = ESLintClient.create(context, validator);
-
 	if (onActivateCommands) {
 		onActivateCommands.forEach(command => command.dispose());
 		onActivateCommands = undefined;
 	}
+
+	client = ESLintClient.create(context, validator);
 
 	context.subscriptions.push(
 		Commands.registerCommand('eslint.showOutputChannel', async () => {

@@ -147,16 +147,20 @@ export namespace DirectoryItem {
 	}
 }
 
+export type PackageManagers = 'npm' | 'yarn' | 'pnpm';
+
+export type ESLintOptions = object & { fixTypes?: string[] };
+
 export type ConfigurationSettings = {
 	validate: Validate;
-	packageManager: 'npm' | 'yarn' | 'pnpm';
+	packageManager: PackageManagers;
 	useESLintClass: boolean;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
-	options: any | undefined;
+	options: ESLintOptions | undefined;
 	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	nodePath: string | null;
