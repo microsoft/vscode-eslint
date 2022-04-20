@@ -25,12 +25,11 @@ import { Validate, CodeActionsOnSaveMode } from './shared/settings';
 
 import {
 	CodeActions, ConfigData, ESLint, FixableProblem, Fixes, Problem, RuleMetaData, RuleSeverities,
-	SaveRuleConfigs, SuggestionsProblem,
+	SaveRuleConfigs, SuggestionsProblem, TextDocumentSettings,
 } from './eslint';
 
 import { getFileSystemPath, getUri, isUNC } from './paths';
 import { stringDiff } from './diff';
-import { TextDocumentSettings } from './settings';
 import LanguageDefaults from './languageDefaults';
 
 // The connection to use. Code action requests get removed from the queue if

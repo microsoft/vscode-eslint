@@ -16,14 +16,29 @@ import {
 import { URI } from 'vscode-uri';
 
 import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, ShowOutputChannel, NoConfigRequest } from './shared/customMessages';
-import { ConfigurationSettings, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
+import { ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
 import { LRUCache } from './linkedMap';
 import { isUNC, normalizeDriveLetter, normalizePath } from './paths';
-import { TextDocumentSettings } from './settings';
 import LanguageDefaults from './languageDefaults';
 
+
+/**
+ * ESLint specific settings for a text document.
+ */
+export type TextDocumentSettings = Omit<ConfigurationSettings, 'workingDirectory'>  & {
+	silent: boolean;
+	workingDirectory: DirectoryItem | undefined;
+	library: ESLintModule | undefined;
+	resolvedGlobalPackageManagerPath: string | undefined;
+};
+
+export namespace TextDocumentSettings {
+	export function hasLibrary(settings: TextDocumentSettings): settings is (TextDocumentSettings & { library: ESLintModule }) {
+		return settings.library !== undefined;
+	}
+}
 
 /**
  * A special error thrown by the ESLint library
@@ -78,7 +93,7 @@ type ESLintReport = {
 	results: ESLintDocumentReport[];
 };
 
-type CLIOptions = {
+export type CLIOptions = {
 	cwd?: string;
 	fixTypes?: string[];
 	fix?: boolean;
@@ -92,7 +107,7 @@ export type ConfigData = {
 	rules?: Record<string, RuleConf>;
 };
 
-type ESLintClassOptions = {
+export type ESLintClassOptions = {
 	cwd?: string;
 	fixTypes?: string[];
 	fix?: boolean;
@@ -154,7 +169,7 @@ export namespace RuleMetaData {
 	}
 }
 
-type ParserOptions = {
+export type ParserOptions = {
 	parser?: string;
 };
 
@@ -667,6 +682,9 @@ export namespace CodeActions {
 	}
 }
 
+/**
+ * Wrapper round the ESLint npm module.
+ */
 export namespace ESLint {
 
 	let connection: ProposedFeatures.Connection;
