@@ -6,6 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { QuickPickItem, window, WorkspaceFolder } from 'vscode';
+
 export namespace Is {
 	const toString = Object.prototype.toString;
 
@@ -388,4 +390,26 @@ export class Semaphore<T = void> {
 			this.runNext();
 		}
 	}
+}
+
+interface WorkspaceFolderItem extends QuickPickItem {
+	folder: WorkspaceFolder;
+}
+
+/**
+ * Picks a folder from a list of workspace folders.
+ */
+export async function pickFolder(folders: ReadonlyArray<WorkspaceFolder>, placeHolder: string): Promise<WorkspaceFolder | undefined> {
+	if (folders.length === 1) {
+		return Promise.resolve(folders[0]);
+	}
+
+	const selected = await window.showQuickPick(
+		folders.map<WorkspaceFolderItem>((folder) => { return { label: folder.name, description: folder.uri.fsPath, folder: folder }; }),
+		{ placeHolder: placeHolder }
+	);
+	if (selected === undefined) {
+		return undefined;
+	}
+	return selected.folder;
 }

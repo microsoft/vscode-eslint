@@ -5,9 +5,19 @@
 
 import {
 	WorkspaceFolder
-} from 'vscode-languageclient/node';
+} from 'vscode-languageserver-protocol';
 
-import { Is } from './utils';
+namespace Is {
+	const toString = Object.prototype.toString;
+
+	export function boolean(value: any): value is boolean {
+		return value === true || value === false;
+	}
+
+	export function string(value: any): value is string {
+		return toString.call(value) === '[object String]';
+	}
+}
 
 export enum Validate {
 	on = 'on',
@@ -137,16 +147,20 @@ export namespace DirectoryItem {
 	}
 }
 
+export type PackageManagers = 'npm' | 'yarn' | 'pnpm';
+
+export type ESLintOptions = object & { fixTypes?: string[] };
+
 export type ConfigurationSettings = {
 	validate: Validate;
-	packageManager: 'npm' | 'yarn' | 'pnpm';
+	packageManager: PackageManagers;
 	useESLintClass: boolean;
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
-	options: any | undefined;
+	options: ESLintOptions | undefined;
 	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	nodePath: string | null;

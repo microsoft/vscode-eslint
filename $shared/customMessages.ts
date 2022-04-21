@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import { NotificationType, NotificationType0, RequestType, TextDocumentIdentifier } from 'vscode-languageclient';
+import { NotificationType, NotificationType0, RequestType, TextDocumentIdentifier } from 'vscode-languageserver-protocol';
 
 export enum Status {
 	ok = 1,
