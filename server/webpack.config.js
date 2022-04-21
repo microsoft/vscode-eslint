@@ -15,6 +15,9 @@ module.exports = withDefaults({
 	entry: {
 		extension: './src/eslintServer.ts',
 	},
+	resolve: {
+		symlinks: false
+	},
 	output: {
 		filename: 'eslintServer.js',
 		path: path.join(__dirname, 'out')

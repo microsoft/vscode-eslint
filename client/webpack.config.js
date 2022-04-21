@@ -15,6 +15,9 @@ module.exports = withDefaults({
 	entry: {
 		extension: './src/extension.ts',
 	},
+	resolve: {
+		symlinks: false
+	},
 	output: {
 		filename: 'extension.js',
 		path: path.join(__dirname, 'out')
