@@ -5,6 +5,7 @@
 Extension to integrate [ESLint](http://eslint.org/) into VSCode.
 
 ## Development setup
+- Use git with symbolic link support enabled
 - run npm install
 - open VS Code
 - Run the `watch` task to compile the client and server

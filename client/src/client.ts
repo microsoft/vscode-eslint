@@ -297,8 +297,7 @@ export namespace ESLintClient {
 				registerOptions: {
 					notebookSelector: [{
 						notebook: { scheme: 'file' }
-					}],
-					mode: 'notebook'
+					}]
 				}
 			});
 		}
