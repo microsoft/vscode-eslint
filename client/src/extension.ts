@@ -26,7 +26,7 @@ function createDefaultConfiguration(): void {
 		return;
 	}
 	const noConfigFolders = folders.filter(folder => {
-		const configFiles = ['.eslintrc.js', '.eslintrc.yaml', '.eslintrc.yml', '.eslintrc', '.eslintrc.json'];
+		const configFiles = ['.eslintrc.js', '.eslintrc.cjs', '.eslintrc.yaml', '.eslintrc.yml', '.eslintrc', '.eslintrc.json'];
 		for (const configFile of configFiles) {
 			if (fs.existsSync(path.join(folder.uri.fsPath, configFile))) {
 				return false;
