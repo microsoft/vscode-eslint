@@ -31,9 +31,6 @@
 		"workspace"
 	],
 	"enabledApiProposals": [
-		"tabs",
-		"notebookEditor",
-		"notebookCellExecutionState"
 	],
 	"main": "./client/out/extension",
 	"capabilities": {
