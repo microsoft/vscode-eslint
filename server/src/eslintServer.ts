@@ -11,7 +11,8 @@ import {
 	TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier, ExecuteCommandRequest,
 	DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
 	DocumentFormattingRequest, TextDocumentEdit, LSPErrorCodes, Message as LMessage, ResponseMessage as LResponseMessage, uinteger, ServerCapabilities,
-	Proposed, ProposedFeatures
+	NotebookDocuments,
+	ProposedFeatures
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -52,7 +53,7 @@ const connection: ProposedFeatures.Connection = createConnection(ProposedFeature
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 // The notebooks manager is using the normal document manager for the cell documents.
 // So all validating will work out of the box since normal document events will fire.
-const notebooks = new ProposedFeatures.NotebookDocuments(documents);
+const notebooks = new NotebookDocuments(documents);
 
 // This makes loading work in a plain NodeJS and a WebPacked environment
 declare const __webpack_require__: typeof require;
@@ -383,7 +384,7 @@ connection.onInitialize((_params, _cancel, progress) => {
 	progress.begin('Initializing ESLint Server');
 	const syncKind: TextDocumentSyncKind = TextDocumentSyncKind.Incremental;
 	progress.done();
-	const capabilities: ServerCapabilities & Proposed.$NotebookDocumentSyncServerCapabilities = {
+	const capabilities: ServerCapabilities = {
 		textDocumentSync: {
 			openClose: true,
 			change: syncKind,

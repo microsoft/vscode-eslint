@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Disposable } from 'vscode-languageclient';
 
-import { findEslint } from './utils';
+import { findEslint } from './node-utils';
 
 /**
  * A special task definition for ESLint tasks

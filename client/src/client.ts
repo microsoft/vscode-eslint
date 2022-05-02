@@ -12,15 +12,16 @@ import {
 } from 'vscode';
 
 import {
-	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, ErrorHandlerResult, CloseAction, CloseHandlerResult, Proposed,
-	RevealOutputChannelOn, ServerOptions, DocumentFilter, ProposedFeatures, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams
+	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, ErrorHandlerResult, CloseAction, CloseHandlerResult,
+	RevealOutputChannelOn, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
+	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType
 } from 'vscode-languageclient/node';
 
 import { CodeActionsOnSave, LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeItem, RuleCustomization, Validate } from './shared/settings';
-import { convert2RegExp, Is, pickFolder, Semaphore, toOSPath, toPosixPath } from './utils';
+import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
+import { pickFolder } from './vscode-utils';
 
 export class Validator {
 
@@ -143,9 +144,6 @@ export namespace ESLintClient {
 		statusBarItem.command = 'eslint.showOutputChannel';
 		const documentStatus: Map<string, Status> = new Map();
 
-		// Register proposed support for notebooks
-		client.registerFeature(ProposedFeatures.createNotebookDocumentSyncFeature(client));
-
 		// If the workspace configuration changes we need to update the synced documents since the
 		// list of probe language type can change.
 		context.subscriptions.push(Workspace.onDidChangeConfiguration(() => {
@@ -153,13 +151,13 @@ export namespace ESLintClient {
 			for (const textDocument of syncedDocuments.values()) {
 				if (validator.check(textDocument) === Validate.off) {
 					const provider = client.getFeature(DidCloseTextDocumentNotification.method).getProvider(textDocument);
-					provider?.send(textDocument);
+					provider?.send(textDocument).catch((error) => client.error(`Sending close notification failed.`, error));
 				}
 			}
 			for (const textDocument of Workspace.textDocuments) {
 				if (!syncedDocuments.has(textDocument.uri.toString()) && validator.check(textDocument) !== Validate.off) {
 					const provider = client.getFeature(DidOpenTextDocumentNotification.method).getProvider(textDocument);
-					provider?.send(textDocument);
+					provider?.send(textDocument).catch((error) => client.error(`Sending open notification failed.`, error));
 				}
 			}
 		}));
@@ -285,12 +283,12 @@ export namespace ESLintClient {
 			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
 			for (const document of Workspace.textDocuments) {
 				if (document.uri.toString() === params.textDocument.uri) {
-					closeFeature.getProvider(document)?.send(document);
+					closeFeature.getProvider(document)?.send(document).catch((error) => client.error(`Sending close notification failed`, error));
 				}
 			}
 		});
 
-		const notebookFeature = client.getFeature(Proposed.NotebookDocumentSyncRegistrationType.method);
+		const notebookFeature = client.getFeature(NotebookDocumentSyncRegistrationType.method);
 		if (notebookFeature !== undefined) {
 			notebookFeature.register({
 				id: String(Date.now()),

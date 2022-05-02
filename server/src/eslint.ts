@@ -270,10 +270,10 @@ export type ESLintModule =
 };
 
 export namespace ESLintModule {
-	export function hasESLintClass(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: CLIEngineConstructor | undefined;} {
+	export function hasESLintClass(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined; } {
 		return value.ESLint !== undefined;
 	}
-	export function hasCLIEngine(value: ESLintModule): value is { CLIEngine: CLIEngineConstructor; ESLint: ESLintClassConstructor | undefined; } {
+	export function hasCLIEngine(value: ESLintModule): value is { ESLint: undefined; CLIEngine: CLIEngineConstructor; } {
 		return value.CLIEngine !== undefined;
 	}
 }

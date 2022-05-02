@@ -15,7 +15,8 @@ import {
 
 import { Validate } from './shared/settings';
 
-import { findEslint, pickFolder } from './utils';
+import { findEslint } from './node-utils';
+import { pickFolder } from './vscode-utils';
 import { TaskProvider } from './tasks';
 import { ESLintClient, Validator } from './client';
 

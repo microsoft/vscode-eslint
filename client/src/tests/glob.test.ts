@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as assert from 'assert';
-import { convert2RegExp } from '../utils';
+import { convert2RegExp } from '../node-utils';
 
 function isDefined<T>(value: T | undefined | null): asserts value is Exclude<T, undefined | null> {
 	if (value === undefined || value === null) {
