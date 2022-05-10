@@ -389,7 +389,7 @@ export namespace ESLintClient {
 				progressOnInitialization: true,
 				synchronize: {
 					fileEvents: [
-						Workspace.createFileSystemWatcher('**/.eslintr{c.js,c.yaml,c.yml,c,c.json}'),
+						Workspace.createFileSystemWatcher('**/.eslintr{c.js,c.cjs,c.yaml,c.yml,c,c.json}'),
 						Workspace.createFileSystemWatcher('**/.eslintignore'),
 						Workspace.createFileSystemWatcher('**/package.json')
 					]
