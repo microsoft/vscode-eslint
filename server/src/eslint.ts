@@ -1075,7 +1075,12 @@ export namespace ESLint {
 			pnpm: {
 				cache: undefined,
 				get(): string {
-					const pnpmPath = execSync('pnpm root -g').toString().trim();
+					let pnpmPath: string;
+					try {
+						pnpmPath = execSync('pnpm root -g').toString().trim();
+					} catch {
+						pnpmPath = execSync('pnpm root').toString().trim();
+					}
 					return pnpmPath;
 				}
 			}
