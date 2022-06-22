@@ -8,6 +8,15 @@ The extension uses the ESLint library installed in the opened workspace folder. 
 
 On new folders you might also need to create a `.eslintrc` configuration file. You can do this by either using the VS Code command `Create ESLint configuration` or by running the `eslint` command in a terminal. If you have installed ESLint globally (see above) then run [`eslint --init`](http://eslint.org/docs/user-guide/command-line-interface) in a terminal. If you have installed ESLint locally then run [`.\node_modules\.bin\eslint --init`](http://eslint.org/docs/user-guide/command-line-interface) under Windows and [`./node_modules/.bin/eslint --init`](http://eslint.org/docs/user-guide/command-line-interface) under Linux and Mac.
 
+# Index
+* [Release Notes](#release-notes)
+* [Settings Options](#settings-options)
+* [Settings Migration](#settings-migration)
+* [Commands](#commands)
+* [Using the extension with VS Code's task running](#using-the-extension-with-vs-codes-task-running)
+* [Using ESLint to validate TypeScript files](#using-eslint-to-validate-typescript-files)
+* [ESLint 6.x](#eslint-6x)
+
 ## Release Notes
 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md).
