@@ -696,8 +696,9 @@ export namespace ESLint {
 		const result = new Map<string, RegExp[]>();
 		const typescript = /\/@typescript-eslint\/parser\//;
 		const babelESLint = /\/babel-eslint\/lib\/index.js$/;
-		result.set('typescript', [typescript, babelESLint]);
-		result.set('typescriptreact', [typescript, babelESLint]);
+		const vueESLint = /\/vue-eslint-parser\/index.js$/;
+		result.set('typescript', [typescript, babelESLint, vueESLint]);
+		result.set('typescriptreact', [typescript, babelESLint, vueESLint]);
 
 		const angular = /\/@angular-eslint\/template-parser\//;
 		result.set('html', [angular]);
