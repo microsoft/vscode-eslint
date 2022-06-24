@@ -4,9 +4,9 @@
 		"out": false
 	},
 	"search.exclude": {
-		"out": true,
-		"server": true
+		"out": true
 	},
+	"git.branchProtection": ["main"],
 	"files.trimTrailingWhitespace": true,
 	"editor.insertSpaces": false,
 	"editor.tabSize": 4,
@@ -14,7 +14,6 @@
 	"typescript.tsc.autoDetect": "off",
 	"typescript.tsserver.trace": "off",
 	"typescript.tsserver.log": "off",
-	"tslint.enable": false,
 	"eslint.enable": true,
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
@@ -26,7 +25,6 @@
 		"!@typescript-eslint/*",
 		"*"
 	],
-	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.workingDirectories": [
 		"./client",
 		"./server"
