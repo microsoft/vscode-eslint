@@ -294,7 +294,11 @@ export namespace ESLintClient {
 				id: String(Date.now()),
 				registerOptions: {
 					notebookSelector: [{
-						notebook: { scheme: 'file' }
+						notebook: { scheme: 'file' },
+						// We dynamically filter using the filterCells callback.
+						// To force the filtering match all cells for now.
+						// See also https://github.com/microsoft/vscode-languageserver-node/issues/1017
+						cells: [ { language: '*' } ]
 					}]
 				}
 			});
