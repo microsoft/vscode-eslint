@@ -64,7 +64,6 @@ export namespace CodeActionsOnSaveRules {
 }
 
 export type CodeActionsOnSaveSettings = {
-	enable: boolean;
 	mode: CodeActionsOnSaveMode,
 	rules?: string[]
 };

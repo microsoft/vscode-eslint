@@ -704,19 +704,19 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 	const isSource = only === CodeActionKind.Source;
 	const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll);
 	if (isSourceFixAll || isSource) {
-		if (isSourceFixAll && settings.codeActionOnSave.enable) {
+		if (isSourceFixAll) {
 			const textDocumentIdentifer: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
 			const edits = await computeAllFixes(textDocumentIdentifer, AllFixesMode.onSave);
 			if (edits !== undefined) {
 				result.fixAll.push(CodeAction.create(
-					`Fix all ESLint auto-fixable problems`,
+					`Fix all fixable ESLint issues`,
 					{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifer, edits )]},
 					ESLintSourceFixAll
 				));
 			}
 		} else if (isSource) {
 			result.fixAll.push(createCodeAction(
-				`Fix all ESLint auto-fixable problems`,
+				`Fix all fixable ESLint issues`,
 				CodeActionKind.Source,
 				CommandIds.applyAllFixes,
 				CommandParams.create(textDocument)

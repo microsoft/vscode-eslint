@@ -17,7 +17,7 @@ import {
 	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType
 } from 'vscode-languageclient/node';
 
-import { CodeActionsOnSave, LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
+import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeItem, RuleCustomization, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
@@ -601,7 +601,6 @@ export namespace ESLintClient {
 					packageManager: config.get('packageManager', 'npm'),
 					useESLintClass: config.get('useESLintClass', false),
 					codeActionOnSave: {
-						enable: false,
 						mode: CodeActionsOnSaveMode.all
 					},
 					format: false,
@@ -628,7 +627,6 @@ export namespace ESLintClient {
 				}
 				if (settings.validate !== Validate.off) {
 					settings.format = !!config.get('format.enable', false);
-					settings.codeActionOnSave.enable = readCodeActionsOnSaveSetting(document);
 					settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
 					settings.codeActionOnSave.rules = CodeActionsOnSaveRules.from(config.get('codeActionsOnSave.rules', null));
 				}
@@ -742,28 +740,6 @@ export namespace ESLintClient {
 				customizations = config.get('rules.customizations');
 			}
 			return parseRulesCustomizations(customizations);
-		}
-
-		function readCodeActionsOnSaveSetting(document: TextDocument): boolean {
-			let result: boolean | undefined = undefined;
-
-			function isEnabled(value: CodeActionsOnSave | string[]): boolean | undefined {
-				if (value === undefined || value === null) {
-					return undefined;
-				}
-				if (Array.isArray(value)) {
-					const result = value.some((element) => { return element === 'source.fixAll.eslint' || element === 'source.fixAll'; });
-					return result === true ? true : undefined;
-				} else {
-					return value['source.fixAll.eslint'] ?? value['source.fixAll'];
-				}
-			}
-
-			const codeActionsOnSave = Workspace.getConfiguration('editor', document).get<CodeActionsOnSave>('codeActionsOnSave');
-			if (codeActionsOnSave !== undefined) {
-				result = isEnabled(codeActionsOnSave);
-			}
-			return result ?? false;
 		}
 
 		function getTextDocument(uri: Uri): TextDocument | undefined {
