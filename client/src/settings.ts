@@ -72,7 +72,7 @@ interface CodeActionsOnSaveMap {
 	[key: string]: boolean | undefined;
 }
 
-export type CodeActionsOnSave = CodeActionsOnSaveMap | string[] | null;
+type CodeActionsOnSave = CodeActionsOnSaveMap | string[] | null;
 
 namespace CodeActionsOnSave {
 	export function isExplicitlyDisabled(setting: CodeActionsOnSave | undefined): boolean {
