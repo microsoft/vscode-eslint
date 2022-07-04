@@ -11,8 +11,7 @@ import {
 	TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier, ExecuteCommandRequest,
 	DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
 	DocumentFormattingRequest, TextDocumentEdit, LSPErrorCodes, Message as LMessage, ResponseMessage as LResponseMessage, uinteger, ServerCapabilities,
-	NotebookDocuments,
-	ProposedFeatures
+	NotebookDocuments, ProposedFeatures, ClientCapabilities
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -49,6 +48,9 @@ const connection: ProposedFeatures.Connection = createConnection(ProposedFeature
 		return undefined;
 	}
 });
+
+// Set when handling the initialize request.
+let clientCapabilities: ClientCapabilities;
 
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 // The notebooks manager is using the normal document manager for the cell documents.
@@ -383,6 +385,7 @@ namespace CommandIds {
 connection.onInitialize((_params, _cancel, progress) => {
 	progress.begin('Initializing ESLint Server');
 	const syncKind: TextDocumentSyncKind = TextDocumentSyncKind.Incremental;
+	clientCapabilities = _params.capabilities;
 	progress.done();
 	const capabilities: ServerCapabilities = {
 		textDocumentSync: {
@@ -398,7 +401,6 @@ connection.onInitialize((_params, _cancel, progress) => {
 				supported: true
 			}
 		},
-		codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`] },
 		executeCommandProvider: {
 			commands: [
 				CommandIds.applySingleFix,
@@ -411,11 +413,21 @@ connection.onInitialize((_params, _cancel, progress) => {
 			]
 		}
 	};
+
+	if (clientCapabilities.textDocument?.codeAction?.codeActionLiteralSupport?.codeActionKind.valueSet !== undefined) {
+		capabilities.codeActionProvider = {
+			codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`]
+		};
+	}
+
 	return { capabilities };
 });
 
 connection.onInitialized(() => {
-	void connection.client.register(DidChangeConfigurationNotification.type, undefined);
+	if (clientCapabilities.workspace?.didChangeConfiguration?.dynamicRegistration === true) {
+		void connection.client.register(DidChangeConfigurationNotification.type, undefined);
+	}
+
 	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
 });
 
@@ -426,7 +438,6 @@ messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_par
 messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_params) => {
 	environmentChanged();
 });
-
 
 async function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
