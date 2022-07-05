@@ -23,6 +23,11 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd major, minor or patch version numbers indicate an insider or pre-release. So `2.2.3` is a pre-release, `2.5.3` will be a pre-release as well. `2.2.10` will be a regular release.
 
+### Version 2.2.6 (same as 2.2.5 Pre-release)
+
+- added support for validating single notebook document cells if the language is supported by ESLint
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/milestone/47?closed=1)
+
 ### Version 2.2.5 - Pre-release
 
 - added support for validating single notebook document cells if the language is supported by ESLint
