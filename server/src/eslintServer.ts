@@ -382,10 +382,10 @@ namespace CommandIds {
 	export const openRuleDoc: string = 'eslint.openRuleDoc';
 }
 
-connection.onInitialize((_params, _cancel, progress) => {
+connection.onInitialize((params, _cancel, progress) => {
 	progress.begin('Initializing ESLint Server');
 	const syncKind: TextDocumentSyncKind = TextDocumentSyncKind.Incremental;
-	clientCapabilities = _params.capabilities;
+	clientCapabilities = params.capabilities;
 	progress.done();
 	const capabilities: ServerCapabilities = {
 		textDocumentSync: {
