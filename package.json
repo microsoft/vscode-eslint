@@ -372,6 +372,15 @@
 							],
 							"default": "separateLine",
 							"description": "Configure the disable rule code action to insert the comment on the same line or a new line."
+						},
+						"commentStyle": {
+							"type": "string",
+							"enum": [
+								"line",
+								"block"
+							],
+							"default": "line",
+							"definition": "The comment style to use when disabling a rule on a specific line."
 						}
 					},
 					"additionalProperties": false,

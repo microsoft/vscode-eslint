@@ -617,7 +617,7 @@ export namespace ESLintClient {
 					workingDirectory: undefined,
 					workspaceFolder: undefined,
 					codeAction: {
-						disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine' }),
+						disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine', commentStyle: 'line' as 'line' }),
 						showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
 					}
 				};

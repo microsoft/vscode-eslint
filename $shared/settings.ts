@@ -29,6 +29,7 @@ export type CodeActionSettings = {
 	disableRuleComment: {
 		enable: boolean;
 		location: 'separateLine' | 'sameLine';
+		commentStyle: 'line' | 'block';
 	};
 	showDocumentation: {
 		enable: boolean;
