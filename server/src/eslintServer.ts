@@ -681,13 +681,13 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 
 			// For consistency, we ignore the settings here and use the comment style from that
 			// specific line.
-			const matchedLineDisable = prevLine && new RegExp(`${lineComment} eslint-disable-next-line`).test(prevLine);
+			const matchedLineDisable = new RegExp(`${lineComment} eslint-disable-next-line`).test(prevLine);
 			if (matchedLineDisable) {
 				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine);
 				return TextEdit.insert(Position.create(editInfo.line - 2, insertionIndex), `, ${editInfo.ruleId}`);
 			}
 
-			const matchedBlockDisable = prevLine && new RegExp(`${blockComment[0]} eslint-disable-next-line`).test(prevLine);
+			const matchedBlockDisable = new RegExp(`${blockComment[0]} eslint-disable-next-line`).test(prevLine);
 			if (matchedBlockDisable) {
 				let insertionIndex = prevLine.indexOf(blockComment[1]);
 				while (insertionIndex > 0 && prevLine[insertionIndex - 1] === ' ') {
@@ -718,8 +718,8 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 
 		// Check if there's already a disabling comment. If so, we ignore the settings here
 		// and use the comment style from that specific line.
-		const matchedLineDisable = currentLine && new RegExp(`${lineComment} eslint-disable-line`).test(currentLine);
-		const matchedBlockDisable = currentLine && new RegExp(`${blockComment[0]} eslint-disable-line`).test(currentLine);
+		const matchedLineDisable = new RegExp(`${lineComment} eslint-disable-line`).test(currentLine);
+		const matchedBlockDisable = new RegExp(`${blockComment[0]} eslint-disable-line`).test(currentLine);
 		if (matchedLineDisable) {
 			disableRuleContent = `, ${editInfo.ruleId}`;
 			insertionIndex = getDisableRuleEditInsertionIndex(currentLine);
