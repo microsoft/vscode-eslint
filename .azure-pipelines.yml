@@ -7,7 +7,7 @@ trigger:
 jobs:
 - job: Windows
   pool:
-    vmImage: VS2017-Win2016
+    vmImage: 'windows-latest'
   steps:
   - template: build/azure-pipelines/win32/build.yml
 
