@@ -3,8 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "devDependencies": {
-    "eslint": "^8.4.1",
-    "eslint-plugin-html": "^6.2.0",
-    "eslint-plugin-vue": "^8.2.0"
+    "eslint": "^8.21.0",
+    "eslint-plugin-html": "^7.1.0",
+    "eslint-plugin-vue": "^9.3.0"
   }
 }
