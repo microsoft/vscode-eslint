@@ -658,16 +658,16 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 	}
 
 	function getDisableRuleEditInsertionIndex(line: string): number {
-		let lineIndex = line.indexOf('--');
+		let charIndex = line.indexOf('--');
 
-		if (lineIndex < 0) {
+		if (charIndex < 0) {
 			return line.length;
 		}
-		while (lineIndex > 1 && line[lineIndex - 1] === ' ') {
-			lineIndex--;
+		while (charIndex > 1 && line[charIndex - 1] === ' ') {
+			charIndex--;
 		}
 
-		return lineIndex;
+		return charIndex;
 	}
 
 	function createDisableLineTextEdit(textDocument: TextDocument, editInfo: Problem, indentationText: string): TextEdit {
