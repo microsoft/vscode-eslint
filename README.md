@@ -35,7 +35,7 @@ From version 2.2.3 on forward odd major, minor or patch version numbers indicate
 
 ### Version 2.2.0
 
-Added support for ESLint V8.0 Beta. To stay backwards compatible with eslint settings the version still uses the CLIEngine if available. However users can force the use of the new ESLint API using the setting `eslint.useESLintClass`. Be ware that the ESLint npm module changed how options are interpreted. It also changed the names of certain options. If you used `eslint.options` to pass special options to the ESLint npm module you might need to adapt the setting to the new [form](https://eslint.org/docs/developer-guide/nodejs-api#-new-eslintoptions).
+Added support for ESLint V8.0 Beta. To stay backwards compatible with eslint settings the version still uses the CLIEngine if available. However users can force the use of the new ESLint API using the setting `eslint.useESLintClass`. Beware that the ESLint npm module changed how options are interpreted. It also changed the names of certain options. If you used `eslint.options` to pass special options to the ESLint npm module you might need to adapt the setting to the new [form](https://eslint.org/docs/developer-guide/nodejs-api#-new-eslintoptions).
 
 ### Version 2.1.22
 
@@ -95,7 +95,7 @@ The chosen action is then reflected in the ESLint status bar item in the followi
 
 You can manage our decisions using the following commands:
 
-- `ESLint: Manage Library Execution` will reopen aboves dialog
+- `ESLint: Manage Library Execution` will reopen above dialog
 - `ESLint: Reset Library Decisions` lets you reset previous decisions who have made.
 
 This release also addresses the vulnerability described in [CVE-2021-27081](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-27081).
@@ -168,7 +168,7 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.options": { "configFile": "C:/mydirectory/.eslintrc.json" }
   }
   ```
-- `eslint.useESLintClass` (@since 2.2.0) - whether to use the ESLint class API even if the CLIEngine API is present. The setting is only honor when using using ESLint version 7.x.
+- `eslint.useESLintClass` (@since 2.2.0) - whether to use the ESLint class API even if the CLIEngine API is present. The setting is only honor when using ESLint version 7.x.
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.quiet` - ignore warnings.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under. [Use `"node"`](https://github.com/microsoft/vscode-eslint/issues/1233#issuecomment-815521280) if you want to use your default system version of node.
@@ -211,7 +211,7 @@ This extension contributes the following variables to the [settings](https://cod
 
 - `eslint.codeActionsOnSave.mode` (@since 2.0.12) - controls which problems are fix when running code actions on save.
   - `all`: fixes all possible problems by revalidating the file's content. This executes the same code path as running eslint with the `--fix` option in the terminal and therefore can take some time. This is the default value.
-  - `problems`: fixes only the currently known fixable problems as long as their textual edits are non overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
+  - `problems`: fixes only the currently known fixable problems as long as their textual edits are non-overlapping. This mode is a lot faster but very likely only fixes parts of the problems.
 
   Please note that if `eslint.codeActionsOnSave.mode` is set to `problems`, the `eslint.codeActionsOnSave.rules` is ignored.
 
@@ -303,7 +303,7 @@ This extension contributes the following commands to the Command palette.
 
 ## Using the extension with VS Code's task running
 
-The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.lintTask.enable` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need anymore to define a custom task in `tasks.json`.
+The extension is linting an individual file only on typing. If you want to lint the whole workspace set `eslint.lintTask.enable` to `true` and the extension will also contribute the `eslint: lint whole folder` task. There is no need any more to define a custom task in `tasks.json`.
 
 ## Using ESLint to validate TypeScript files
 
