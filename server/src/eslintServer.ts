@@ -657,19 +657,31 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		return action;
 	}
 
+	function getDisableRuleEditInsertionIndex(line: string): number {
+		let charIndex = line.indexOf('--');
+
+		if (charIndex < 0) {
+			return line.length;
+		}
+		while (charIndex > 1 && line[charIndex - 1] === ' ') {
+			charIndex--;
+		}
+
+		return charIndex;
+	}
 
 	function createDisableLineTextEdit(textDocument: TextDocument, editInfo: Problem, indentationText: string): TextEdit {
-		// if the concerned line is not the first  line of the file
-		if ( editInfo.line - 1 > 0) {
-
-			// check previous line if there is a eslint-disable-next-line comment already present
+		// If the concerned line is not the first line of the file
+		if (editInfo.line - 1 > 0) {
+			// Check previous line if there is a eslint-disable-next-line comment already present
 			const prevLine = textDocument.getText(Range.create(Position.create(editInfo.line - 2, 0), Position.create(editInfo.line - 2, uinteger.MAX_VALUE)));
 			const matched = prevLine && prevLine.match(new RegExp(`${LanguageDefaults.getLineComment(textDocument.languageId)} eslint-disable-next-line`));
 			if (matched && matched.length) {
-				return TextEdit.insert(Position.create(editInfo.line - 2, uinteger.MAX_VALUE), `, ${editInfo.ruleId}`);
+				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine);
+				return TextEdit.insert(Position.create(editInfo.line - 2, insertionIndex), `, ${editInfo.ruleId}`);
 			}
-
 		}
+
 		return TextEdit.insert(Position.create(editInfo.line - 1, 0), `${indentationText}${LanguageDefaults.getLineComment(textDocument.languageId)} eslint-disable-next-line ${editInfo.ruleId}${EOL}`);
 	}
 
@@ -677,9 +689,11 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		const currentLine = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line -1, uinteger.MAX_VALUE)));
 		const matched = currentLine && new RegExp(`${LanguageDefaults.getLineComment(textDocument.languageId)} eslint-disable-line`).exec(currentLine);
 
-		const disableRuleContent = (matched && matched.length) ? `, ${editInfo.ruleId}` : ` ${LanguageDefaults.getLineComment(textDocument.languageId)} eslint-disable-line ${editInfo.ruleId}`;
+		const disableCommentExists = matched && matched.length;
+		const disableRuleContent = disableCommentExists ? `, ${editInfo.ruleId}` : ` ${LanguageDefaults.getLineComment(textDocument.languageId)} eslint-disable-line ${editInfo.ruleId}`;
+		const insertionIndex = disableCommentExists ? getDisableRuleEditInsertionIndex(currentLine) : uinteger.MAX_VALUE;
 
-		return TextEdit.insert(Position.create(editInfo.line - 1, uinteger.MAX_VALUE), disableRuleContent);
+		return TextEdit.insert(Position.create(editInfo.line - 1, insertionIndex), disableRuleContent);
 	}
 
 	function createDisableFileTextEdit(textDocument: TextDocument, editInfo: Problem): TextEdit {
