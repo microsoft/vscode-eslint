@@ -657,14 +657,22 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		return action;
 	}
 
-	function getDisableRuleEditInsertionIndex(line: string): number {
+	function getDisableRuleEditInsertionIndex(line: string, commentTags: ReturnType<typeof LanguageDefaults.getLineComment> | ReturnType<typeof LanguageDefaults.getBlockComment>): number {
 		let charIndex = line.indexOf('--');
 
 		if (charIndex < 0) {
-			return line.length;
-		}
-		while (charIndex > 1 && line[charIndex - 1] === ' ') {
-			charIndex--;
+			if (typeof commentTags === 'string') {
+				return line.length;
+			} else { // commentTags is an array containing the block comment closing and opening tags
+				charIndex = line.indexOf(commentTags[1]);
+				while (charIndex > 0 && line[charIndex - 1] === ' ') {
+					charIndex--;
+				}
+			}
+		} else {
+			while (charIndex > 1 && line[charIndex - 1] === ' ') {
+				charIndex--;
+			}
 		}
 
 		return charIndex;
@@ -683,16 +691,13 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 			// specific line.
 			const matchedLineDisable = new RegExp(`${lineComment} eslint-disable-next-line`).test(prevLine);
 			if (matchedLineDisable) {
-				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine);
+				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine, lineComment);
 				return TextEdit.insert(Position.create(editInfo.line - 2, insertionIndex), `, ${editInfo.ruleId}`);
 			}
 
 			const matchedBlockDisable = new RegExp(`${blockComment[0]} eslint-disable-next-line`).test(prevLine);
 			if (matchedBlockDisable) {
-				let insertionIndex = prevLine.indexOf(blockComment[1]);
-				while (insertionIndex > 0 && prevLine[insertionIndex - 1] === ' ') {
-					insertionIndex--;
-				}
+				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine, blockComment);
 				return TextEdit.insert(Position.create(editInfo.line - 2, insertionIndex), `, ${editInfo.ruleId}`);
 			}
 		}
@@ -722,13 +727,10 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		const matchedBlockDisable = new RegExp(`${blockComment[0]} eslint-disable-line`).test(currentLine);
 		if (matchedLineDisable) {
 			disableRuleContent = `, ${editInfo.ruleId}`;
-			insertionIndex = getDisableRuleEditInsertionIndex(currentLine);
+			insertionIndex = getDisableRuleEditInsertionIndex(currentLine, lineComment);
 		} else if (matchedBlockDisable) {
 			disableRuleContent = `, ${editInfo.ruleId}`;
-			insertionIndex = currentLine.indexOf(blockComment[1]);
-			while (insertionIndex > 0 && currentLine[insertionIndex - 1] === ' ') {
-				insertionIndex--;
-			}
+			insertionIndex = getDisableRuleEditInsertionIndex(currentLine, blockComment);
 		} else {
 			// We're creating a new disabling comment.
 			const commentStyle = settings.codeAction.disableRuleComment.commentStyle;
