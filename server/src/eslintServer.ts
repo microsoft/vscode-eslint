@@ -657,7 +657,7 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		return action;
 	}
 
-	function getDisableRuleEditInsertionIndex(line: string, commentTags: ReturnType<typeof LanguageDefaults.getLineComment> | ReturnType<typeof LanguageDefaults.getBlockComment>): number {
+	function getDisableRuleEditInsertionIndex(line: string, commentTags: string | [string, string]): number {
 		let charIndex = line.indexOf('--');
 
 		if (charIndex < 0) {
