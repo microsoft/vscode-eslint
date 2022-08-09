@@ -356,7 +356,8 @@
 					"type": "object",
 					"default": {
 						"enable": true,
-						"location": "separateLine"
+						"location": "separateLine",
+						"commentStyle": "line"
 					},
 					"properties": {
 						"enable": {
