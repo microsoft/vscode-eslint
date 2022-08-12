@@ -402,7 +402,7 @@
 					],
 					"enumDescriptions": [
 						"Fixes all possible problems in the file. This option might take some time.",
-						"Only fixes reported problems that have non overlapping textual edits. This options runs a lot faster."
+						"Fixes only reported problems that have non-overlapping textual edits. This option runs a lot faster."
 					],
 					"default": "all",
 					"markdownDescription": "Specifies the code action mode. Possible values are 'all' and 'problems'."
