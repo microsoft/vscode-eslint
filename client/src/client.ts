@@ -19,7 +19,7 @@ import {
 
 import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
-import { CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeItem, RuleCustomization, Validate } from './shared/settings';
+import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeItem, RuleCustomization, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
 
@@ -617,7 +617,7 @@ export namespace ESLintClient {
 					workingDirectory: undefined,
 					workspaceFolder: undefined,
 					codeAction: {
-						disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as 'separateLine', commentStyle: 'line' as 'line' }),
+						disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as const, commentStyle: 'line' as const }),
 						showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
 					}
 				};
