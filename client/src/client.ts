@@ -19,7 +19,7 @@ import {
 
 import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
-import { CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeItem, RuleCustomization, Validate } from './shared/settings';
+import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
 
@@ -37,7 +37,7 @@ export class Validator {
 
 	public check(textDocument: TextDocument): Validate {
 		const config = Workspace.getConfiguration('eslint', textDocument.uri);
-		if (!config.get('enable', true)) {
+		if (!config.get<boolean>('enable', true)) {
 			return Validate.off;
 		}
 		const languageId = textDocument.languageId;
@@ -355,7 +355,7 @@ export namespace ESLintClient {
 			const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
 			const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
 			const execArgv = sanitize(eslintConfig.get<string[] | null>('execArgv', null) ?? undefined, 'string', undefined);
-			const nodeEnv = sanitize(eslintConfig.get('nodeEnv', null) ?? undefined, 'string', undefined);
+			const nodeEnv = sanitize(eslintConfig.get<string | null>('nodeEnv', null) ?? undefined, 'string', undefined);
 
 			let env: { [key: string]: string | number | boolean } | undefined;
 			if (debug) {
@@ -602,23 +602,23 @@ export namespace ESLintClient {
 				});
 				const settings: ConfigurationSettings = {
 					validate: Validate.off,
-					packageManager: config.get('packageManager', 'npm'),
-					useESLintClass: config.get('useESLintClass', false),
+					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
+					useESLintClass: config.get<boolean>('useESLintClass', false),
 					codeActionOnSave: {
 						mode: CodeActionsOnSaveMode.all
 					},
 					format: false,
-					quiet: config.get('quiet', false),
+					quiet: config.get<boolean>('quiet', false),
 					onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
-					options: config.get('options', {}),
+					options: config.get<ESLintOptions>('options', {}),
 					rulesCustomizations: getRuleCustomizations(config, resource),
-					run: config.get('run', 'onType'),
+					run: config.get<RunValues>('run', 'onType'),
 					nodePath: config.get<string | undefined>('nodePath', undefined) ?? null,
 					workingDirectory: undefined,
 					workspaceFolder: undefined,
 					codeAction: {
-						disableRuleComment: config.get('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as const, commentStyle: 'line' as const }),
-						showDocumentation: config.get('codeAction.showDocumentation', { enable: true })
+						disableRuleComment: config.get<CodeActionSettings['disableRuleComment']>('codeAction.disableRuleComment', { enable: true, location: 'separateLine' as const }),
+						showDocumentation: config.get<CodeActionSettings['showDocumentation']>('codeAction.showDocumentation', { enable: true })
 					}
 				};
 				const document: TextDocument | undefined = syncedDocuments.get(item.scopeUri);
@@ -626,13 +626,13 @@ export namespace ESLintClient {
 					result.push(settings);
 					continue;
 				}
-				if (config.get('enabled', true)) {
+				if (config.get<boolean>('enabled', true)) {
 					settings.validate = validator.check(document);
 				}
 				if (settings.validate !== Validate.off) {
-					settings.format = !!config.get('format.enable', false);
-					settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
-					settings.codeActionOnSave.rules = CodeActionsOnSaveRules.from(config.get('codeActionsOnSave.rules', null));
+					settings.format = !!config.get<boolean>('format.enable', false);
+					settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get<CodeActionsOnSaveMode>('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
+					settings.codeActionOnSave.rules = CodeActionsOnSaveRules.from(config.get<string[] | null>('codeActionsOnSave.rules', null));
 				}
 				if (workspaceFolder !== undefined) {
 					settings.workspaceFolder = {
@@ -736,12 +736,12 @@ export namespace ESLintClient {
 		}
 
 		function getRuleCustomizations(config: WorkspaceConfiguration, uri: Uri): RuleCustomization[] {
-			let customizations: any = undefined;
+			let customizations: RuleCustomization[] | undefined = undefined;
 			if (uri.scheme === 'vscode-notebook-cell') {
-				customizations = config.get('notebooks.rules.customizations', undefined);
+				customizations = config.get<RuleCustomization[] | undefined>('notebooks.rules.customizations', undefined);
 			}
 			if (customizations === undefined || customizations === null) {
-				customizations = config.get('rules.customizations');
+				customizations = config.get<RuleCustomization[] | undefined>('rules.customizations');
 			}
 			return parseRulesCustomizations(customizations);
 		}
