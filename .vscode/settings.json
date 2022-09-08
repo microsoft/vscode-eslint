@@ -42,5 +42,6 @@
 		"eslintr",
 		"mydirectory",
 		"pnpm"
-	]
+	],
+	"task.allowAutomaticTasks": "on"
 }
