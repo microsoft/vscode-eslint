@@ -556,20 +556,15 @@ namespace Diagnostics {
 		return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}-${message ?? ''}`;
 	}
 
-	export function create(settings: TextDocumentSettings, problem: ESLintProblem): [Diagnostic, RuleSeverity | undefined] {
+	export function create(settings: TextDocumentSettings, problem: ESLintProblem, text: string): [Diagnostic, RuleSeverity | undefined] {
 		const message = problem.message;
 		const startLine = typeof problem.line !== 'number' || Number.isNaN(problem.line) ? 0 : Math.max(0, problem.line - 1);
 		const startChar = typeof problem.column !== 'number' || Number.isNaN(problem.column) ? 0 : Math.max(0, problem.column - 1);
 		let endLine = typeof problem.endLine !== 'number' || Number.isNaN(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
-		let endChar: number;
-		if (settings.singleLineUnderline) {
-			endChar =
-				typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) || endLine !== startLine
-				  ? startChar
-				  : Math.max(0, problem.endColumn - 1);
+		let endChar = typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+		if (settings.singleLineUnderline && endLine !== startLine) {
 			endLine = startLine;
-		} else {
-			endChar = typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+			endChar = text.split('\n')[startLine].length;
 		}
 		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations);
 		const result: Diagnostic = {
@@ -1041,7 +1036,7 @@ export namespace ESLint {
 				if (docReport.messages && Array.isArray(docReport.messages)) {
 					docReport.messages.forEach((problem) => {
 						if (problem) {
-							const [diagnostic, override] = Diagnostics.create(settings, problem);
+							const [diagnostic, override] = Diagnostics.create(settings, problem, content);
 							if (!(override === RuleSeverity.off || (settings.quiet && diagnostic.severity === DiagnosticSeverity.Warning))) {
 								diagnostics.push(diagnostic);
 							}
