@@ -30,8 +30,7 @@
 	"extensionKind": [
 		"workspace"
 	],
-	"enabledApiProposals": [
-	],
+	"enabledApiProposals": [],
 	"main": "./client/out/extension",
 	"capabilities": {
 		"virtualWorkspaces": {
@@ -181,6 +180,12 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Since version 7 ESLint offers a new API call ESLint. Use it even if the old CLIEngine is available. From version 8 on forward on ESLint class is available."
+				},
+				"eslint.experimentalUseFlatConfig": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Enable support of experimental Flat Config (aka eslint.config.js, supported by ESLint version 8.21 or later)."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
@@ -338,7 +343,8 @@
 							"items": {
 								"type": "string"
 							}
-						}, {
+						},
+						{
 							"type": "null"
 						}
 					],
@@ -425,7 +431,8 @@
 							"items": {
 								"type": "string"
 							}
-						}, {
+						},
+						{
 							"type": "null"
 						}
 					],
@@ -464,29 +471,29 @@
 					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules."
 				},
 				"eslint.notebooks.rules.customizations": {
-						"items": {
-							"properties": {
-								"severity": {
-									"enum": [
-										"downgrade",
-										"error",
-										"info",
-										"default",
-										"upgrade",
-										"warn",
-										"off"
-									],
-									"type": "string"
-								},
-								"rule": {
-									"type": "string"
-								}
+					"items": {
+						"properties": {
+							"severity": {
+								"enum": [
+									"downgrade",
+									"error",
+									"info",
+									"default",
+									"upgrade",
+									"warn",
+									"off"
+								],
+								"type": "string"
 							},
-							"type": "object"
+							"rule": {
+								"type": "string"
+							}
 						},
-						"scope": "resource",
-						"type": "array",
-						"description": "A special rules customization section for text cells in notebook documents."
+						"type": "object"
+					},
+					"scope": "resource",
+					"type": "array",
+					"description": "A special rules customization section for text cells in notebook documents."
 				}
 			}
 		},

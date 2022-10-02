@@ -605,6 +605,7 @@ export namespace ESLintClient {
 					validate: Validate.off,
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
 					useESLintClass: config.get<boolean>('useESLintClass', false),
+					experimentalUseFlatConfig: config.get<boolean>('experimentalUseFlatConfig', false),
 					codeActionOnSave: {
 						mode: CodeActionsOnSaveMode.all
 					},
