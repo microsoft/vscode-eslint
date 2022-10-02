@@ -11,7 +11,7 @@ import {
 	TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier, ExecuteCommandRequest,
 	DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
 	DocumentFormattingRequest, TextDocumentEdit, LSPErrorCodes, Message as LMessage, ResponseMessage as LResponseMessage, uinteger, ServerCapabilities,
-	NotebookDocuments, ProposedFeatures, ClientCapabilities
+	NotebookDocuments, ProposedFeatures, ClientCapabilities, FullDocumentDiagnosticReport, TextDocumentIdentifier
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -34,6 +34,7 @@ import LanguageDefaults from './languageDefaults';
 
 // The connection to use. Code action requests get removed from the queue if
 // canceled.
+// TODO: Not sure if this changes with pull diagnostics.
 const connection: ProposedFeatures.Connection = createConnection(ProposedFeatures.all, {
 	cancelUndispatched: (message: LMessage) => {
 		// Code actions can savely be cancel on request.
@@ -57,7 +58,7 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 // So all validating will work out of the box since normal document events will fire.
 const notebooks = new NotebookDocuments(documents);
 
-// This makes loading work in a plain NodeJS and a WebPacked environment
+// This makes loading work in a plain NodeJS and a WebPacked environment.
 declare const __webpack_require__: typeof require;
 declare const __non_webpack_require__: typeof require;
 function loadNodeModule<T>(moduleName: string): T | undefined {
@@ -73,12 +74,11 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 }
 
 // Some plugins call exit which will terminate the server.
-// To not loose the information we sent such a behavior
-// to the client.
+// To not lose the information we sent such a behavior to the client.
 const nodeExit = process.exit;
 process.exit = ((code?: number): void => {
 	const stack = new Error('stack');
-	void connection.sendNotification(ExitCalled.type, [code ? code : 0, stack.stack]);
+	void connection.sendNotification(ExitCalled.type, [code ?? 0, stack.stack]);
 	setTimeout(() => {
 		nodeExit(code);
 	}, 1000);
@@ -193,7 +193,6 @@ namespace Thenable {
 }
 
 class BufferedMessageQueue {
-
 	private queue: Message<any, any>[];
 	private requestHandlers: Map<string, { handler: RequestHandler<any, any, any>, versionProvider?: VersionProvider<any> }>;
 	private notificationHandlers: Map<string, { handler: NotificationHandler<any>, versionProvider?: VersionProvider<any> }>;
@@ -315,15 +314,18 @@ messageQueue.onNotification(ValidateNotification.type, (document) => {
 documents.onDidOpen(async (event) => {
 	const document = event.document;
 	const settings = await ESLint.resolveSettings(document);
+
 	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
 		return;
 	}
-	if (settings.run === 'onSave') {
+
+	// Add a validation notification if the client doesn't support pull diagnostics.
+	if (settings.run === 'onSave' && !clientCapabilities.textDocument?.diagnostic) {
 		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
 	}
 });
 
-// A text document has changed. Validate the document according the run setting.
+// A text document has changed.
 documents.onDidChangeContent(async (event) => {
 	const document = event.document;
 	const uri = document.uri;
@@ -333,10 +335,14 @@ documents.onDidChangeContent(async (event) => {
 	if (settings.validate !== Validate.on || settings.run !== 'onType') {
 		return;
 	}
-	messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+
+	// Add a validation notification if the client doesn't support pull diagnostics.
+	if (!clientCapabilities.textDocument?.diagnostic) {
+		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	}
 });
 
-// A text document has been saved. Validate the document according the run setting.
+// A text document has been saved.
 documents.onDidSave(async (event) => {
 	const document = event.document;
 	const settings = await ESLint.resolveSettings(document);
@@ -344,7 +350,11 @@ documents.onDidSave(async (event) => {
 	if (settings.validate !== Validate.on || settings.run !== 'onSave') {
 		return;
 	}
-	messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+
+	// Add a validation notification if the client doesn't support pull diagnostics.
+	if (!clientCapabilities.textDocument?.diagnostic) {
+		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	}
 });
 
 documents.onDidClose(async (event) => {
@@ -356,7 +366,8 @@ documents.onDidClose(async (event) => {
 	SaveRuleConfigs.remove(uri);
 	CodeActions.remove(uri);
 	ESLint.unregisterAsFormatter(document);
-	if (settings.validate === Validate.on) {
+
+	if (settings.validate === Validate.on && !clientCapabilities.textDocument?.diagnostic) {
 		void connection.sendDiagnostics({ uri: uri, diagnostics: [] });
 	}
 });
@@ -367,8 +378,12 @@ function environmentChanged() {
 	SaveRuleConfigs.clear();
 	ESLint.clearFormatters();
 
-	for (const document of documents.all()) {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	if (clientCapabilities.textDocument?.diagnostic) {
+		connection.languages.diagnostics.refresh();
+	} else {
+		for (const document of documents.all()) {
+			messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+		}
 	}
 }
 
@@ -434,6 +449,7 @@ connection.onInitialized(() => {
 	}
 
 	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
+	connection.languages.diagnostics.on(({ textDocument }) => validateSingle(textDocument, false));
 });
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
@@ -444,27 +460,37 @@ messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_
 	environmentChanged();
 });
 
-async function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
-	// We validate document in a queue but open / close documents directly. So we need to deal with the
+const emptyDiagnosticsResponse: Readonly<FullDocumentDiagnosticReport> = { kind: 'full', items: [] };
+
+async function validateSingle(documentIdentifier: TextDocumentIdentifier, publishDiagnostics: boolean = true): Promise<FullDocumentDiagnosticReport> {
+	// We validate documents in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
-	if (!documents.get(document.uri)) {
-		return;
+	const document = documents.get(documentIdentifier.uri);
+	if (document === undefined) {
+		return emptyDiagnosticsResponse;
 	}
 
 	const settings = await ESLint.resolveSettings(document);
 	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-		return;
+		return emptyDiagnosticsResponse;
 	}
+
 	try {
 		const diagnostics = await ESLint.validate(document, settings);
+		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		if (publishDiagnostics) {
 			void connection.sendDiagnostics({ uri: document.uri, diagnostics });
+			return emptyDiagnosticsResponse;
+		} else {
+			return { kind: 'full', items: diagnostics };
 		}
-		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 	} catch (err) {
-		// if an exception has occurred while validating clear all errors to ensure
-		// we are not showing any stale once
-		void connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+		// If an exception has occurred while validating clear all errors to ensure
+		// we are not showing any stale ones.
+		if (publishDiagnostics) {
+			void connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
+		}
+
 		if (!settings.silent) {
 			let status: Status | undefined = undefined;
 			for (const handler of ESLint.ErrorHandlers.single) {
@@ -479,19 +505,14 @@ async function validateSingle(document: TextDocument, publishDiagnostics: boolea
 			connection.console.info(ESLint.ErrorHandlers.getMessage(err, document));
 			void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		}
+
+		return emptyDiagnosticsResponse;
 	}
 }
 
-function validateMany(documents: TextDocument[]): void {
-	documents.forEach(document => {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	});
-}
-
-
 messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async (params) => {
-	// A .eslintrc has change. No smartness here.
-	// Simply revalidate all file.
+	// A .eslintrc has changed. No smartness here.
+	// Simply revalidate all files.
 	RuleMetaData.clear();
 	ESLint.ErrorHandlers.clearNoConfigRepoerted();
 	ESLint.ErrorHandlers.clearMissingModuleReported();
@@ -517,7 +538,10 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async 
 			}
 		}
 	}));
-	validateMany(documents.all());
+
+	documents.all().forEach(document => {
+		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
+	});
 });
 
 type RuleCodeActions = {
@@ -587,7 +611,6 @@ class CodeActionResult {
 }
 
 class Changes {
-
 	private readonly values: Map<string, WorkspaceChange>;
 	private uri: string | undefined;
 	private version: number | undefined;
@@ -1073,7 +1096,6 @@ messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
 	const document = documents.get(params.textDocument.uri);
 	return document !== undefined ? document.version : undefined;
 });
-
 
 documents.listen(connection);
 notebooks.listen(connection);
