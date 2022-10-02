@@ -396,6 +396,11 @@ connection.onInitialize((params, _cancel, progress) => {
 				includeText: false
 			}
 		},
+		diagnosticProvider: {
+			identifier: 'eslint',
+			workspaceDiagnostics: false,
+			interFileDependencies: false
+		},
 		workspace: {
 			workspaceFolders: {
 				supported: true
