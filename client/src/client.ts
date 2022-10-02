@@ -14,7 +14,7 @@ import {
 import {
 	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, ErrorHandlerResult, CloseAction, CloseHandlerResult,
 	RevealOutputChannelOn, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType
+	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType, DiagnosticPullMode
 } from 'vscode-languageclient/node';
 
 import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
@@ -24,7 +24,6 @@ import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-uti
 import { pickFolder } from './vscode-utils';
 
 export class Validator {
-
 	private readonly probeFailed: Set<string> = new Set();
 
 	public clear(): void {
@@ -73,7 +72,6 @@ type NoESLintState = {
 };
 
 export namespace ESLintClient {
-
 	function migrationFailed(client: LanguageClient, error: any): void {
 		client.error(error.message ?? 'Unknown error', error);
 		void Window.showErrorMessage('ESLint settings migration failed. Please see the ESLint output channel for further details', 'Open Channel').then((selected) => {
@@ -82,7 +80,6 @@ export namespace ESLintClient {
 			}
 			client.outputChannel.show();
 		});
-
 	}
 
 	export async function migrateSettings(client: LanguageClient): Promise<void> {
@@ -108,7 +105,6 @@ export namespace ESLintClient {
 	}
 
 	export function create(context: ExtensionContext, validator: Validator): LanguageClient {
-
 		// Filters for client options
 		const packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json' };
 		const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}' };
@@ -387,6 +383,22 @@ export namespace ESLintClient {
 			const clientOptions: LanguageClientOptions = {
 				documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 				diagnosticCollectionName: 'eslint',
+				diagnosticPullOptions: {
+					onChange: true,
+					onSave: true,
+					onTabs: false,
+					filter: (document, mode) => {
+						const config = Workspace.getConfiguration('eslint', document);
+						const runSetting = config.get<RunValues>('run', 'onType');
+
+						if ((runSetting === 'onType' && mode === DiagnosticPullMode.onType) ||
+							(runSetting === 'onSave' && mode === DiagnosticPullMode.onSave)) {
+							return !syncedDocuments.has(document.uri.toString());
+						}
+
+						return true;
+					}
+				},
 				revealOutputChannelOn: RevealOutputChannelOn.Never,
 				initializationOptions: {
 				},
