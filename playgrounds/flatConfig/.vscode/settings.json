@@ -68,7 +68,8 @@
 	, "eslint.useESLintClass": false,
 	"eslint.notebooks.rules.customizations" : [
 		{ "rule": "no-unused-vars", "severity": "off" },
-	]
+	],
+	"eslint.experimentalUseFlatConfig": true
 }
 
 

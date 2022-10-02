@@ -857,11 +857,14 @@ export namespace ESLint {
 							settings.validate = Validate.off;
 							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a FlatESLint class.`);
 						} else {
+							connection.console.info(`ESLint library loaded from: ${libraryPath}`);
 							// pretend to be a regular eslint endpoint
 							library = {
 								ESLint: lib.FlatESLint,
 								CLIEngine: undefined,
 							};
+							settings.library = library;
+							path2Library.set(libraryPath, library);
 						}
 					} else {
 						library = loadNodeModule(libraryPath);
