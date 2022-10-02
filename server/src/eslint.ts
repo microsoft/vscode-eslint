@@ -724,14 +724,18 @@ export namespace ESLint {
 		'javascript', 'javascriptreact'
 	]);
 
-	const projectFolderIndicators: [string, boolean][] = [
-		[ 'package.json',  true ],
-		[ '.eslintignore', true],
-		[ '.eslintrc', false ],
-		[ '.eslintrc.json', false ],
-		[ '.eslintrc.js', false ],
-		[ '.eslintrc.yaml', false ],
-		[ '.eslintrc.yml', false ]
+	const projectFolderIndicators: {
+		fileName: string;
+		isRoot: boolean;
+	}[] = [
+		{ fileName: 'package.json', isRoot: true },
+		{ fileName: '.eslintignore', isRoot: true },
+		{ fileName: 'eslint.config.js', isRoot: true },
+		{ fileName: '.eslintrc', isRoot: false },
+		{ fileName: '.eslintrc.json', isRoot: false },
+		{ fileName: '.eslintrc.js', isRoot: false },
+		{ fileName: '.eslintrc.yaml', isRoot: false },
+		{ fileName: '.eslintrc.yml', isRoot: false },
 	];
 
 	const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
@@ -825,31 +829,55 @@ export namespace ESLint {
 			if (moduleResolveWorkingDirectory === undefined && settings.workingDirectory !== undefined && !settings.workingDirectory['!cwd']) {
 				moduleResolveWorkingDirectory = settings.workingDirectory.directory;
 			}
+
+			// During Flat Config is considered experimental,
+			// we need to import FlatESLint from 'eslint/use-at-your-own-risk'.
+			// See: https://eslint.org/blog/2022/08/new-config-system-part-3/
+			const eslintPath = settings.experimentalUseFlatConfig ? 'eslint/use-at-your-own-risk' : 'eslint';
 			if (nodePath !== undefined) {
-				promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-					return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
+				promise = Files.resolve(eslintPath, nodePath, nodePath, trace).then<string, string>(undefined, () => {
+					return Files.resolve(eslintPath, settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
 				});
 			} else {
-				promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
+				promise = Files.resolve(eslintPath, settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
 			}
 
 			settings.silent = settings.validate === Validate.probe;
 			return promise.then(async (libraryPath) => {
 				let library = path2Library.get(libraryPath);
 				if (library === undefined) {
-					library = loadNodeModule(libraryPath);
-					if (library === undefined) {
-						settings.validate = Validate.off;
-						if (!settings.silent) {
-							connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+					if (settings.experimentalUseFlatConfig) {
+						const lib = loadNodeModule<{ FlatESLint?: ESLintClassConstructor }>(libraryPath);
+						if (lib === undefined) {
+							settings.validate = Validate.off;
+							if (!settings.silent) {
+								connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+							}
+						} else if (lib.FlatESLint === undefined) {
+							settings.validate = Validate.off;
+							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a FlatESLint class.`);
+						} else {
+							// pretend to be a regular eslint endpoint
+							library = {
+								ESLint: lib.FlatESLint,
+								CLIEngine: undefined,
+							};
 						}
-					} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
-						settings.validate = Validate.off;
-						connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
 					} else {
-						connection.console.info(`ESLint library loaded from: ${libraryPath}`);
-						settings.library = library;
-						path2Library.set(libraryPath, library);
+						library = loadNodeModule(libraryPath);
+						if (library === undefined) {
+							settings.validate = Validate.off;
+							if (!settings.silent) {
+								connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+							}
+						} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
+							settings.validate = Validate.off;
+							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
+						} else {
+							connection.console.info(`ESLint library loaded from: ${libraryPath}`);
+							settings.library = library;
+							path2Library.set(libraryPath, library);
+						}
 					}
 				} else {
 					settings.library = library;
@@ -1106,10 +1134,10 @@ export namespace ESLint {
 		let result: string = workspaceFolder;
 		let directory: string | undefined = path.dirname(file);
 		outer: while (directory !== undefined && directory.startsWith(workspaceFolder)) {
-			for (const item of projectFolderIndicators) {
-				if (fs.existsSync(path.join(directory, item[0]))) {
+			for (const { fileName, isRoot } of projectFolderIndicators) {
+				if (fs.existsSync(path.join(directory, fileName))) {
 					result = directory;
-					if (item[1]) {
+					if (isRoot) {
 						break outer;
 					} else {
 						break;
