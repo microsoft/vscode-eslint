@@ -156,7 +156,6 @@ SaveRuleConfigs.inferFilePath = inferFilePath;
  * Special message queue implementatin to be able to invalidate requests.
  * No necessary anymore when using diagnostic pull mode
  */
-
 interface Request<P, R> {
 	method: string;
 	params: P;
@@ -303,73 +302,23 @@ class BufferedMessageQueue {
 namespace ValidateNotification {
 	export const type: NotificationType<TextDocument> = new NotificationType<TextDocument>('eslint/validate');
 }
+
 const messageQueue: BufferedMessageQueue = new BufferedMessageQueue(connection);
 
-messageQueue.onNotification(ValidateNotification.type, (document) => {
-	void validateSingle(document, true);
-}, (document): number => {
-	return document.version;
-});
-
-documents.onDidOpen(async (event) => {
-	const document = event.document;
-	const settings = await ESLint.resolveSettings(document);
-
-	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-		return;
-	}
-
-	// Add a validation notification if the client doesn't support pull diagnostics.
-	if (settings.run === 'onSave' && !clientCapabilities.textDocument?.diagnostic) {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	}
-});
-
-// A text document has changed.
 documents.onDidChangeContent(async (event) => {
 	const document = event.document;
 	const uri = document.uri;
 	CodeActions.remove(uri);
-	const settings = await ESLint.resolveSettings(document);
-
-	if (settings.validate !== Validate.on || settings.run !== 'onType') {
-		return;
-	}
-
-	// Add a validation notification if the client doesn't support pull diagnostics.
-	if (!clientCapabilities.textDocument?.diagnostic) {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	}
-});
-
-// A text document has been saved.
-documents.onDidSave(async (event) => {
-	const document = event.document;
-	const settings = await ESLint.resolveSettings(document);
-
-	if (settings.validate !== Validate.on || settings.run !== 'onSave') {
-		return;
-	}
-
-	// Add a validation notification if the client doesn't support pull diagnostics.
-	if (!clientCapabilities.textDocument?.diagnostic) {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	}
 });
 
 documents.onDidClose(async (event) => {
 	const document = event.document;
-	const settings = await ESLint.resolveSettings(document);
 
 	const uri = document.uri;
 	ESLint.removeSettings(uri);
 	SaveRuleConfigs.remove(uri);
 	CodeActions.remove(uri);
 	ESLint.unregisterAsFormatter(document);
-
-	if (settings.validate === Validate.on && !clientCapabilities.textDocument?.diagnostic) {
-		void connection.sendDiagnostics({ uri: uri, diagnostics: [] });
-	}
 });
 
 function environmentChanged() {
@@ -378,13 +327,7 @@ function environmentChanged() {
 	SaveRuleConfigs.clear();
 	ESLint.clearFormatters();
 
-	if (clientCapabilities.textDocument?.diagnostic) {
-		connection.languages.diagnostics.refresh();
-	} else {
-		for (const document of documents.all()) {
-			messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-		}
-	}
+	connection.languages.diagnostics.refresh();
 }
 
 namespace CommandIds {
@@ -449,7 +392,7 @@ connection.onInitialized(() => {
 	}
 
 	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
-	connection.languages.diagnostics.on(({ textDocument }) => validateSingle(textDocument, false));
+	connection.languages.diagnostics.on(({ textDocument }) => validateSingle(textDocument));
 });
 
 messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
@@ -462,7 +405,8 @@ messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_
 
 const emptyDiagnosticsResponse: Readonly<FullDocumentDiagnosticReport> = { kind: 'full', items: [] };
 
-async function validateSingle(documentIdentifier: TextDocumentIdentifier, publishDiagnostics: boolean = true): Promise<FullDocumentDiagnosticReport> {
+async function validateSingle(documentIdentifier: TextDocumentIdentifier): Promise<FullDocumentDiagnosticReport> {
+	// TODO: Not sure if this comment still applies.
 	// We validate documents in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
 	const document = documents.get(documentIdentifier.uri);
@@ -478,19 +422,11 @@ async function validateSingle(documentIdentifier: TextDocumentIdentifier, publis
 	try {
 		const diagnostics = await ESLint.validate(document, settings);
 		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
-		if (publishDiagnostics) {
-			void connection.sendDiagnostics({ uri: document.uri, diagnostics });
-			return emptyDiagnosticsResponse;
-		} else {
-			return { kind: 'full', items: diagnostics };
-		}
-	} catch (err) {
-		// If an exception has occurred while validating clear all errors to ensure
-		// we are not showing any stale ones.
-		if (publishDiagnostics) {
-			void connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-		}
 
+		return { kind: 'full', items: diagnostics };
+	} catch (err) {
+		// If an exception has occurred while validating, clear all errors to ensure
+		// we are not showing any stale ones.
 		if (!settings.silent) {
 			let status: Status | undefined = undefined;
 			for (const handler of ESLint.ErrorHandlers.single) {
