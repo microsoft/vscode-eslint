@@ -1147,7 +1147,7 @@ export namespace ESLint {
 
 		const noConfigReported: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 
-		export function clearNoConfigRepoerted(): void {
+		export function clearNoConfigReported(): void {
 			noConfigReported.clear();
 		}
 

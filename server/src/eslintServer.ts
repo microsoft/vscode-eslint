@@ -297,7 +297,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
 	// Simply revalidate all files.
 	environmentChanged(false);
 	RuleMetaData.clear();
-	ESLint.ErrorHandlers.clearNoConfigRepoerted();
+	ESLint.ErrorHandlers.clearNoConfigReported();
 	ESLint.ErrorHandlers.clearMissingModuleReported();
 
 	await Promise.all(params.changes.map(async (change) => {
