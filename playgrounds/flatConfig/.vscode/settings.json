@@ -1,94 +1,22 @@
 // Place your settings in this file to overwrite default and user settings.
 {
 	"eslint.enable": true,
-	// "eslint.options": {
-	// 	"fixTypes": [
-	// 		"suggestion"
-	// 	]
-	// },
 	"eslint.run": "onType",
-	"eslint.workingDirectories": [
-		"./build"
-	],
-	"eslint.packageManager": "yarn",
 	"eslint.trace.server": {
 		"verbosity": "messages",
 		"format": "text"
 	},
 	"files.autoSave": "off",
 	"editor.formatOnSave": false,
-	// , "languageServerExample.trace.server": "messages"
-	"languageServerExample.maxNumberOfProblems": 1,
-	"testbed.trace.server": "off",
-	"eslint.alwaysShowStatus": false,
 	"[javascript]": {
 		"editor.formatOnSave": false,
 		"editor.defaultFormatter": "dbaeumer.vscode-eslint"
 	},
-	"eslint.lintTask.enable": true,
-	"tslint.enable": false,
-	"lspMultiRootSample.maxNumberOfProblems": 2,
-	"typescript.surveys.enabled": false
-	//, "eslint.runtime": "node.exe"
-	,
-	"eslint.codeAction.showDocumentation": {
-		"enable": true
-	},
-	"eslint.codeAction.disableRuleComment": {
-		"enable": true,
-		"location": "separateLine"
-	},
-	"eslint.quiet": false,
-	"eslint.rules.customizations": [
-		{ "rule": "*", "severity": "error" },
-		{ "rule": "!no-*", "severity": "upgrade" },
-		{ "rule": "*console*", "severity": "upgrade" },
-		{ "rule": "*semi*", "severity": "default" },
-		{ "rule": "radix", "severity": "default" },
-		{ "rule": "no-use-before-define", "severity": "off" }
-	],
-	"editor.codeActionsOnSaveTimeout": 2000,
 	"eslint.format.enable": true,
 	"eslint.onIgnoredFiles": "off",
 	"editor.codeActionsOnSave": {
 		"source.fixAll": true,
 		"source.fixAll.eslint": true
 	},
-	// "[javascript][typescript]": {
-	// 	"editor.codeActionsOnSave": {
-	// 		"source.fixAll.eslint": true
-	// 	}
-	// },
-	"eslint.codeActionsOnSave.rules": [
-		"*semi*"
-	]
-	// ,"eslint.execArgv": [
-	// 	"--max_old_space_size=4096"
-	// ]
-	, "eslint.useESLintClass": false,
-	"eslint.notebooks.rules.customizations" : [
-		{ "rule": "no-unused-vars", "severity": "off" },
-	],
 	"eslint.experimentalUseFlatConfig": true
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
