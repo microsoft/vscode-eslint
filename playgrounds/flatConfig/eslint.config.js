@@ -20,7 +20,7 @@ module.exports = [
 		files: ["sub/*.js"],
 		rules: {
 			"no-undef": "warn",
-			// "no-console": "warn"
+			"no-console": "warn"
 		}
 	}
 ]
