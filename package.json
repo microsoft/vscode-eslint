@@ -30,7 +30,8 @@
 	"extensionKind": [
 		"workspace"
 	],
-	"enabledApiProposals": [],
+	"enabledApiProposals": [
+	],
 	"main": "./client/out/extension",
 	"capabilities": {
 		"virtualWorkspaces": {
@@ -343,8 +344,7 @@
 							"items": {
 								"type": "string"
 							}
-						},
-						{
+						}, {
 							"type": "null"
 						}
 					],
@@ -431,8 +431,7 @@
 							"items": {
 								"type": "string"
 							}
-						},
-						{
+						}, {
 							"type": "null"
 						}
 					],
@@ -471,29 +470,29 @@
 					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules."
 				},
 				"eslint.notebooks.rules.customizations": {
-					"items": {
-						"properties": {
-							"severity": {
-								"enum": [
-									"downgrade",
-									"error",
-									"info",
-									"default",
-									"upgrade",
-									"warn",
-									"off"
-								],
-								"type": "string"
+						"items": {
+							"properties": {
+								"severity": {
+									"enum": [
+										"downgrade",
+										"error",
+										"info",
+										"default",
+										"upgrade",
+										"warn",
+										"off"
+									],
+									"type": "string"
+								},
+								"rule": {
+									"type": "string"
+								}
 							},
-							"rule": {
-								"type": "string"
-							}
+							"type": "object"
 						},
-						"type": "object"
-					},
-					"scope": "resource",
-					"type": "array",
-					"description": "A special rules customization section for text cells in notebook documents."
+						"scope": "resource",
+						"type": "array",
+						"description": "A special rules customization section for text cells in notebook documents."
 				}
 			}
 		},
