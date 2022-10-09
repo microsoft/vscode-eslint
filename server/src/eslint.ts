@@ -855,7 +855,7 @@ export namespace ESLint {
 							}
 						} else if (lib.FlatESLint === undefined) {
 							settings.validate = Validate.off;
-							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a FlatESLint class.`);
+							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a FlatESLint class. If you are using ESLint lower than v8.21, try upgrading ESLint. If you are using a fairly new ESLint version, try disabling 'experimentalUseFlatConfig' config.`);
 						} else {
 							connection.console.info(`ESLint library loaded from: ${libraryPath}`);
 							// pretend to be a regular eslint endpoint
@@ -875,7 +875,7 @@ export namespace ESLint {
 							}
 						} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
 							settings.validate = Validate.off;
-							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
+							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export neither a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
 						} else {
 							connection.console.info(`ESLint library loaded from: ${libraryPath}`);
 							settings.library = library;
