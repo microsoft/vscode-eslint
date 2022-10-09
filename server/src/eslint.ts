@@ -851,11 +851,11 @@ export namespace ESLint {
 						if (lib === undefined) {
 							settings.validate = Validate.off;
 							if (!settings.silent) {
-								connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+								connection.console.error(`Failed to load eslint library from ${libraryPath}. If you are using ESLint lower than v8.21, try upgrading ESLint. If you are using a fairly new ESLint version, try disabling 'experimentalUseFlatConfig' config. See output panel for more information.`);
 							}
 						} else if (lib.FlatESLint === undefined) {
 							settings.validate = Validate.off;
-							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a FlatESLint class. If you are using ESLint lower than v8.21, try upgrading ESLint. If you are using a fairly new ESLint version, try disabling 'experimentalUseFlatConfig' config.`);
+							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a FlatESLint class.`);
 						} else {
 							connection.console.info(`ESLint library loaded from: ${libraryPath}`);
 							// pretend to be a regular eslint endpoint
