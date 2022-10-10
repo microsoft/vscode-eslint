@@ -851,7 +851,7 @@ export namespace ESLint {
 						if (lib === undefined) {
 							settings.validate = Validate.off;
 							if (!settings.silent) {
-								connection.console.error(`Failed to load eslint library from ${libraryPath}. If you are using ESLint lower than v8.21, try upgrading ESLint. If you are using a fairly new ESLint version, try disabling 'experimentalUseFlatConfig' config. See output panel for more information.`);
+								connection.console.error(`Failed to load eslint library from ${libraryPath}. If you are using ESLint v8.21 or earlier, try upgrading it. For newer versions, try disabling the 'experimentalUseFlatConfig' setting. See the output panel for more information.`);
 							}
 						} else if (lib.FlatESLint === undefined) {
 							settings.validate = Validate.off;
