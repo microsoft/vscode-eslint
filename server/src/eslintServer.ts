@@ -10,7 +10,8 @@ import {
 	createConnection, Diagnostic, Range, TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange,
 	VersionedTextDocumentIdentifier, DidChangeConfigurationNotification, DidChangeWorkspaceFoldersNotification,
 	CodeAction, CodeActionKind, Position, TextDocumentEdit, Message as LMessage, ResponseMessage as LResponseMessage,
-	uinteger, ServerCapabilities, NotebookDocuments, ProposedFeatures, ClientCapabilities, FullDocumentDiagnosticReport, TextDocumentIdentifier
+	uinteger, ServerCapabilities, NotebookDocuments, ProposedFeatures, ClientCapabilities, FullDocumentDiagnosticReport,
+	TextDocumentChangeEvent, DocumentDiagnosticParams, UnchangedDocumentDiagnosticReport
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -56,6 +57,42 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 // The notebooks manager is using the normal document manager for the cell documents.
 // So all validating will work out of the box since normal document events will fire.
 const notebooks = new NotebookDocuments(documents);
+
+class DiagnosticVersions {
+	private readonly versions: Map<string /* URI */, number>;
+
+	constructor() {
+		this.versions = new Map();
+	}
+
+	get(uri: string) {
+		return this.versions.get(uri) ?? 0;
+	}
+
+	async update(event: TextDocumentChangeEvent<TextDocument>, eventMode: 'change' | 'save') {
+		const document = event.document;
+		const settings = await ESLint.resolveSettings(document);
+
+		if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
+			return;
+		}
+
+		if ((eventMode === 'change' && settings.run === 'onType') ||
+			(eventMode === 'save' && settings.run === 'onSave')) {
+			this.versions.set(document.uri, document.version);
+		}
+	}
+
+	delete(uri: string) {
+		this.versions.delete(uri);
+	}
+}
+
+// Stores the result IDs (which correspond to document versions) for pull diagnostics.
+// The IDs are updated based on the "run linter" setting. When handling the diagnostics
+// request, we compare the previous result ID to the one we have to check if the previous
+// diagnostics are still valid.
+const diagnosticVersions = new DiagnosticVersions();
 
 // This makes loading work in a plain NodeJS and a WebPacked environment.
 declare const __webpack_require__: typeof require;
@@ -151,16 +188,22 @@ function inferFilePath(documentOrUri: string | TextDocument | URI | undefined): 
 ESLint.initialize(connection, documents, inferFilePath, loadNodeModule);
 SaveRuleConfigs.inferFilePath = inferFilePath;
 
+documents.onDidOpen(event => diagnosticVersions.update(event, 'save'));
+
 documents.onDidChangeContent(async (event) => {
 	const document = event.document;
 	const uri = document.uri;
 	CodeActions.remove(uri);
+	await diagnosticVersions.update(event, 'change');
 });
+
+documents.onDidSave(event => diagnosticVersions.update(event, 'save'));
 
 documents.onDidClose(async (event) => {
 	const document = event.document;
 
 	const uri = document.uri;
+	diagnosticVersions.delete(uri);
 	ESLint.removeSettings(uri);
 	SaveRuleConfigs.remove(uri);
 	CodeActions.remove(uri);
@@ -244,32 +287,39 @@ connection.onInitialized(() => {
 	}
 
 	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
-	connection.languages.diagnostics.on(({ textDocument }) => validateSingle(textDocument));
+	connection.languages.diagnostics.on(validateSingle);
 });
 
 connection.onDidChangeConfiguration(() => environmentChanged());
 
-const emptyDiagnosticsResponse: Readonly<FullDocumentDiagnosticReport> = { kind: 'full', items: [] };
-
-async function validateSingle(documentIdentifier: TextDocumentIdentifier): Promise<FullDocumentDiagnosticReport> {
+async function validateSingle(params: DocumentDiagnosticParams): Promise<FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport> {
 	// TODO: Not sure if this comment still applies.
 	// We validate documents in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
-	const document = documents.get(documentIdentifier.uri);
+	const uri = params.textDocument.uri;
+	const document = documents.get(uri);
+	const resultId = diagnosticVersions.get(uri).toString();
+
+	const emptyResponse: FullDocumentDiagnosticReport = { kind: 'full', items: [], resultId };
+
 	if (document === undefined) {
-		return emptyDiagnosticsResponse;
+		return emptyResponse;
 	}
 
 	const settings = await ESLint.resolveSettings(document);
 	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-		return emptyDiagnosticsResponse;
+		return emptyResponse;
+	}
+
+	if (params.previousResultId !== undefined && +params.previousResultId === +resultId) {
+		return { kind: 'unchanged', resultId };
 	}
 
 	try {
 		const diagnostics = await ESLint.validate(document, settings);
 		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 
-		return { kind: 'full', items: diagnostics };
+		return { kind: 'full', items: diagnostics, resultId };
 	} catch (err) {
 		// If an exception has occurred while validating, clear all errors to ensure
 		// we are not showing any stale ones.
@@ -288,7 +338,7 @@ async function validateSingle(documentIdentifier: TextDocumentIdentifier): Promi
 			void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		}
 
-		return emptyDiagnosticsResponse;
+		return emptyResponse;
 	}
 }
 
