@@ -34,7 +34,6 @@ import LanguageDefaults from './languageDefaults';
 
 // The connection to use. Code action requests get removed from the queue if
 // canceled.
-// TODO: Not sure if this changes with pull diagnostics.
 const connection: ProposedFeatures.Connection = createConnection(ProposedFeatures.all, {
 	cancelUndispatched: (message: LMessage) => {
 		// Code actions can savely be cancel on request.
@@ -293,18 +292,11 @@ connection.onInitialized(() => {
 connection.onDidChangeConfiguration(() => environmentChanged());
 
 async function validateSingle(params: DocumentDiagnosticParams): Promise<FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport> {
-	// TODO: Not sure if this comment still applies.
-	// We validate documents in a queue but open / close documents directly. So we need to deal with the
-	// fact that a document might be gone from the server.
 	const uri = params.textDocument.uri;
-	const document = documents.get(uri);
+	const document = documents.get(uri)!;
 	const resultId = diagnosticVersions.get(uri).toString();
 
 	const emptyResponse: FullDocumentDiagnosticReport = { kind: 'full', items: [], resultId };
-
-	if (document === undefined) {
-		return emptyResponse;
-	}
 
 	const settings = await ESLint.resolveSettings(document);
 	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
