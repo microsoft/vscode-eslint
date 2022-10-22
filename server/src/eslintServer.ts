@@ -215,7 +215,7 @@ function environmentChanged(refreshDiagnostics = true) {
 	SaveRuleConfigs.clear();
 	ESLint.clearFormatters();
 
-	if (refreshDiagnostics) {
+	if (refreshDiagnostics && clientCapabilities.workspace?.diagnostics?.refreshSupport === true) {
 		connection.languages.diagnostics.refresh();
 	}
 }
@@ -285,8 +285,11 @@ connection.onInitialized(() => {
 		connection.workspace.onDidChangeWorkspaceFolders(() => environmentChanged());
 	}
 
+	if (clientCapabilities.textDocument?.diagnostic) {
+		connection.languages.diagnostics.on(validateSingle);
+	}
+
 	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
-	connection.languages.diagnostics.on(validateSingle);
 });
 
 connection.onDidChangeConfiguration(() => environmentChanged());
