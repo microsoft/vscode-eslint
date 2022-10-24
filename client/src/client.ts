@@ -111,7 +111,7 @@ export namespace ESLintClient {
 
 		// Filters for client options
 		const packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json' };
-		const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/.eslintr{c.js,c.yaml,c.yml,c,c.json}' };
+		const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/{.eslintr{c.js,c.yaml,c.yml,c,c.json},eslint.config.js}' };
 		const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 
 		// A map of documents synced to the server
@@ -394,6 +394,7 @@ export namespace ESLintClient {
 				synchronize: {
 					fileEvents: [
 						Workspace.createFileSystemWatcher('**/.eslintr{c.js,c.cjs,c.yaml,c.yml,c,c.json}'),
+						Workspace.createFileSystemWatcher('**/eslint.config.js'),
 						Workspace.createFileSystemWatcher('**/.eslintignore'),
 						Workspace.createFileSystemWatcher('**/package.json')
 					]
@@ -604,6 +605,7 @@ export namespace ESLintClient {
 					validate: Validate.off,
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
 					useESLintClass: config.get<boolean>('useESLintClass', false),
+					experimentalUseFlatConfig: config.get<boolean>('experimentalUseFlatConfig', false),
 					codeActionOnSave: {
 						mode: CodeActionsOnSaveMode.all
 					},
