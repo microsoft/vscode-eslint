@@ -613,7 +613,9 @@ export namespace ESLintClient {
 					options: config.get<ESLintOptions>('options', {}),
 					rulesCustomizations: getRuleCustomizations(config, resource),
 					run: config.get<RunValues>('run', 'onType'),
-					singleLineUnderline: config.get<boolean>('singleLineUnderline', false),
+					problems: {
+						shortenToSingleLine: config.get<boolean>('problems.shortenToSingleLine', false),
+					},
 					nodePath: config.get<string | undefined>('nodePath', undefined) ?? null,
 					workingDirectory: undefined,
 					workspaceFolder: undefined,

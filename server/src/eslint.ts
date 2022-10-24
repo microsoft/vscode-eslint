@@ -562,7 +562,7 @@ namespace Diagnostics {
 		const startChar = typeof problem.column !== 'number' || Number.isNaN(problem.column) ? 0 : Math.max(0, problem.column - 1);
 		let endLine = typeof problem.endLine !== 'number' || Number.isNaN(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
 		let endChar = typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
-		if (settings.singleLineUnderline && endLine !== startLine) {
+		if (settings.problems.shortenToSingleLine && endLine !== startLine) {
 			endLine = startLine;
 			endChar = text.split('\n')[startLine].length;
 		}
