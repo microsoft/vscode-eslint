@@ -11,7 +11,7 @@ import { execSync } from 'child_process';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
 	Diagnostic, DiagnosticSeverity, DiagnosticTag, ProposedFeatures, Range, TextEdit, Files, DocumentFilter, DocumentFormattingRegistrationOptions,
-	Disposable, DocumentFormattingRequest, TextDocuments
+	Disposable, DocumentFormattingRequest, TextDocuments, uinteger
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 
@@ -571,7 +571,7 @@ namespace Diagnostics {
 				},
 				end: {
 					line: startLine,
-					character: Number.MAX_SAFE_INTEGER,
+					character: uinteger.MAX_VALUE,
 				}
 			});
 			endLine = startLine;
