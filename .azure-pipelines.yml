@@ -4,6 +4,9 @@ trigger:
     include:
     - '*'
 
+variables:
+  Codeql.Enabled: true
+
 jobs:
 - job: Windows
   pool:
