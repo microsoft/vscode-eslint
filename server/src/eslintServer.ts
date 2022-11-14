@@ -133,7 +133,7 @@ function inferFilePath(documentOrUri: string | TextDocument | URI | undefined): 
 			if (filePath !== undefined) {
 				const textDocument = documents.get(uri.toString());
 				if (textDocument !== undefined) {
-					const extension = LanguageDefaults.getExtension(textDocument.languageId);
+					const extension = LanguageDefaults.getExtension(textDocument);
 					if (extension !== undefined) {
 						const extname = path.extname(filePath);
 						if (extname.length === 0 && filePath[0] === '.') {
@@ -679,8 +679,8 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 	}
 
 	function createDisableLineTextEdit(textDocument: TextDocument, editInfo: Problem, indentationText: string): TextEdit {
-		const lineComment = LanguageDefaults.getLineComment(textDocument.languageId);
-		const blockComment = LanguageDefaults.getBlockComment(textDocument.languageId);
+		const lineComment = LanguageDefaults.getLineComment(textDocument);
+		const blockComment = LanguageDefaults.getBlockComment(textDocument);
 
 		// If the concerned line is not the first line of the file
 		if (editInfo.line - 1 > 0) {
@@ -715,8 +715,8 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 	}
 
 	function createDisableSameLineTextEdit(textDocument: TextDocument, editInfo: Problem): TextEdit {
-		const lineComment = LanguageDefaults.getLineComment(textDocument.languageId);
-		const blockComment = LanguageDefaults.getBlockComment(textDocument.languageId);
+		const lineComment = LanguageDefaults.getLineComment(textDocument);
+		const blockComment = LanguageDefaults.getBlockComment(textDocument);
 		const currentLine = textDocument.getText(Range.create(Position.create(editInfo.line - 1, 0), Position.create(editInfo.line - 1, uinteger.MAX_VALUE)));
 		let disableRuleContent: string;
 		let insertionIndex: number;
@@ -745,7 +745,7 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		// If first line contains a shebang, insert on the next line instead.
 		const shebang = textDocument.getText(Range.create(Position.create(0, 0), Position.create(0, 2)));
 		const line = shebang === '#!' ? 1 : 0;
-		const block = LanguageDefaults.getBlockComment(textDocument.languageId);
+		const block = LanguageDefaults.getBlockComment(textDocument);
 		return TextEdit.insert(Position.create(line, 0), `${block[0]} eslint-disable ${editInfo.ruleId} ${block[1]}${EOL}`);
 	}
 
