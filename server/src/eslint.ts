@@ -266,6 +266,7 @@ export type ESLintModule =
 } | {
 	// 8.0 <= version.
 	ESLint: ESLintClassConstructor;
+	isFlatConfig?: boolean;
 	CLIEngine: undefined;
 };
 
@@ -275,6 +276,10 @@ export namespace ESLintModule {
 	}
 	export function hasCLIEngine(value: ESLintModule): value is { ESLint: undefined; CLIEngine: CLIEngineConstructor; } {
 		return value.CLIEngine !== undefined;
+	}
+	export function isFlatConfig(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined; isFlatConfig: true } {
+		const candidate: { ESLint: ESLintClassConstructor; isFlatConfig?: boolean } = value as any;
+		return candidate.ESLint !== undefined && candidate.isFlatConfig === true;
 	}
 }
 
@@ -861,6 +866,7 @@ export namespace ESLint {
 							// pretend to be a regular eslint endpoint
 							library = {
 								ESLint: lib.FlatESLint,
+								isFlatConfig: true,
 								CLIEngine: undefined,
 							};
 							settings.library = library;
@@ -895,7 +901,7 @@ export namespace ESLint {
 						if (defaultLanguageIds.has(document.languageId)) {
 							settings.validate = Validate.on;
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
-							const eslintConfig: ESLintConfig | undefined = await ESLint.withClass((eslintClass) => {
+							const eslintConfig: ESLintConfig | undefined = await ESLint.withClass(async (eslintClass) => {
 								try {
 									return eslintClass.calculateConfigForFile(filePath!);
 								} catch (err) {
@@ -903,36 +909,48 @@ export namespace ESLint {
 								}
 							}, settings);
 							if (eslintConfig !== undefined) {
-								const parser: string | undefined =  eslintConfig.parser !== null
-									? normalizePath(eslintConfig.parser)
-									: undefined;
-								if (parser !== undefined) {
-									if (parserRegExps !== undefined) {
-										for (const regExp of parserRegExps) {
-											if (regExp.test(parser)) {
-												settings.validate = Validate.on;
-												break;
+								if (ESLintModule.isFlatConfig(settings.library)) {
+									// We have a flat configuration. This means that the config file needs to
+									// have a section per file extension we want to validate. If there is none than
+									// `calculateConfigForFile` will return no config since the config options without
+									// a `files` property only applies to `**/*.js, **/*.cjs, and **/*.mjs` by default
+									// See https://eslint.org/docs/latest/user-guide/configuring/configuration-files-new#specifying-files-and-ignores
+
+									// This means since we have found a configuration for the given file we assume that
+									// that configuration is correctly pointing to a parser.
+									settings.validate = Validate.on;
+								} else {
+									const parser: string | undefined =  eslintConfig.parser !== null
+										? normalizePath(eslintConfig.parser)
+										: undefined;
+									if (parser !== undefined) {
+										if (parserRegExps !== undefined) {
+											for (const regExp of parserRegExps) {
+												if (regExp.test(parser)) {
+													settings.validate = Validate.on;
+													break;
+												}
 											}
 										}
-									}
-									if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
-										const eslintConfigParserOptionsParser = normalizePath(eslintConfig.parserOptions.parser);
-										for (const regExp of parserOptions.regExps) {
-											if (regExp.test(parser) && (
-												parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
+										if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
+											const eslintConfigParserOptionsParser = normalizePath(eslintConfig.parserOptions.parser);
+											for (const regExp of parserOptions.regExps) {
+												if (regExp.test(parser) && (
+													parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
 											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfigParserOptionsParser))
-											)) {
-												settings.validate = Validate.on;
-												break;
+												)) {
+													settings.validate = Validate.on;
+													break;
+												}
 											}
 										}
 									}
-								}
-								if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
-									for (const name of eslintConfig.plugins) {
-										if (name === pluginName) {
-											settings.validate = Validate.on;
-											break;
+									if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
+										for (const name of eslintConfig.plugins) {
+											if (name === pluginName) {
+												settings.validate = Validate.on;
+												break;
+											}
 										}
 									}
 								}
@@ -988,7 +1006,7 @@ export namespace ESLint {
 		return new library.ESLint(newOptions);
 	}
 
-	export function withClass<T>(func: (eslintClass: ESLintClass) => T, settings: TextDocumentSettings & { library: ESLintModule }, options?: ESLintClassOptions | CLIOptions): T {
+	export async function withClass<T>(func: (eslintClass: ESLintClass) => Promise<T>, settings: TextDocumentSettings & { library: ESLintModule }, options?: ESLintClassOptions | CLIOptions): Promise<T> {
 		const newOptions: ESLintClassOptions | CLIOptions = options === undefined
 			? Object.assign(Object.create(null), settings.options)
 			: Object.assign(Object.create(null), settings.options, options);
@@ -1006,7 +1024,9 @@ export namespace ESLint {
 			}
 
 			const eslintClass = newClass(settings.library, newOptions, settings.useESLintClass);
-			return func(eslintClass);
+			// We need to await the result to ensure proper execution of the
+			// finally block.
+			return await func(eslintClass);
 		} finally {
 			if (cwd !== process.cwd()) {
 				process.chdir(cwd);

@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"noEmit": true,
+	}
+}
