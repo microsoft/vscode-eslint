@@ -3,7 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "devDependencies": {
-    "eslint": "^8.23.0",
-    "globals": "^13.17.0"
+    "eslint": "^8.27.0",
+    "globals": "^13.18.0",
+		"@typescript-eslint/eslint-plugin": "^5.43.0",
+		"@typescript-eslint/parser": "^5.43.0"
+
   }
 }

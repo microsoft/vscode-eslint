@@ -1,3 +1,13 @@
+### Version 2.3.0 - Pre-release
+
+- support for flat config files
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A2.4.0)
+
+### Version 2.2.6
+
+- added support for validating single notebook document cells if the language is supported by ESLint
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/milestone/47?closed=1)
+
 ### 2.2.2
 
 - renamed the setting `eslint.runtime.execArgv` to `eslint.execArgv`. This is breaking but can't be fixed different due to how VS Code handles settings. See also [Issue 1358](https://github.com/microsoft/vscode-eslint/issues/1358)
