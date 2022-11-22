@@ -155,6 +155,9 @@ export type ConfigurationSettings = {
 	validate: Validate;
 	packageManager: PackageManagers;
 	useESLintClass: boolean;
+	experimental: {
+		useFlatConfig: boolean;
+	}
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;

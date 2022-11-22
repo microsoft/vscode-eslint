@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.2.6",
+	"version": "2.3.0",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -187,6 +187,12 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Since version 7 ESLint offers a new API call ESLint. Use it even if the old CLIEngine is available. From version 8 on forward on ESLint class is available."
+				},
+				"eslint.experimental.useFlatConfig": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Enable support of experimental Flat Config (aka eslint.config.js, supported by ESLint version 8.21 or later)."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",

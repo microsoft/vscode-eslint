@@ -266,6 +266,7 @@ export type ESLintModule =
 } | {
 	// 8.0 <= version.
 	ESLint: ESLintClassConstructor;
+	isFlatConfig?: boolean;
 	CLIEngine: undefined;
 };
 
@@ -275,6 +276,10 @@ export namespace ESLintModule {
 	}
 	export function hasCLIEngine(value: ESLintModule): value is { ESLint: undefined; CLIEngine: CLIEngineConstructor; } {
 		return value.CLIEngine !== undefined;
+	}
+	export function isFlatConfig(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined; isFlatConfig: true } {
+		const candidate: { ESLint: ESLintClassConstructor; isFlatConfig?: boolean } = value as any;
+		return candidate.ESLint !== undefined && candidate.isFlatConfig === true;
 	}
 }
 
@@ -739,14 +744,18 @@ export namespace ESLint {
 		'javascript', 'javascriptreact'
 	]);
 
-	const projectFolderIndicators: [string, boolean][] = [
-		[ 'package.json',  true ],
-		[ '.eslintignore', true],
-		[ '.eslintrc', false ],
-		[ '.eslintrc.json', false ],
-		[ '.eslintrc.js', false ],
-		[ '.eslintrc.yaml', false ],
-		[ '.eslintrc.yml', false ]
+	const projectFolderIndicators: {
+		fileName: string;
+		isRoot: boolean;
+	}[] = [
+		{ fileName: 'package.json', isRoot: true },
+		{ fileName: '.eslintignore', isRoot: true },
+		{ fileName: 'eslint.config.js', isRoot: true },
+		{ fileName: '.eslintrc', isRoot: false },
+		{ fileName: '.eslintrc.json', isRoot: false },
+		{ fileName: '.eslintrc.js', isRoot: false },
+		{ fileName: '.eslintrc.yaml', isRoot: false },
+		{ fileName: '.eslintrc.yml', isRoot: false },
 	];
 
 	const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
@@ -840,31 +849,59 @@ export namespace ESLint {
 			if (moduleResolveWorkingDirectory === undefined && settings.workingDirectory !== undefined && !settings.workingDirectory['!cwd']) {
 				moduleResolveWorkingDirectory = settings.workingDirectory.directory;
 			}
+
+			// During Flat Config is considered experimental,
+			// we need to import FlatESLint from 'eslint/use-at-your-own-risk'.
+			// See: https://eslint.org/blog/2022/08/new-config-system-part-3/
+			const eslintPath = settings.experimental.useFlatConfig ? 'eslint/use-at-your-own-risk' : 'eslint';
 			if (nodePath !== undefined) {
-				promise = Files.resolve('eslint', nodePath, nodePath, trace).then<string, string>(undefined, () => {
-					return Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
+				promise = Files.resolve(eslintPath, nodePath, nodePath, trace).then<string, string>(undefined, () => {
+					return Files.resolve(eslintPath, settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
 				});
 			} else {
-				promise = Files.resolve('eslint', settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
+				promise = Files.resolve(eslintPath, settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
 			}
 
 			settings.silent = settings.validate === Validate.probe;
 			return promise.then(async (libraryPath) => {
 				let library = path2Library.get(libraryPath);
 				if (library === undefined) {
-					library = loadNodeModule(libraryPath);
-					if (library === undefined) {
-						settings.validate = Validate.off;
-						if (!settings.silent) {
-							connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+					if (settings.experimental.useFlatConfig) {
+						const lib = loadNodeModule<{ FlatESLint?: ESLintClassConstructor }>(libraryPath);
+						if (lib === undefined) {
+							settings.validate = Validate.off;
+							if (!settings.silent) {
+								connection.console.error(`Failed to load eslint library from ${libraryPath}. If you are using ESLint v8.21 or earlier, try upgrading it. For newer versions, try disabling the 'experimentalUseFlatConfig' setting. See the output panel for more information.`);
+							}
+						} else if (lib.FlatESLint === undefined) {
+							settings.validate = Validate.off;
+							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export a FlatESLint class.`);
+						} else {
+							connection.console.info(`ESLint library loaded from: ${libraryPath}`);
+							// pretend to be a regular eslint endpoint
+							library = {
+								ESLint: lib.FlatESLint,
+								isFlatConfig: true,
+								CLIEngine: undefined,
+							};
+							settings.library = library;
+							path2Library.set(libraryPath, library);
 						}
-					} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
-						settings.validate = Validate.off;
-						connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t neither exports a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
 					} else {
-						connection.console.info(`ESLint library loaded from: ${libraryPath}`);
-						settings.library = library;
-						path2Library.set(libraryPath, library);
+						library = loadNodeModule(libraryPath);
+						if (library === undefined) {
+							settings.validate = Validate.off;
+							if (!settings.silent) {
+								connection.console.error(`Failed to load eslint library from ${libraryPath}. See output panel for more information.`);
+							}
+						} else if (library.CLIEngine === undefined && library.ESLint === undefined) {
+							settings.validate = Validate.off;
+							connection.console.error(`The eslint library loaded from ${libraryPath} doesn\'t export neither a CLIEngine nor an ESLint class. You need at least eslint@1.0.0`);
+						} else {
+							connection.console.info(`ESLint library loaded from: ${libraryPath}`);
+							settings.library = library;
+							path2Library.set(libraryPath, library);
+						}
 					}
 				} else {
 					settings.library = library;
@@ -879,7 +916,7 @@ export namespace ESLint {
 						if (defaultLanguageIds.has(document.languageId)) {
 							settings.validate = Validate.on;
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
-							const eslintConfig: ESLintConfig | undefined = await ESLint.withClass((eslintClass) => {
+							const eslintConfig: ESLintConfig | undefined = await ESLint.withClass(async (eslintClass) => {
 								try {
 									return eslintClass.calculateConfigForFile(filePath!);
 								} catch (err) {
@@ -887,36 +924,48 @@ export namespace ESLint {
 								}
 							}, settings);
 							if (eslintConfig !== undefined) {
-								const parser: string | undefined =  eslintConfig.parser !== null
-									? normalizePath(eslintConfig.parser)
-									: undefined;
-								if (parser !== undefined) {
-									if (parserRegExps !== undefined) {
-										for (const regExp of parserRegExps) {
-											if (regExp.test(parser)) {
-												settings.validate = Validate.on;
-												break;
+								if (ESLintModule.isFlatConfig(settings.library)) {
+									// We have a flat configuration. This means that the config file needs to
+									// have a section per file extension we want to validate. If there is none than
+									// `calculateConfigForFile` will return no config since the config options without
+									// a `files` property only applies to `**/*.js, **/*.cjs, and **/*.mjs` by default
+									// See https://eslint.org/docs/latest/user-guide/configuring/configuration-files-new#specifying-files-and-ignores
+
+									// This means since we have found a configuration for the given file we assume that
+									// that configuration is correctly pointing to a parser.
+									settings.validate = Validate.on;
+								} else {
+									const parser: string | undefined =  eslintConfig.parser !== null
+										? normalizePath(eslintConfig.parser)
+										: undefined;
+									if (parser !== undefined) {
+										if (parserRegExps !== undefined) {
+											for (const regExp of parserRegExps) {
+												if (regExp.test(parser)) {
+													settings.validate = Validate.on;
+													break;
+												}
 											}
 										}
-									}
-									if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
-										const eslintConfigParserOptionsParser = normalizePath(eslintConfig.parserOptions.parser);
-										for (const regExp of parserOptions.regExps) {
-											if (regExp.test(parser) && (
-												parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
+										if (settings.validate !== Validate.on && parserOptions !== undefined && typeof eslintConfig.parserOptions?.parser === 'string') {
+											const eslintConfigParserOptionsParser = normalizePath(eslintConfig.parserOptions.parser);
+											for (const regExp of parserOptions.regExps) {
+												if (regExp.test(parser) && (
+													parserOptions.parsers.has(eslintConfig.parserOptions.parser) ||
 											parserOptions.parserRegExps !== undefined && parserOptions.parserRegExps.some(parserRegExp => parserRegExp.test(eslintConfigParserOptionsParser))
-											)) {
-												settings.validate = Validate.on;
-												break;
+												)) {
+													settings.validate = Validate.on;
+													break;
+												}
 											}
 										}
 									}
-								}
-								if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
-									for (const name of eslintConfig.plugins) {
-										if (name === pluginName) {
-											settings.validate = Validate.on;
-											break;
+									if (settings.validate !== Validate.on && Array.isArray(eslintConfig.plugins) && eslintConfig.plugins.length > 0 && pluginName !== undefined) {
+										for (const name of eslintConfig.plugins) {
+											if (name === pluginName) {
+												settings.validate = Validate.on;
+												break;
+											}
 										}
 									}
 								}
@@ -972,7 +1021,7 @@ export namespace ESLint {
 		return new library.ESLint(newOptions);
 	}
 
-	export function withClass<T>(func: (eslintClass: ESLintClass) => T, settings: TextDocumentSettings & { library: ESLintModule }, options?: ESLintClassOptions | CLIOptions): T {
+	export async function withClass<T>(func: (eslintClass: ESLintClass) => Promise<T>, settings: TextDocumentSettings & { library: ESLintModule }, options?: ESLintClassOptions | CLIOptions): Promise<T> {
 		const newOptions: ESLintClassOptions | CLIOptions = options === undefined
 			? Object.assign(Object.create(null), settings.options)
 			: Object.assign(Object.create(null), settings.options, options);
@@ -990,7 +1039,9 @@ export namespace ESLint {
 			}
 
 			const eslintClass = newClass(settings.library, newOptions, settings.useESLintClass);
-			return func(eslintClass);
+			// We need to await the result to ensure proper execution of the
+			// finally block.
+			return await func(eslintClass);
 		} finally {
 			if (cwd !== process.cwd()) {
 				process.chdir(cwd);
@@ -1121,10 +1172,10 @@ export namespace ESLint {
 		let result: string = workspaceFolder;
 		let directory: string | undefined = path.dirname(file);
 		outer: while (directory !== undefined && directory.startsWith(workspaceFolder)) {
-			for (const item of projectFolderIndicators) {
-				if (fs.existsSync(path.join(directory, item[0]))) {
+			for (const { fileName, isRoot } of projectFolderIndicators) {
+				if (fs.existsSync(path.join(directory, fileName))) {
 					result = directory;
-					if (item[1]) {
+					if (isRoot) {
 						break outer;
 					} else {
 						break;
