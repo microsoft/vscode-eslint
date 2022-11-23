@@ -85,11 +85,17 @@ export function getFileSystemPath(uri: URI): string {
 		result = result[0].toUpperCase() + result.substr(1);
 	}
 	if (process.platform === 'win32' || process.platform === 'darwin') {
-		const realpath = fs.realpathSync.native(result);
-		// Only use the real path if only the casing has changed.
-		if (realpath.toLowerCase() === result.toLowerCase()) {
-			result = realpath;
-		}
+    try {
+      const realpath = fs.realpathSync.native(result);
+      // Only use the real path if only the casing has changed.
+      if (realpath.toLowerCase() === result.toLowerCase()) {
+        result = realpath;
+      }
+    } catch {
+      // Silently ignore errors from `fs.realpathSync` to handle scenarios where
+      // the file being linted is not yet written to disk. This occurs in editors
+      // such as Neovim for non-written buffers.
+    }
 	}
 	return result;
 }
