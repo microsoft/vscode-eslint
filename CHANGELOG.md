@@ -1,6 +1,7 @@
 ### Version 2.3.0 - Pre-release
 
 - support for flat config files
+- support for single problem underline.
 - various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A2.4.0)
 
 ### Version 2.2.6
