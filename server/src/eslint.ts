@@ -11,7 +11,7 @@ import { execSync } from 'child_process';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
 	Diagnostic, DiagnosticSeverity, DiagnosticTag, ProposedFeatures, Range, TextEdit, Files, DocumentFilter, DocumentFormattingRegistrationOptions,
-	Disposable, DocumentFormattingRequest, TextDocuments
+	Disposable, DocumentFormattingRequest, TextDocuments, uinteger
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 
@@ -545,6 +545,7 @@ export namespace RuleSeverities {
 	}
 }
 
+
 /**
  * Creates LSP Diagnostis and captures code action information.
  */
@@ -561,12 +562,26 @@ namespace Diagnostics {
 		return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}-${message ?? ''}`;
 	}
 
-	export function create(settings: TextDocumentSettings, problem: ESLintProblem): [Diagnostic, RuleSeverity | undefined] {
+	export function create(settings: TextDocumentSettings, problem: ESLintProblem, document: TextDocument): [Diagnostic, RuleSeverity | undefined] {
 		const message = problem.message;
 		const startLine = typeof problem.line !== 'number' || Number.isNaN(problem.line) ? 0 : Math.max(0, problem.line - 1);
 		const startChar = typeof problem.column !== 'number' || Number.isNaN(problem.column) ? 0 : Math.max(0, problem.column - 1);
-		const endLine = typeof problem.endLine !== 'number' || Number.isNaN(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
-		const endChar = typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+		let endLine = typeof problem.endLine !== 'number' || Number.isNaN(problem.endLine) ? startLine : Math.max(0, problem.endLine - 1);
+		let endChar = typeof problem.endColumn !== 'number' || Number.isNaN(problem.endColumn) ? startChar : Math.max(0, problem.endColumn - 1);
+		if (settings.problems.shortenToSingleLine && endLine !== startLine) {
+			const startLineText = document.getText({
+				start: {
+					line: startLine,
+					character: 0,
+				},
+				end: {
+					line: startLine,
+					character: uinteger.MAX_VALUE,
+				}
+			});
+			endLine = startLine;
+			endChar = startLineText.length;
+		}
 		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations);
 		const result: Diagnostic = {
 			message: message,
@@ -1083,7 +1098,7 @@ export namespace ESLint {
 				if (docReport.messages && Array.isArray(docReport.messages)) {
 					docReport.messages.forEach((problem) => {
 						if (problem) {
-							const [diagnostic, override] = Diagnostics.create(settings, problem);
+							const [diagnostic, override] = Diagnostics.create(settings, problem, document);
 							if (!(override === RuleSeverity.off || (settings.quiet && diagnostic.severity === DiagnosticSeverity.Warning))) {
 								diagnostics.push(diagnostic);
 							}

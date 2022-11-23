@@ -166,6 +166,9 @@ export type ConfigurationSettings = {
 	options: ESLintOptions | undefined;
 	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
+	problems: {
+		shortenToSingleLine: boolean;
+	};
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
