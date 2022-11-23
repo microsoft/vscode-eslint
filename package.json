@@ -74,7 +74,7 @@
 				"eslint.problems.shortenToSingleLine": {
 					"type": "boolean",
 					"default": false,
-					"description": "Shorten the text spans of underlined problems to their first related line.",
+					"description": "Shortens the text spans of underlined problems to their first related line.",
 					"scope": "resource"
 				},
 				"eslint.nodeEnv": {
@@ -192,7 +192,7 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
-					"description": "Enable support of experimental Flat Config (aka eslint.config.js, supported by ESLint version 8.21 or later)."
+					"description": "Enables support of experimental Flat Config (aka eslint.config.js, supported by ESLint version 8.21 or later)."
 				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
