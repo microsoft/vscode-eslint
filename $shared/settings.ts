@@ -155,6 +155,9 @@ export type ConfigurationSettings = {
 	validate: Validate;
 	packageManager: PackageManagers;
 	useESLintClass: boolean;
+	experimental: {
+		useFlatConfig: boolean;
+	}
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
@@ -163,6 +166,9 @@ export type ConfigurationSettings = {
 	options: ESLintOptions | undefined;
 	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
+	problems: {
+		shortenToSingleLine: boolean;
+	};
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;

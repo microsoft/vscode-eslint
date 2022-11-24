@@ -1,0 +1,5 @@
+path_classifiers:
+  tests:
+    - playgrounds
+  library:
+    - "node_modules/**"
