@@ -297,6 +297,12 @@
 					},
 					"description": "An array of language ids which should be validated by ESLint. If not installed ESLint will show an error."
 				},
+				"eslint.validate.ignoreUntitled": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "If true, untitled files won't be validated ESLint."
+				},
 				"eslint.probe": {
 					"scope": "resource",
 					"type": "array",
