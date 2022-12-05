@@ -42,7 +42,7 @@ export class Validator {
 			return Validate.off;
 		}
 
-		if (textDocument.uri.scheme === 'untitled' && config.get<boolean>('validate.ignoreUntitled', false)) {
+		if (textDocument.uri.scheme === 'untitled' && config.get<boolean>('ignoreUntitled', false)) {
 			return Validate.off;
 		}
 
