@@ -301,7 +301,7 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
-					"description": "If true, untitled files won't be validated ESLint."
+					"description": "If true, untitled files won't be validated by ESLint."
 				},
 				"eslint.probe": {
 					"scope": "resource",
