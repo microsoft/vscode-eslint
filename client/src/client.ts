@@ -37,9 +37,15 @@ export class Validator {
 
 	public check(textDocument: TextDocument): Validate {
 		const config = Workspace.getConfiguration('eslint', textDocument.uri);
+
 		if (!config.get<boolean>('enable', true)) {
 			return Validate.off;
 		}
+
+		if (textDocument.uri.scheme === 'untitled' && config.get<boolean>('ignoreUntitled', false)) {
+			return Validate.off;
+		}
+
 		const languageId = textDocument.languageId;
 		const validate = config.get<(ValidateItem | string)[]>('validate');
 		if (Array.isArray(validate)) {
@@ -51,10 +57,11 @@ export class Validator {
 				}
 			}
 		}
-		const uri: string = textDocument.uri.toString();
-		if (this.probeFailed.has(uri)) {
+
+		if (this.probeFailed.has(textDocument.uri.toString())) {
 			return Validate.off;
 		}
+
 		const probe: string[] | undefined = config.get<string[]>('probe');
 		if (Array.isArray(probe)) {
 			for (const item of probe) {
@@ -63,6 +70,7 @@ export class Validator {
 				}
 			}
 		}
+
 		return Validate.off;
 	}
 }
