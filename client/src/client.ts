@@ -8,13 +8,14 @@ import * as path from 'path';
 
 import {
 	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic, ProviderResult,
-	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands, ExtensionContext, StatusBarAlignment, ThemeColor
+	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
+	ExtensionContext, StatusBarAlignment, ThemeColor
 } from 'vscode';
 
 import {
-	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, ErrorHandlerResult, CloseAction, CloseHandlerResult,
-	RevealOutputChannelOn, ServerOptions, DocumentFilter, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification,
-	State, VersionedTextDocumentIdentifier, ExecuteCommandParams, ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType
+	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, CloseAction, RevealOutputChannelOn, ServerOptions, DocumentFilter,
+	DidCloseTextDocumentNotification, DidOpenTextDocumentNotification, State, VersionedTextDocumentIdentifier, ExecuteCommandParams,
+	ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType
 } from 'vscode-languageclient/node';
 
 import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
@@ -413,10 +414,10 @@ export namespace ESLintClient {
 					return false;
 				},
 				errorHandler: {
-					error: (error, message, count): ErrorHandlerResult => {
+					error: (error, message, count) => {
 						return defaultErrorHandler.error(error, message, count);
 					},
-					closed: (): CloseHandlerResult => {
+					closed: () => {
 						if (serverCalledProcessExit) {
 							return { action: CloseAction.DoNotRestart };
 						}
