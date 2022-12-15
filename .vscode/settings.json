@@ -41,7 +41,11 @@
 		"eslintignore",
 		"eslintr",
 		"mydirectory",
-		"pnpm"
+		"onsave",
+		"pnpm",
+		"uinteger",
+		"Undispatched",
+		"unregistration"
 	],
 	"task.allowAutomaticTasks": "on"
 }

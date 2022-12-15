@@ -15,7 +15,7 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 
-import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, ShowOutputChannel, NoConfigRequest } from './shared/customMessages';
+import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest } from './shared/customMessages';
 import { ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
@@ -506,7 +506,7 @@ export namespace SaveRuleConfigs {
 }
 
 /**
- * Manages rule serverity overrides done using VS Code settings.
+ * Manages rule severity overrides done using VS Code settings.
  */
 export namespace RuleSeverities {
 
@@ -547,7 +547,7 @@ export namespace RuleSeverities {
 
 
 /**
- * Creates LSP Diagnostis and captures code action information.
+ * Creates LSP Diagnostics and captures code action information.
  */
 namespace Diagnostics {
 
@@ -1216,7 +1216,7 @@ export namespace ESLint {
 
 		const noConfigReported: Map<string, ESLintModule> = new Map<string, ESLintModule>();
 
-		export function clearNoConfigRepoerted(): void {
+		export function clearNoConfigReported(): void {
 			noConfigReported.clear();
 		}
 
@@ -1328,29 +1328,12 @@ export namespace ESLint {
 			return undefined;
 		}
 
-		const ignoredErrors: Set<string> = new Set();
 		function showErrorMessage(error: any, document: TextDocument): Status {
-			const errorMessage = `ESLint: ${getMessage(error, document)}. Please see the 'ESLint' output channel for details.`;
-			const actions = [
-				{ title: 'Open Output', id: 1},
-				{ title: 'Ignore for this Session', id: 2}
-			];
-			if (!ignoredErrors.has(errorMessage)) {
-				void connection.window.showErrorMessage(errorMessage, ...actions).then((value) => {
-					if (value !== undefined) {
-						if (value.id === 1) {
-							void connection.sendNotification(ShowOutputChannel.type);
-						} else if (value.id === 2) {
-							ignoredErrors.add(errorMessage);
-						}
-					}
-				});
-			} else {
-				connection.console.error(errorMessage);
-			}
 			if (Is.string(error.stack)) {
-				connection.console.error('ESLint stack trace:');
+				connection.console.error('An unexpected error occurred:');
 				connection.console.error(error.stack);
+			} else {
+				connection.console.error(`An unexpected error occurred: ${getMessage(error, document)}.`);
 			}
 			return Status.error;
 		}

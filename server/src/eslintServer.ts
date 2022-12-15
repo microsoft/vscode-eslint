@@ -36,7 +36,7 @@ import LanguageDefaults from './languageDefaults';
 // canceled.
 const connection: ProposedFeatures.Connection = createConnection(ProposedFeatures.all, {
 	cancelUndispatched: (message: LMessage) => {
-		// Code actions can savely be cancel on request.
+		// Code actions can safely be cancel on request.
 		if (LMessage.isRequest(message) && message.method === 'textDocument/codeAction') {
 			const response: LResponseMessage = {
 				jsonrpc: message.jsonrpc,
@@ -153,7 +153,7 @@ ESLint.initialize(connection, documents, inferFilePath, loadNodeModule);
 SaveRuleConfigs.inferFilePath = inferFilePath;
 
 /**
- * Special message queue implementatin to be able to invalidate requests.
+ * Special message queue implementation to be able to invalidate requests.
  * No necessary anymore when using diagnostic pull mode
  */
 
@@ -439,7 +439,7 @@ messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_
 	environmentChanged();
 });
 
-async function validateSingle(document: TextDocument, _publishDiagnostics: boolean = true): Promise<void> {
+async function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
 	if (!documents.get(document.uri)) {
@@ -451,12 +451,11 @@ async function validateSingle(document: TextDocument, _publishDiagnostics: boole
 		return;
 	}
 	try {
-		throw new Error(`Bad code`);
-		// const diagnostics = await ESLint.validate(document, settings);
-		// if (publishDiagnostics) {
-		// 	void connection.sendDiagnostics({ uri: document.uri, diagnostics });
-		// }
-		// void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
+		const diagnostics = await ESLint.validate(document, settings);
+		if (publishDiagnostics) {
+			void connection.sendDiagnostics({ uri: document.uri, diagnostics });
+		}
+		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 	} catch (err) {
 		// if an exception has occurred while validating clear all errors to ensure
 		// we are not showing any stale once
@@ -489,7 +488,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async 
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	RuleMetaData.clear();
-	ESLint.ErrorHandlers.clearNoConfigRepoerted();
+	ESLint.ErrorHandlers.clearNoConfigReported();
 	ESLint.ErrorHandlers.clearMissingModuleReported();
 	ESLint.clearSettings(); // config files can change plugins and parser.
 	RuleSeverities.clear();
@@ -776,12 +775,12 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 	const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll);
 	if (isSourceFixAll || isSource) {
 		if (isSourceFixAll) {
-			const textDocumentIdentifer: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
-			const edits = await computeAllFixes(textDocumentIdentifer, AllFixesMode.onSave);
+			const textDocumentIdentifier: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
+			const edits = await computeAllFixes(textDocumentIdentifier, AllFixesMode.onSave);
 			if (edits !== undefined) {
 				result.fixAll.push(CodeAction.create(
 					`Fix all fixable ESLint issues`,
-					{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifer, edits )]},
+					{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifier, edits )]},
 					ESLintSourceFixAll
 				));
 			}
