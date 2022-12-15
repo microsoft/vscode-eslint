@@ -36,7 +36,7 @@ import LanguageDefaults from './languageDefaults';
 // canceled.
 const connection: ProposedFeatures.Connection = createConnection(ProposedFeatures.all, {
 	cancelUndispatched: (message: LMessage) => {
-		// Code actions can savely be cancel on request.
+		// Code actions can safely be cancel on request.
 		if (LMessage.isRequest(message) && message.method === 'textDocument/codeAction') {
 			const response: LResponseMessage = {
 				jsonrpc: message.jsonrpc,
@@ -153,7 +153,7 @@ ESLint.initialize(connection, documents, inferFilePath, loadNodeModule);
 SaveRuleConfigs.inferFilePath = inferFilePath;
 
 /**
- * Special message queue implementatin to be able to invalidate requests.
+ * Special message queue implementation to be able to invalidate requests.
  * No necessary anymore when using diagnostic pull mode
  */
 
@@ -488,7 +488,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async 
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	RuleMetaData.clear();
-	ESLint.ErrorHandlers.clearNoConfigRepoerted();
+	ESLint.ErrorHandlers.clearNoConfigReported();
 	ESLint.ErrorHandlers.clearMissingModuleReported();
 	ESLint.clearSettings(); // config files can change plugins and parser.
 	RuleSeverities.clear();
@@ -775,12 +775,12 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 	const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll);
 	if (isSourceFixAll || isSource) {
 		if (isSourceFixAll) {
-			const textDocumentIdentifer: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
-			const edits = await computeAllFixes(textDocumentIdentifer, AllFixesMode.onSave);
+			const textDocumentIdentifier: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
+			const edits = await computeAllFixes(textDocumentIdentifier, AllFixesMode.onSave);
 			if (edits !== undefined) {
 				result.fixAll.push(CodeAction.create(
 					`Fix all fixable ESLint issues`,
-					{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifer, edits )]},
+					{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifier, edits )]},
 					ESLintSourceFixAll
 				));
 			}

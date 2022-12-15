@@ -14,10 +14,10 @@
 	"typescript.tsc.autoDetect": "off",
 	"typescript.tsserver.trace": "off",
 	"typescript.tsserver.log": "off",
-	"eslint.enable": true,
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": true
 	},
+	"eslint.enable": true,
 	"eslint.useESLintClass": true,
 	"eslint.codeActionsOnSave.rules": [
 		"@typescript-eslint/semi",
@@ -41,7 +41,11 @@
 		"eslintignore",
 		"eslintr",
 		"mydirectory",
-		"pnpm"
+		"onsave",
+		"pnpm",
+		"uinteger",
+		"Undispatched",
+		"unregistration"
 	],
 	"task.allowAutomaticTasks": "on"
 }

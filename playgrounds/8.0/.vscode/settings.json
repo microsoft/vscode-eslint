@@ -12,7 +12,7 @@
 	],
 	"eslint.packageManager": "yarn",
 	"eslint.trace.server": {
-		"verbosity": "messages",
+		"verbosity": "off",
 		"format": "text"
 	},
 	"files.autoSave": "off",
