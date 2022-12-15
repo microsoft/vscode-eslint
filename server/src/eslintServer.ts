@@ -439,7 +439,7 @@ messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_
 	environmentChanged();
 });
 
-async function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
+async function validateSingle(document: TextDocument, _publishDiagnostics: boolean = true): Promise<void> {
 	// We validate document in a queue but open / close documents directly. So we need to deal with the
 	// fact that a document might be gone from the server.
 	if (!documents.get(document.uri)) {
@@ -451,11 +451,12 @@ async function validateSingle(document: TextDocument, publishDiagnostics: boolea
 		return;
 	}
 	try {
-		const diagnostics = await ESLint.validate(document, settings);
-		if (publishDiagnostics) {
-			void connection.sendDiagnostics({ uri: document.uri, diagnostics });
-		}
-		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
+		throw new Error(`Bad code`);
+		// const diagnostics = await ESLint.validate(document, settings);
+		// if (publishDiagnostics) {
+		// 	void connection.sendDiagnostics({ uri: document.uri, diagnostics });
+		// }
+		// void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 	} catch (err) {
 		// if an exception has occurred while validating clear all errors to ensure
 		// we are not showing any stale once

@@ -9,7 +9,7 @@ import * as path from 'path';
 import {
 	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic, ProviderResult,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
-	ExtensionContext, StatusBarAlignment, ThemeColor
+	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter
 } from 'vscode';
 
 import {
@@ -142,15 +142,15 @@ export namespace ESLintClient {
 		let notNow: boolean = false;
 
 		// The client's status bar item.
-		const statusBarItem = Window.createStatusBarItem('generalStatus', StatusBarAlignment.Right, 0);
+		const languageStatus: LanguageStatusItem = Languages.createLanguageStatusItem('eslint.languageStatusItem', []);
 		let serverRunning: boolean | undefined;
 
 		const starting = 'ESLint server is starting.';
 		const running = 'ESLint server is running.';
 		const stopped = 'ESLint server stopped.';
-		statusBarItem.name = 'ESLint';
-		statusBarItem.text = 'ESLint';
-		statusBarItem.command = 'eslint.showOutputChannel';
+		languageStatus.name = 'ESLint';
+		languageStatus.text = 'ESLint';
+		languageStatus.command = { title: 'Open ESLint Output', command: 'eslint.showOutputChannel' };
 		const documentStatus: Map<string, Status> = new Map();
 
 		// If the workspace configuration changes we need to update the synced documents since the
@@ -315,7 +315,7 @@ export namespace ESLintClient {
 
 		client.onDidChangeState((event) => {
 			if (event.newState === State.Starting) {
-				client.info('ESLint server is starting');
+				client.info(starting);
 				serverRunning = undefined;
 			} else if (event.newState === State.Running) {
 				client.info(running);
@@ -334,6 +334,7 @@ export namespace ESLintClient {
 			Workspace.onDidCloseTextDocument((document) => {
 				const uri = document.uri.toString();
 				documentStatus.delete(uri);
+				updateLanguageStatusSelector();
 				updateStatusBar(undefined);
 			}),
 			commands.registerCommand('eslint.executeAutofix', async () => {
@@ -429,6 +430,7 @@ export namespace ESLintClient {
 						if (Languages.match(packageJsonFilter, document) || Languages.match(configFileFilter, document) || validator.check(document) !== Validate.off) {
 							const result = next(document);
 							syncedDocuments.set(document.uri.toString(), document);
+
 							return result;
 						}
 					},
@@ -767,8 +769,27 @@ export namespace ESLintClient {
 		}
 
 		function updateDocumentStatus(params: StatusParams): void {
+			const needsUpdate = !documentStatus.has(params.uri);
 			documentStatus.set(params.uri, params.state);
+			if (needsUpdate) {
+				updateLanguageStatusSelector();
+			}
 			updateStatusBar(params.uri);
+		}
+
+		function updateLanguageStatusSelector(): void {
+			const selector: VDocumentFilter[] = [];
+			for (const key of documentStatus.keys()) {
+				const uri: Uri = Uri.parse(key);
+				const document = syncedDocuments.get(key);
+				const filter: VDocumentFilter = {
+					scheme: uri.scheme,
+					pattern: uri.fsPath,
+					language: document?.languageId
+				};
+				selector.push(filter);
+			}
+			languageStatus.selector = selector;
 		}
 
 		function updateStatusBar(uri: string | undefined) {
@@ -781,38 +802,20 @@ export namespace ESLintClient {
 				}
 				return (uri !== undefined ? documentStatus.get(uri) : undefined) ?? Status.ok;
 			}();
-			let icon: string| undefined;
-			let tooltip: string | undefined;
 			let text: string = 'ESLint';
-			let backgroundColor: ThemeColor | undefined;
-			let foregroundColor: ThemeColor | undefined;
+			let severity: LanguageStatusSeverity = LanguageStatusSeverity.Information;
 			switch (status) {
 				case Status.ok:
-					icon = undefined;
-					foregroundColor = new ThemeColor('statusBarItem.foreground');
-					backgroundColor = new ThemeColor('statusBarItem.background');
 					break;
 				case Status.warn:
-					icon = '$(alert)';
-					foregroundColor = new ThemeColor('statusBarItem.warningForeground');
-					backgroundColor = new ThemeColor('statusBarItem.warningBackground');
+					severity = LanguageStatusSeverity.Warning;
 					break;
 				case Status.error:
-					icon = '$(issue-opened)';
-					foregroundColor = new ThemeColor('statusBarItem.errorForeground');
-					backgroundColor = new ThemeColor('statusBarItem.errorBackground');
+					severity = LanguageStatusSeverity.Error;
 					break;
 			}
-			statusBarItem.text = icon !== undefined ? `${icon} ${text}` : text;
-			statusBarItem.color = foregroundColor;
-			statusBarItem.backgroundColor = backgroundColor;
-			statusBarItem.tooltip = tooltip ? tooltip : serverRunning === undefined ? starting : serverRunning === true ? running : stopped;
-			const alwaysShow = Workspace.getConfiguration('eslint').get('alwaysShowStatus', false);
-			if (alwaysShow || status !== Status.ok) {
-				statusBarItem.show();
-			} else {
-				statusBarItem.hide();
-			}
+			languageStatus.text = text;
+			languageStatus.severity = severity;
 		}
 	}
 }

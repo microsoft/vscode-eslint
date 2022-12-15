@@ -977,25 +977,28 @@ export namespace ESLint {
 						void connection.sendRequest(ProbeFailedRequest.type, params);
 					}
 				}
-				if (settings.format && settings.validate === Validate.on && TextDocumentSettings.hasLibrary(settings)) {
-					const Uri = URI.parse(uri);
-					const isFile = Uri.scheme === 'file';
-					let pattern: string = isFile
-						? Uri.fsPath.replace(/\\/g, '/')
-						: Uri.fsPath;
-					pattern = pattern.replace(/[\[\]\{\}]/g, '?');
+				if (settings.validate === Validate.on) {
+					settings.silent = false;
+					if (settings.format && TextDocumentSettings.hasLibrary(settings)) {
+						const Uri = URI.parse(uri);
+						const isFile = Uri.scheme === 'file';
+						let pattern: string = isFile
+							? Uri.fsPath.replace(/\\/g, '/')
+							: Uri.fsPath;
+						pattern = pattern.replace(/[\[\]\{\}]/g, '?');
 
-					const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
-					const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
-					if (!isFile) {
-						formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
-					} else {
-						const filePath = inferFilePath(uri)!;
-						await ESLint.withClass(async (eslintClass) => {
-							if (!await eslintClass.isPathIgnored(filePath)) {
-								formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
-							}
-						}, settings);
+						const filter: DocumentFilter = { scheme: Uri.scheme, pattern: pattern };
+						const options: DocumentFormattingRegistrationOptions = { documentSelector: [filter] };
+						if (!isFile) {
+							formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+						} else {
+							const filePath = inferFilePath(uri)!;
+							await ESLint.withClass(async (eslintClass) => {
+								if (!await eslintClass.isPathIgnored(filePath)) {
+									formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
+								}
+							}, settings);
+						}
 					}
 				}
 				return settings;
