@@ -154,7 +154,12 @@ export namespace ESLintClient {
 		type StatusInfo = Omit<StatusParams, 'uri'> & {
 			firstReport: boolean;
 			fixTime?: number;
+			reported?: number;
 		};
+		const lintWarnTime = 4000;
+		const lintErrorTime = 8000;
+		const saveAllWarnTime = 3000;
+		const saveAllErrorTime = 6000;
 		const documentStatus: Map<string, StatusInfo> = new Map();
 
 		// If the workspace configuration changes we need to update the synced documents since the
@@ -786,9 +791,9 @@ export namespace ESLintClient {
 		}
 
 		function updateDocumentStatus(params: StatusParams): void {
-			const hasStatus = documentStatus.has(params.uri);
-			documentStatus.set(params.uri, Object.assign({}, params, { firstReport: !hasStatus }));
-			if (!hasStatus) {
+			const currentStatus = documentStatus.get(params.uri);
+			documentStatus.set(params.uri, Object.assign(currentStatus ?? {}, params, { firstReport: currentStatus === undefined }));
+			if (currentStatus === undefined) {
 				updateLanguageStatusSelector();
 			}
 			updateStatusBar(params.uri);
@@ -810,20 +815,33 @@ export namespace ESLintClient {
 		}
 
 		function updateStatusBar(uri: string | undefined) {
-			const statusInfo = function(): StatusInfo {
+			const statusInfo = function(): StatusInfo | undefined {
 				if (serverRunning === false) {
-					return { state: Status.error, firstReport: true };
+					return undefined;
 				}
 				if (uri === undefined) {
 					uri = Window.activeTextEditor?.document.uri.toString();
 				}
-				const params = uri !== undefined ? documentStatus.get(uri) : undefined;
-				return params ?? { state: Status.ok, firstReport: true };
+				return uri !== undefined ? documentStatus.get(uri) : undefined;
 			}();
 
-			const timeTaken = statusInfo.firstReport ? -1 : Math.max(statusInfo.validationTime ?? -1, statusInfo.fixTime ?? -1);
-			const text: string = timeTaken > 250 ? `ESLint [${timeTaken}ms]` : 'ESLint';
+			if (statusInfo === undefined) {
+				return;
+			}
+
 			let severity: LanguageStatusSeverity = LanguageStatusSeverity.Information;
+			const [timeTaken, text, message, warnTime, errorTime] = function(): [number, string, string, number, number] {
+				if (statusInfo.firstReport) {
+					return [-1, '', '', lintWarnTime, lintErrorTime];
+				}
+				if ((statusInfo.fixTime ?? 0) > (statusInfo.validationTime ?? 0)) {
+					return [statusInfo.fixTime ?? 0, `ESLint [${statusInfo.fixTime}ms]`, `Computing fixes during save for file ${uri} during save took ${statusInfo.fixTime}ms`, saveAllWarnTime, saveAllErrorTime];
+				} else if ((statusInfo.validationTime ?? 0) > 0) {
+					return [statusInfo.validationTime ?? 0, `ESLint [${statusInfo.validationTime}ms]`, `Linting file ${uri} took ${statusInfo.validationTime}ms`, lintWarnTime, lintErrorTime];
+				}
+				return [-1, '', '', lintWarnTime, lintErrorTime];
+			}();
+
 			switch (statusInfo.state) {
 				case Status.ok:
 					break;
@@ -834,25 +852,27 @@ export namespace ESLintClient {
 					severity = LanguageStatusSeverity.Error;
 					break;
 			}
-			if (severity === LanguageStatusSeverity.Information && timeTaken > 250) {
+			if (severity === LanguageStatusSeverity.Information && timeTaken > warnTime) {
 				severity = LanguageStatusSeverity.Warning;
 			}
-			if (severity === LanguageStatusSeverity.Warning && timeTaken > 750) {
+			if (severity === LanguageStatusSeverity.Warning && timeTaken > errorTime) {
 				severity = LanguageStatusSeverity.Error;
 			}
-			if (timeTaken > 250) {
-				const message = (statusInfo.validationTime ?? 0) > (statusInfo.fixTime ?? 0)
-					? `Linting file ${uri} took ${timeTaken}ms`
-					: `Computing fixes for file ${uri} during save took ${timeTaken}ms`;
-				if (timeTaken > 750) {
+			if (timeTaken > warnTime && timeTaken !== statusInfo.reported) {
+				if (timeTaken > errorTime) {
 					client.error(message);
 				} else {
 					client.warn(message);
 				}
+				statusInfo.reported = timeTaken;
 			}
 
-			languageStatus.text = text;
-			languageStatus.severity = severity;
+			if (languageStatus.text !== text) {
+				languageStatus.text = text;
+			}
+			if (languageStatus.severity !== severity) {
+				languageStatus.severity = severity;
+			}
 		}
 	}
 }
