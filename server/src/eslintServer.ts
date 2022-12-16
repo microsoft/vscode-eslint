@@ -451,11 +451,13 @@ async function validateSingle(document: TextDocument, publishDiagnostics: boolea
 		return;
 	}
 	try {
+		const start = Date.now();
 		const diagnostics = await ESLint.validate(document, settings);
 		if (publishDiagnostics) {
 			void connection.sendDiagnostics({ uri: document.uri, diagnostics });
 		}
-		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
+		const timeTaken = Date.now() - start;
+		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok, validationTime: timeTaken });
 	} catch (err) {
 		// if an exception has occurred while validating clear all errors to ensure
 		// we are not showing any stale once

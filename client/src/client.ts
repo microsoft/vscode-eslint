@@ -7,7 +7,7 @@
 import * as path from 'path';
 
 import {
-	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic, ProviderResult,
+	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
 	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter
 } from 'vscode';
@@ -151,7 +151,11 @@ export namespace ESLintClient {
 		languageStatus.name = 'ESLint';
 		languageStatus.text = 'ESLint';
 		languageStatus.command = { title: 'Open ESLint Output', command: 'eslint.showOutputChannel' };
-		const documentStatus: Map<string, Status> = new Map();
+		type StatusInfo = Omit<StatusParams, 'uri'> & {
+			firstReport: boolean;
+			fixTime?: number;
+		};
+		const documentStatus: Map<string, StatusInfo> = new Map();
 
 		// If the workspace configuration changes we need to update the synced documents since the
 		// list of probe language type can change.
@@ -492,7 +496,7 @@ export namespace ESLintClient {
 							return next(document, cells);
 						}
 					},
-					provideCodeActions: (document, range, context, token, next): ProviderResult<(Command | CodeAction)[]> => {
+					provideCodeActions: async (document, range, context, token, next): Promise<(Command | CodeAction)[] | null | undefined> => {
 						if (!syncedDocuments.has(document.uri.toString())) {
 							return [];
 						}
@@ -512,7 +516,20 @@ export namespace ESLintClient {
 							return [];
 						}
 						const newContext: CodeActionContext = Object.assign({}, context, { diagnostics: eslintDiagnostics });
-						return next(document, range, newContext, token);
+						const start = Date.now();
+						const result = await next(document, range, newContext, token);
+						if (context.only?.value.startsWith('source.fixAll')) {
+							const statusInfo = documentStatus.get(document.uri.toString());
+							if (statusInfo !== undefined) {
+								if (statusInfo.firstReport === true) {
+									statusInfo.firstReport = false;
+									statusInfo.validationTime = 0;
+								}
+								statusInfo.fixTime = Date.now() - start;
+								updateStatusBar(document.uri.toString());
+							}
+						}
+						return result;
 					},
 					workspace: {
 						didChangeWatchedFile: (event, next) => {
@@ -769,9 +786,9 @@ export namespace ESLintClient {
 		}
 
 		function updateDocumentStatus(params: StatusParams): void {
-			const needsUpdate = !documentStatus.has(params.uri);
-			documentStatus.set(params.uri, params.state);
-			if (needsUpdate) {
+			const hasStatus = documentStatus.has(params.uri);
+			documentStatus.set(params.uri, Object.assign({}, params, { firstReport: !hasStatus }));
+			if (!hasStatus) {
 				updateLanguageStatusSelector();
 			}
 			updateStatusBar(params.uri);
@@ -793,18 +810,21 @@ export namespace ESLintClient {
 		}
 
 		function updateStatusBar(uri: string | undefined) {
-			const status = function() {
+			const statusInfo = function(): StatusInfo {
 				if (serverRunning === false) {
-					return Status.error;
+					return { state: Status.error, firstReport: true };
 				}
 				if (uri === undefined) {
 					uri = Window.activeTextEditor?.document.uri.toString();
 				}
-				return (uri !== undefined ? documentStatus.get(uri) : undefined) ?? Status.ok;
+				const params = uri !== undefined ? documentStatus.get(uri) : undefined;
+				return params ?? { state: Status.ok, firstReport: true };
 			}();
-			let text: string = 'ESLint';
+
+			const timeTaken = statusInfo.firstReport ? -1 : Math.max(statusInfo.validationTime ?? -1, statusInfo.fixTime ?? -1);
+			const text: string = timeTaken > 250 ? `ESLint [${timeTaken}ms]` : 'ESLint';
 			let severity: LanguageStatusSeverity = LanguageStatusSeverity.Information;
-			switch (status) {
+			switch (statusInfo.state) {
 				case Status.ok:
 					break;
 				case Status.warn:
@@ -814,6 +834,23 @@ export namespace ESLintClient {
 					severity = LanguageStatusSeverity.Error;
 					break;
 			}
+			if (severity === LanguageStatusSeverity.Information && timeTaken > 250) {
+				severity = LanguageStatusSeverity.Warning;
+			}
+			if (severity === LanguageStatusSeverity.Warning && timeTaken > 750) {
+				severity = LanguageStatusSeverity.Error;
+			}
+			if (timeTaken > 250) {
+				const message = (statusInfo.validationTime ?? 0) > (statusInfo.fixTime ?? 0)
+					? `Linting file ${uri} took ${timeTaken}ms`
+					: `Computing fixes for file ${uri} during save took ${timeTaken}ms`;
+				if (timeTaken > 750) {
+					client.error(message);
+				} else {
+					client.warn(message);
+				}
+			}
+
 			languageStatus.text = text;
 			languageStatus.severity = severity;
 		}

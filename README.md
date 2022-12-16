@@ -23,6 +23,11 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd major, minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5`, `2.3.1` and `3.0.0` will all be pre-release versions. `2.2.10`, `2.4.10` and `4.0.0` will all be regular release versions.
 
+### Version 2.3.1 - Pre-release
+
+- the extension uses now VS Code's language status indicator
+- the language status indicator now informs about long linting or fix on save times. Times above 750ms produce an error indication and times above 250ms a warning indication.
+
 ### Version 2.3.0 - Pre-release
 
 - support for flat config files
