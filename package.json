@@ -65,12 +65,6 @@
 					"default": "npm",
 					"description": "The package manager you use to install node modules."
 				},
-				"eslint.alwaysShowStatus": {
-					"type": "boolean",
-					"default": false,
-					"description": "Always show the ESlint status bar item.",
-					"scope": "window"
-				},
 				"eslint.problems.shortenToSingleLine": {
 					"type": "boolean",
 					"default": false,

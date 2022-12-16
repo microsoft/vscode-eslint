@@ -26,7 +26,8 @@ From version 2.2.3 on forward odd major, minor or patch version numbers indicate
 ### Version 2.3.1 - Pre-release
 
 - the extension uses now VS Code's language status indicator
-- the language status indicator now informs about long linting or fix on save times. Times above 750ms produce an error indication and times above 250ms a warning indication.
+- the language status indicator now informs about long linting or fix on save times.
+- the setting `eslint.alwaysShowStatus` got removed since the status is now shown as a language status indicator.
 
 ### Version 2.3.0 - Pre-release
 

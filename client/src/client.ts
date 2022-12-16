@@ -832,14 +832,14 @@ export namespace ESLintClient {
 			let severity: LanguageStatusSeverity = LanguageStatusSeverity.Information;
 			const [timeTaken, text, message, warnTime, errorTime] = function(): [number, string, string, number, number] {
 				if (statusInfo.firstReport) {
-					return [-1, '', '', lintWarnTime, lintErrorTime];
+					return [-1, 'ESLint', '', lintWarnTime, lintErrorTime];
 				}
 				if ((statusInfo.fixTime ?? 0) > (statusInfo.validationTime ?? 0)) {
 					return [statusInfo.fixTime ?? 0, `ESLint [${statusInfo.fixTime}ms]`, `Computing fixes during save for file ${uri} during save took ${statusInfo.fixTime}ms`, saveAllWarnTime, saveAllErrorTime];
 				} else if ((statusInfo.validationTime ?? 0) > 0) {
 					return [statusInfo.validationTime ?? 0, `ESLint [${statusInfo.validationTime}ms]`, `Linting file ${uri} took ${statusInfo.validationTime}ms`, lintWarnTime, lintErrorTime];
 				}
-				return [-1, '', '', lintWarnTime, lintErrorTime];
+				return [-1, 'ESLint', '', lintWarnTime, lintErrorTime];
 			}();
 
 			switch (statusInfo.state) {
