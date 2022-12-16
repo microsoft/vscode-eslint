@@ -14,6 +14,7 @@ export enum Status {
 export type StatusParams = {
 	uri: string;
 	state: Status;
+	validationTime?: number;
 };
 
 /**
