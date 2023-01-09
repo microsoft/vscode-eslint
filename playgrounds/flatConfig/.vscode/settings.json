@@ -18,5 +18,5 @@
 		"source.fixAll": true,
 		"source.fixAll.eslint": true
 	},
-	"eslint.experimentalUseFlatConfig": true
+	"eslint.experimental.useFlatConfig": true
 }
