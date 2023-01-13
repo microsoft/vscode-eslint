@@ -1057,7 +1057,7 @@ export namespace ESLint {
 			return undefined;
 		}
 		const uri = URI.parse(document.uri);
-		if (uri.scheme === 'untitled') {
+		if (uri.scheme !== 'file') {
 			if (settings.workspaceFolder !== undefined) {
 				const ext = LanguageDefaults.getExtension(document.languageId);
 				const workspacePath = inferFilePath(settings.workspaceFolder.uri);
