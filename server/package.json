@@ -1,6 +1,6 @@
 {
 	"name": "eslint-server",
-	"version": "2.2.5",
+	"version": "2.3.3",
 	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
@@ -15,9 +15,9 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-languageserver": "8.1.0-next.4",
-		"vscode-languageserver-textdocument": "1.0.5",
-		"vscode-uri": "^3.0.3"
+		"vscode-languageserver": "8.1.0-next.6",
+		"vscode-languageserver-textdocument": "1.0.9",
+		"vscode-uri": "^3.0.7"
 	},
 	"scripts": {
 		"webpack": "npm run clean && webpack --mode production --config ./webpack.config.js",
