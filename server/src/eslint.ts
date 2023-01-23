@@ -1071,7 +1071,7 @@ export namespace ESLint {
 		}
 	}
 
-	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
+	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
 	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 		let fixTypes: Set<string> | undefined = undefined;
