@@ -1,8 +1,12 @@
-### Version 2.3.0 - Pre-release
+### Version 2.3.3 - Pre-release
 
-- support for flat config files
-- support for single problem underline.
-- various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A2.4.0)
+- make server `untitled` agnostic
+
+### Version 2.3.1 - Pre-release (internal only)
+
+- the extension uses now VS Code's language status indicator
+- the language status indicator now informs about long linting or fix on save times.
+- the setting `eslint.alwaysShowStatus` got removed since the status is now shown as a language status indicator.
 
 ### Version 2.2.6
 
