@@ -138,11 +138,9 @@ export namespace RuleMetaData {
 			if (toHandle.length === 0) {
 				return;
 			}
-			addUnusedDisableDirectivesMeta(toHandle);
 			rulesMetaData = typeof eslint.getRulesMetaForResults === 'function' ? eslint.getRulesMetaForResults(toHandle) : undefined;
 			toHandle.forEach(report => handled.add(report.filePath));
 		} else {
-			addUnusedDisableDirectivesMeta(reports);
 			rulesMetaData = typeof eslint.getRulesMetaForResults === 'function' ? eslint.getRulesMetaForResults(reports) : undefined;
 		}
 		if (rulesMetaData === undefined) {
@@ -164,40 +162,27 @@ export namespace RuleMetaData {
 	}
 
 	export function getUrl(ruleId: string): string | undefined {
+		if (ruleId === unusedDisableDirectiveId) {
+			return 'https://eslint.org/docs/latest/use/configure/rules#report-unused-eslint-disable-comments';
+		}
+
 		return ruleId2Meta.get(ruleId)?.docs?.url;
 	}
 
 	export function getType(ruleId: string): string | undefined {
+		if (ruleId === unusedDisableDirectiveId) {
+			return 'directive';
+		}
+
 		return ruleId2Meta.get(ruleId)?.type;
 	}
 
 	export function hasRuleId(ruleId: string): boolean {
-		return ruleId2Meta.has(ruleId);
+		return ruleId === unusedDisableDirectiveId || ruleId2Meta.has(ruleId);
 	}
 
 	export function isUnusedDisableDirectiveProblem(problem: ESLintProblem): boolean {
 		return problem.ruleId === null && problem.message.startsWith('Unused eslint-disable directive');
-	}
-
-	function addUnusedDisableDirectivesMeta(reports: ESLintDocumentReport[]): void {
-		if (hasRuleId(unusedDisableDirectiveId)) {
-			return;
-		}
-
-		for (const report of reports) {
-			for (const message of report.messages) {
-				if (isUnusedDisableDirectiveProblem(message)) {
-					ruleId2Meta.set(unusedDisableDirectiveId, {
-						docs: {
-							url: 'https://eslint.org/docs/latest/use/configure/rules#report-unused-eslint-disable-comments'
-						},
-						type: 'directive'
-					});
-
-					return;
-				}
-			}
-		}
 	}
 }
 
