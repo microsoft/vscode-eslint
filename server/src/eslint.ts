@@ -126,6 +126,9 @@ export namespace RuleMetaData {
 	const handled: Set<string> = new Set();
 	const ruleId2Meta: Map<string, RuleMetaData> = new Map();
 
+	// For unused eslint-disable comments, ESLint does not include a rule ID
+	// nor any other metadata (although they do provide a fix). In order to
+	// provide code actions for these, we create a fake rule ID and metadata.
 	export const unusedDisableDirectiveId = 'unused-disable-directive';
 
 	export function capture(eslint: ESLintClass, reports: ESLintDocumentReport[]): void {
