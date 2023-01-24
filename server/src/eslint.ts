@@ -126,6 +126,8 @@ export namespace RuleMetaData {
 	const handled: Set<string> = new Set();
 	const ruleId2Meta: Map<string, RuleMetaData> = new Map();
 
+	export const unusedDisableDirectiveId = 'unused-disable-directive';
+
 	export function capture(eslint: ESLintClass, reports: ESLintDocumentReport[]): void {
 		let rulesMetaData: Record<string, RuleMetaData> | undefined;
 		if (eslint.isCLIEngine) {
@@ -133,9 +135,11 @@ export namespace RuleMetaData {
 			if (toHandle.length === 0) {
 				return;
 			}
+			addUnusedDisableDirectivesMeta(toHandle);
 			rulesMetaData = typeof eslint.getRulesMetaForResults === 'function' ? eslint.getRulesMetaForResults(toHandle) : undefined;
 			toHandle.forEach(report => handled.add(report.filePath));
 		} else {
+			addUnusedDisableDirectivesMeta(reports);
 			rulesMetaData = typeof eslint.getRulesMetaForResults === 'function' ? eslint.getRulesMetaForResults(reports) : undefined;
 		}
 		if (rulesMetaData === undefined) {
@@ -166,6 +170,25 @@ export namespace RuleMetaData {
 
 	export function hasRuleId(ruleId: string): boolean {
 		return ruleId2Meta.has(ruleId);
+	}
+
+	export function isUnusedDisableDirectiveProblem(problem: ESLintProblem): boolean {
+		return problem.ruleId === null && problem.message.startsWith('Unused eslint-disable directive');
+	}
+
+	function addUnusedDisableDirectivesMeta(reports: ESLintDocumentReport[]): void {
+		for (const report of reports) {
+			for (const message of report.messages) {
+				if (isUnusedDisableDirectiveProblem(message)) {
+					ruleId2Meta.set(unusedDisableDirectiveId, {
+						docs: {
+							url: 'https://eslint.org/docs/latest/use/configure/rules#report-unused-eslint-disable-comments'
+						},
+						type: 'directive'
+					});
+				}
+			}
+		}
 	}
 }
 
@@ -1111,6 +1134,10 @@ export namespace ESLint {
 									CodeActions.record(document, diagnostic, problem);
 								}
 							} else {
+								if (RuleMetaData.isUnusedDisableDirectiveProblem(problem)) {
+									problem.ruleId = RuleMetaData.unusedDisableDirectiveId;
+								}
+
 								CodeActions.record(document, diagnostic, problem);
 							}
 						}
