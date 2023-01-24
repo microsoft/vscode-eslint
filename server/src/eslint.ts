@@ -177,6 +177,10 @@ export namespace RuleMetaData {
 	}
 
 	function addUnusedDisableDirectivesMeta(reports: ESLintDocumentReport[]): void {
+		if (hasRuleId(unusedDisableDirectiveId)) {
+			return;
+		}
+
 		for (const report of reports) {
 			for (const message of report.messages) {
 				if (isUnusedDisableDirectiveProblem(message)) {
@@ -186,6 +190,8 @@ export namespace RuleMetaData {
 						},
 						type: 'directive'
 					});
+
+					return;
 				}
 			}
 		}
