@@ -123,13 +123,19 @@ export type RuleMetaData = {
 };
 
 export namespace RuleMetaData {
-	const handled: Set<string> = new Set();
-	const ruleId2Meta: Map<string, RuleMetaData> = new Map();
-
 	// For unused eslint-disable comments, ESLint does not include a rule ID
 	// nor any other metadata (although they do provide a fix). In order to
 	// provide code actions for these, we create a fake rule ID and metadata.
 	export const unusedDisableDirectiveId = 'unused-disable-directive';
+	const unusedDisableDirectiveMeta: RuleMetaData = {
+		docs: {
+			url: 'https://eslint.org/docs/latest/use/configure/rules#report-unused-eslint-disable-comments'
+		},
+		type: 'directive'
+	};
+
+	const handled: Set<string> = new Set();
+	const ruleId2Meta: Map<string, RuleMetaData> = new Map([[unusedDisableDirectiveId, unusedDisableDirectiveMeta]]);
 
 	export function capture(eslint: ESLintClass, reports: ESLintDocumentReport[]): void {
 		let rulesMetaData: Record<string, RuleMetaData> | undefined;
@@ -159,26 +165,19 @@ export namespace RuleMetaData {
 	export function clear(): void {
 		handled.clear();
 		ruleId2Meta.clear();
+		ruleId2Meta.set(unusedDisableDirectiveId, unusedDisableDirectiveMeta);
 	}
 
 	export function getUrl(ruleId: string): string | undefined {
-		if (ruleId === unusedDisableDirectiveId) {
-			return 'https://eslint.org/docs/latest/use/configure/rules#report-unused-eslint-disable-comments';
-		}
-
 		return ruleId2Meta.get(ruleId)?.docs?.url;
 	}
 
 	export function getType(ruleId: string): string | undefined {
-		if (ruleId === unusedDisableDirectiveId) {
-			return 'directive';
-		}
-
 		return ruleId2Meta.get(ruleId)?.type;
 	}
 
 	export function hasRuleId(ruleId: string): boolean {
-		return ruleId === unusedDisableDirectiveId || ruleId2Meta.has(ruleId);
+		return ruleId2Meta.has(ruleId);
 	}
 
 	export function isUnusedDisableDirectiveProblem(problem: ESLintProblem): boolean {
