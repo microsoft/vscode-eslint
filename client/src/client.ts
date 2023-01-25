@@ -116,7 +116,11 @@ export namespace ESLintClient {
 		}
 	}
 
-	export function create(context: ExtensionContext, validator: Validator): LanguageClient {
+	interface TimeBudget {
+		warn: number;
+		error: number;
+	}
+	export function create(context: ExtensionContext, validator: Validator): [LanguageClient, () => void] {
 
 		// Filters for client options
 		const packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json' };
@@ -151,16 +155,17 @@ export namespace ESLintClient {
 		languageStatus.name = 'ESLint';
 		languageStatus.text = 'ESLint';
 		languageStatus.command = { title: 'Open ESLint Output', command: 'eslint.showOutputChannel' };
-		type StatusInfo = Omit<StatusParams, 'uri'> & {
-			firstReport: boolean;
-			fixTime?: number;
-			reported?: number;
+		type StatusInfo = Omit<Omit<StatusParams, 'uri'>, 'validationTime'> & {
 		};
-		const lintWarnTime = 4000;
-		const lintErrorTime = 8000;
-		const saveAllWarnTime = 3000;
-		const saveAllErrorTime = 6000;
+		type PerformanceStatus = {
+			firstReport: boolean;
+			validationTime: number
+			fixTime: number;
+			reported: number;
+			acknowledged: boolean;
+		};
 		const documentStatus: Map<string, StatusInfo> = new Map();
+		const performanceStatus: Map<string, PerformanceStatus> = new Map();
 
 		// If the workspace configuration changes we need to update the synced documents since the
 		// list of probe language type can change.
@@ -366,7 +371,7 @@ export namespace ESLintClient {
 			})
 		);
 
-		return client;
+		return [client, acknowledgePerformanceStatus];
 
 		function createServerOptions(extensionUri: Uri): ServerOptions {
 			const serverModule = Uri.joinPath(extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
@@ -524,15 +529,15 @@ export namespace ESLintClient {
 						const start = Date.now();
 						const result = await next(document, range, newContext, token);
 						if (context.only?.value.startsWith('source.fixAll')) {
-							const statusInfo = documentStatus.get(document.uri.toString());
-							if (statusInfo !== undefined) {
-								if (statusInfo.firstReport === true) {
-									statusInfo.firstReport = false;
-									statusInfo.validationTime = 0;
-								}
-								statusInfo.fixTime = Date.now() - start;
-								updateStatusBar(document.uri.toString());
+							let performanceInfo = performanceStatus.get(document.languageId);
+							if (performanceInfo === undefined) {
+								performanceInfo = { firstReport: true, validationTime: 0, fixTime: 0, reported: 0, acknowledged: false };
+								performanceStatus.set(document.languageId, performanceInfo);
+							} else {
+								performanceInfo.firstReport = false;
 							}
+							performanceInfo.fixTime = Date.now() - start;
+							updateStatusBar(document);
 						}
 						return result;
 					},
@@ -791,12 +796,23 @@ export namespace ESLintClient {
 		}
 
 		function updateDocumentStatus(params: StatusParams): void {
-			const currentStatus = documentStatus.get(params.uri);
-			documentStatus.set(params.uri, Object.assign(currentStatus ?? {}, params, { firstReport: currentStatus === undefined }));
-			if (currentStatus === undefined) {
+			const needsSelectorUpdate = !documentStatus.has(params.uri);
+			documentStatus.set(params.uri, { state: params.state });
+			if (needsSelectorUpdate) {
 				updateLanguageStatusSelector();
 			}
-			updateStatusBar(params.uri);
+			const textDocument = syncedDocuments.get(params.uri);
+			if (textDocument !== undefined) {
+				let performanceInfo = performanceStatus.get(textDocument.languageId);
+				if (performanceInfo === undefined) {
+					performanceInfo = { firstReport: true, validationTime: 0, fixTime: 0, reported: 0, acknowledged: false };
+					performanceStatus.set(textDocument.languageId, performanceInfo);
+				} else {
+					performanceInfo.firstReport = false;
+				}
+				performanceInfo.validationTime = params.validationTime ?? 0;
+			}
+			updateStatusBar(textDocument);
 		}
 
 		function updateLanguageStatusSelector(): void {
@@ -814,32 +830,65 @@ export namespace ESLintClient {
 			languageStatus.selector = selector;
 		}
 
-		function updateStatusBar(uri: string | undefined) {
-			const statusInfo = function(): StatusInfo | undefined {
-				if (serverRunning === false) {
-					return undefined;
-				}
-				if (uri === undefined) {
-					uri = Window.activeTextEditor?.document.uri.toString();
-				}
-				return uri !== undefined ? documentStatus.get(uri) : undefined;
-			}();
-
-			if (statusInfo === undefined) {
+		function acknowledgePerformanceStatus(): void {
+			const activeTextDocument = Window.activeTextEditor?.document;
+			if (activeTextDocument === undefined) {
 				return;
+			}
+			const performanceInfo = performanceStatus.get(activeTextDocument.languageId);
+			if (performanceInfo === undefined || performanceInfo.reported === 0) {
+				return;
+			}
+			performanceInfo.acknowledged = true;
+			updateStatusBar(activeTextDocument);
+		}
+
+		function updateStatusBar(textDocument: TextDocument | undefined) {
+			const activeTextDocument = textDocument ?? Window.activeTextEditor?.document;
+			if (activeTextDocument === undefined || serverRunning === false) {
+				return;
+			}
+			const performanceInfo = performanceStatus.get(activeTextDocument.languageId);
+			const statusInfo = documentStatus.get(activeTextDocument.uri.toString()) ?? { state: Status.ok};
+
+			let validationBudget = Workspace.getConfiguration('eslint', activeTextDocument).get<TimeBudget>('timeBudget.onValidation', { warn: 4000, error: 8000 });
+			if (validationBudget.warn < 0 || validationBudget.error < 0) {
+				validationBudget = {
+					warn: validationBudget.warn < 0 ? Number.MAX_VALUE : validationBudget.warn,
+					error: validationBudget.error < 0 ? Number.MAX_VALUE : validationBudget.error
+				};
+			}
+			let fixesBudget = Workspace.getConfiguration('eslint', activeTextDocument).get<TimeBudget>('timeBudget.onFixes', { warn: 3000, error: 6000 });
+			if (fixesBudget.warn < 0 || fixesBudget.error < 0) {
+				fixesBudget = {
+					warn: fixesBudget.warn < 0 ? Number.MAX_VALUE : fixesBudget.warn,
+					error: fixesBudget.error < 0 ? Number.MAX_VALUE : fixesBudget.error
+				};
 			}
 
 			let severity: LanguageStatusSeverity = LanguageStatusSeverity.Information;
-			const [timeTaken, text, message, warnTime, errorTime] = function(): [number, string, string, number, number] {
-				if (statusInfo.firstReport) {
-					return [-1, 'ESLint', '', lintWarnTime, lintErrorTime];
+			const [timeTaken, detail, message, timeBudget] = function(): [number, string | undefined, string, TimeBudget] {
+				if (performanceInfo === undefined || performanceInfo.firstReport || performanceInfo.acknowledged) {
+					return [-1, undefined, '', { warn: 0, error: 0 }];
 				}
-				if ((statusInfo.fixTime ?? 0) > (statusInfo.validationTime ?? 0)) {
-					return [statusInfo.fixTime ?? 0, `ESLint [${statusInfo.fixTime}ms]`, `Computing fixes during save for file ${uri} during save took ${statusInfo.fixTime}ms`, saveAllWarnTime, saveAllErrorTime];
-				} else if ((statusInfo.validationTime ?? 0) > 0) {
-					return [statusInfo.validationTime ?? 0, `ESLint [${statusInfo.validationTime}ms]`, `Linting file ${uri} took ${statusInfo.validationTime}ms`, lintWarnTime, lintErrorTime];
+				if ((performanceInfo.fixTime) > (performanceInfo.validationTime)) {
+					const timeTaken = Math.max(performanceInfo.fixTime, performanceInfo.reported);
+					return [
+						timeTaken,
+						timeTaken > fixesBudget.warn ? `Computing fixes took ${timeTaken}ms` :  undefined,
+						`Computing fixes during save for file ${activeTextDocument.uri.toString()} during save took ${timeTaken}ms. Please check the ESLint rules for performance issues.`,
+						fixesBudget
+					];
+				} else if ((performanceInfo.validationTime) > 0) {
+					const timeTaken = Math.max(performanceInfo.validationTime, performanceInfo.reported);
+					return [
+						timeTaken,
+						timeTaken > validationBudget.warn ? `Validation took ${timeTaken}ms` :  undefined,
+						`Linting file ${activeTextDocument.uri.toString()} took ${timeTaken}ms. Please check the ESLint rules for performance issues.`,
+						validationBudget
+					];
 				}
-				return [-1, 'ESLint', '', lintWarnTime, lintErrorTime];
+				return [-1, undefined, '', { warn: 0, error: 0 }];
 			}();
 
 			switch (statusInfo.state) {
@@ -852,26 +901,30 @@ export namespace ESLintClient {
 					severity = LanguageStatusSeverity.Error;
 					break;
 			}
-			if (severity === LanguageStatusSeverity.Information && timeTaken > warnTime) {
+			if (severity === LanguageStatusSeverity.Information && timeTaken > timeBudget.warn) {
 				severity = LanguageStatusSeverity.Warning;
 			}
-			if (severity === LanguageStatusSeverity.Warning && timeTaken > errorTime) {
+			if (severity === LanguageStatusSeverity.Warning && timeTaken > timeBudget.error) {
 				severity = LanguageStatusSeverity.Error;
 			}
-			if (timeTaken > warnTime && timeTaken !== statusInfo.reported) {
-				if (timeTaken > errorTime) {
-					client.error(message);
-				} else {
-					client.warn(message);
+			if (timeTaken > timeBudget.warn && performanceInfo !== undefined) {
+				if (timeTaken > performanceInfo.reported) {
+					if (timeTaken > timeBudget.error) {
+						client.error(message);
+					} else {
+						client.warn(message);
+					}
 				}
-				statusInfo.reported = timeTaken;
 			}
 
-			if (languageStatus.text !== text) {
-				languageStatus.text = text;
+			if (detail !== undefined && languageStatus.detail !== detail) {
+				 languageStatus.detail = detail;
 			}
 			if (languageStatus.severity !== severity) {
 				languageStatus.severity = severity;
+			}
+			if (performanceInfo !== undefined) {
+				performanceInfo.reported = Math.max(performanceInfo.reported, timeTaken);
 			}
 		}
 	}
