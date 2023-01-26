@@ -120,6 +120,19 @@ export namespace ESLintClient {
 		warn: number;
 		error: number;
 	}
+
+	type PerformanceStatus = {
+		firstReport: boolean;
+		validationTime: number
+		fixTime: number;
+		reported: number;
+		acknowledged: boolean;
+	};
+
+	namespace PerformanceStatus {
+		export const defaultValue: PerformanceStatus = { firstReport: true, validationTime: 0, fixTime: 0, reported: 0, acknowledged: false };
+	}
+
 	export function create(context: ExtensionContext, validator: Validator): [LanguageClient, () => void] {
 
 		// Filters for client options
@@ -156,13 +169,6 @@ export namespace ESLintClient {
 		languageStatus.text = 'ESLint';
 		languageStatus.command = { title: 'Open ESLint Output', command: 'eslint.showOutputChannel' };
 		type StatusInfo = Omit<Omit<StatusParams, 'uri'>, 'validationTime'> & {
-		};
-		type PerformanceStatus = {
-			firstReport: boolean;
-			validationTime: number
-			fixTime: number;
-			reported: number;
-			acknowledged: boolean;
 		};
 		const documentStatus: Map<string, StatusInfo> = new Map();
 		const performanceStatus: Map<string, PerformanceStatus> = new Map();
@@ -531,7 +537,7 @@ export namespace ESLintClient {
 						if (context.only?.value.startsWith('source.fixAll')) {
 							let performanceInfo = performanceStatus.get(document.languageId);
 							if (performanceInfo === undefined) {
-								performanceInfo = { firstReport: true, validationTime: 0, fixTime: 0, reported: 0, acknowledged: false };
+								performanceInfo = PerformanceStatus.defaultValue;
 								performanceStatus.set(document.languageId, performanceInfo);
 							} else {
 								performanceInfo.firstReport = false;
@@ -805,7 +811,7 @@ export namespace ESLintClient {
 			if (textDocument !== undefined) {
 				let performanceInfo = performanceStatus.get(textDocument.languageId);
 				if (performanceInfo === undefined) {
-					performanceInfo = { firstReport: true, validationTime: 0, fixTime: 0, reported: 0, acknowledged: false };
+					performanceInfo = PerformanceStatus.defaultValue;
 					performanceStatus.set(textDocument.languageId, performanceInfo);
 				} else {
 					performanceInfo.firstReport = false;
