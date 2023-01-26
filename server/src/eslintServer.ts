@@ -75,20 +75,10 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 // Some plugins call exit which will terminate the server.
 // To not loose the information we sent such a behavior
 // to the client.
-const nodeExit = process.exit;
-process.exit = ((code?: number): void => {
+process.on('beforeExit', code => {
 	const stack = new Error('stack');
-
-	try {
-		void connection.sendNotification(ExitCalled.type, [code ? code : 0, stack.stack]);
-	} catch(e) {
-		// It's okay if the client already exited.
-	} finally {
-		setTimeout(() => {
-			nodeExit(code);
-		}, 1000);
-	}
-}) as any;
+	void connection.sendNotification(ExitCalled.type, [code ? code : 0, stack.stack]).catch(() => {});
+});
 
 // Handling of uncaught exceptions hitting the event loop.
 process.on('uncaughtException', (error: any) => {
