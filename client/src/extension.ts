@@ -126,11 +126,13 @@ function realActivate(context: ExtensionContext): void {
 		onActivateCommands = undefined;
 	}
 
-	client = ESLintClient.create(context, validator);
+	let acknowledgePerformanceStatus: () => void;
+	[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
 
 	context.subscriptions.push(
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			client.outputChannel.show();
+			acknowledgePerformanceStatus();
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			void ESLintClient.migrateSettings(client);

@@ -23,6 +23,11 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd major, minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5`, `2.3.1` and `3.0.0` will all be pre-release versions. `2.2.10`, `2.4.10` and `4.0.0` will all be regular release versions.
 
+### Version 2.3.5 - Pre-release
+
+- added settings options to control the time budget for validation and fix on save before a
+  warning or error is raised. The settings are `eslint.timeBudget.onValidation` and `eslint.timeBudget.onFixes`
+
 ### Version 2.3.3 - Pre-release
 
 - make server `untitled` agnostic
@@ -300,6 +305,8 @@ This extension contributes the following variables to the [settings](https://cod
   The old `eslint.autoFixOnSave` setting is now deprecated and can safely be removed. Please also note that if you use ESLint as your default formatter you should turn off `editor.formatOnSave` when you have turned on `editor.codeActionsOnSave`. Otherwise you file gets fixed twice which in unnecessary.
 - `eslint.problems.shortenToSingleLine`: (@since 2.3.0) - Shortens the text spans of underlined problems to their first related line.
 - `eslint.experimental.useFlatConfig`: (@since 2.3.0) - Enables support of experimental Flat Config (aka eslint.config.js, supported by ESLint version 8.21 or later)
+- `eslint.timeBudget.onValidation` (@since 2.3.5) - controls the time budget that can be used for validation before a warning or an error is shown.
+- `eslint.timeBudget.onFixes` (@since 2.3.5) - controls the time budget that can be used to compute fixes before a warning or an error is shown.
 
 ## Settings Migration
 

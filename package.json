@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "2.3.3",
+	"version": "2.3.5",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -499,6 +499,52 @@
 						"scope": "resource",
 						"type": "array",
 						"description": "A special rules customization section for text cells in notebook documents."
+				},
+				"eslint.timeBudget.onValidation": {
+					"scope": "resource",
+					"type": "object",
+					"properties": {
+						"warn": {
+							"type": "number",
+							"default": 4000,
+							"minimum": 0,
+							"markdownDescription": "The time budget in milliseconds to spend on validation before showing a warning."
+						},
+						"error": {
+							"type": "number",
+							"default": 8000,
+							"minimum": 0,
+							"markdownDescription": "The time budget in milliseconds to spend on validation before showing an error."
+						}
+					},
+					"default": {
+						"warn": 4000,
+						"error": 8000
+					},
+					"markdownDescription": "The time budget in milliseconds to spend on validation before showing a warning or error."
+				},
+				"eslint.timeBudget.onFixes": {
+					"scope": "resource",
+					"type": "object",
+					"properties": {
+						"warn": {
+							"type": "number",
+							"default": 3000,
+							"minimum": 0,
+							"markdownDescription": "The time budget in milliseconds to spend on computing fixes before showing a warning."
+						},
+						"error": {
+							"type": "number",
+							"default": 6000,
+							"minimum": 0,
+							"markdownDescription": "The time budget in milliseconds to spend on computing fixes before showing an error."
+						}
+					},
+					"default": {
+						"warn": 3000,
+						"error": 6000
+					},
+					"markdownDescription": "The time budget in milliseconds to spend on computing fixes before showing a warning or error."
 				}
 			}
 		},
