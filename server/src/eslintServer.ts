@@ -78,10 +78,16 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 const nodeExit = process.exit;
 process.exit = ((code?: number): void => {
 	const stack = new Error('stack');
-	void connection.sendNotification(ExitCalled.type, [code ? code : 0, stack.stack]);
-	setTimeout(() => {
-		nodeExit(code);
-	}, 1000);
+
+	try {
+		void connection.sendNotification(ExitCalled.type, [code ? code : 0, stack.stack]);
+	} catch(e) {
+		// It's okay if the client already exited.
+	} finally {
+		setTimeout(() => {
+			nodeExit(code);
+		}, 1000);
+	}
 }) as any;
 
 // Handling of uncaught exceptions hitting the event loop.
