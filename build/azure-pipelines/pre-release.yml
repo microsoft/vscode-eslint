@@ -17,6 +17,7 @@ resources:
 extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
+    customNPMRegistry: ''
     buildSteps:
       - script: |
           npm ci
