@@ -23,6 +23,18 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd major, minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5`, `2.3.1` and `3.0.0` will all be pre-release versions. `2.2.10`, `2.4.10` and `4.0.0` will all be regular release versions.
 
+### Version 2.4.0 (same as 2.3.5 - Pre-release)
+
+- added settings options to control the time budget for validation and fix on save before a
+  warning or error is raised. The settings are `eslint.timeBudget.onValidation` and `eslint.timeBudget.onFixes`
+- make server `untitled` agnostic
+- the extension uses now VS Code's language status indicator
+- the language status indicator now informs about long linting or fix on save times.
+- the setting `eslint.alwaysShowStatus` got removed since the status is now shown as a language status indicator.
+- support for flat config files
+- support for single problem underline.
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A2.4.0)
+
 ### Version 2.3.5 - Pre-release
 
 - added settings options to control the time budget for validation and fix on save before a
