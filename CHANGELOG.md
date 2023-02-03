@@ -1,3 +1,20 @@
+### Version 2.4.0 (same as 2.3.5 - Pre-release)
+
+- added settings options to control the time budget for validation and fix on save before a
+  warning or error is raised. The settings are `eslint.timeBudget.onValidation` and `eslint.timeBudget.onFixes`
+- make server `untitled` agnostic
+- the extension uses now VS Code's language status indicator
+- the language status indicator now informs about long linting or fix on save times.
+- the setting `eslint.alwaysShowStatus` got removed since the status is now shown as a language status indicator.
+- support for flat config files
+- support for single problem underline.
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A2.4.0)
+
+### Version 2.3.5 - Pre-release
+
+- added settings options to control the time budget for validation and fix on save before a
+  warning or error is raised. The settings are `eslint.timeBudget.onValidation` and `eslint.timeBudget.onFixes`
+
 ### Version 2.3.3 - Pre-release
 
 - make server `untitled` agnostic
