@@ -390,7 +390,7 @@ export namespace ESLintClient {
 			let env: { [key: string]: string | number | boolean } | undefined;
 			if (debug) {
 				env = env || {};
-				env.DEBUG = 'eslint:*,-eslint:code-path';
+				env.DEBUG = 'eslint:*,-eslint:code-path,eslintrc:*';
 			}
 			if (nodeEnv !== undefined) {
 				env = env || {};
