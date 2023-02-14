@@ -1050,7 +1050,7 @@ export namespace ESLint {
 			if (settings.workingDirectory) {
 			// A lot of libs are sensitive to drive letter casing and assume a
 			// capital drive letter. Make sure we support that correctly.
-				const newCWD = normalizeDriveLetter(settings.workingDirectory.directory);
+				const newCWD = normalizeWorkingDirectory(settings.workingDirectory.directory);
 				newOptions.cwd = newCWD;
 				if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(newCWD)) {
 					process.chdir(newCWD);
@@ -1066,6 +1066,16 @@ export namespace ESLint {
 				process.chdir(cwd);
 			}
 		}
+	}
+
+	function normalizeWorkingDirectory(value: string): string {
+		const result = normalizeDriveLetter(value);
+		if (result.length === 0) {
+			return result;
+		}
+		return result[result.length - 1] === path.sep
+			? result.substring(0, result.length - 1)
+			: result;
 	}
 
 	export function getFilePath(document: TextDocument | undefined, settings: TextDocumentSettings): string | undefined {
