@@ -123,8 +123,19 @@ export type RuleMetaData = {
 };
 
 export namespace RuleMetaData {
+	// For unused eslint-disable comments, ESLint does not include a rule ID
+	// nor any other metadata (although they do provide a fix). In order to
+	// provide code actions for these, we create a fake rule ID and metadata.
+	export const unusedDisableDirectiveId = 'unused-disable-directive';
+	const unusedDisableDirectiveMeta: RuleMetaData = {
+		docs: {
+			url: 'https://eslint.org/docs/latest/use/configure/rules#report-unused-eslint-disable-comments'
+		},
+		type: 'directive'
+	};
+
 	const handled: Set<string> = new Set();
-	const ruleId2Meta: Map<string, RuleMetaData> = new Map();
+	const ruleId2Meta: Map<string, RuleMetaData> = new Map([[unusedDisableDirectiveId, unusedDisableDirectiveMeta]]);
 
 	export function capture(eslint: ESLintClass, reports: ESLintDocumentReport[]): void {
 		let rulesMetaData: Record<string, RuleMetaData> | undefined;
@@ -154,6 +165,7 @@ export namespace RuleMetaData {
 	export function clear(): void {
 		handled.clear();
 		ruleId2Meta.clear();
+		ruleId2Meta.set(unusedDisableDirectiveId, unusedDisableDirectiveMeta);
 	}
 
 	export function getUrl(ruleId: string): string | undefined {
@@ -166,6 +178,10 @@ export namespace RuleMetaData {
 
 	export function hasRuleId(ruleId: string): boolean {
 		return ruleId2Meta.has(ruleId);
+	}
+
+	export function isUnusedDisableDirectiveProblem(problem: ESLintProblem): boolean {
+		return problem.ruleId === null && problem.message.startsWith('Unused eslint-disable directive');
 	}
 }
 
@@ -1081,7 +1097,7 @@ export namespace ESLint {
 		}
 	}
 
-	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout']);
+	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
 	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 		let fixTypes: Set<string> | undefined = undefined;
@@ -1121,6 +1137,10 @@ export namespace ESLint {
 									CodeActions.record(document, diagnostic, problem);
 								}
 							} else {
+								if (RuleMetaData.isUnusedDisableDirectiveProblem(problem)) {
+									problem.ruleId = RuleMetaData.unusedDisableDirectiveId;
+								}
+
 								CodeActions.record(document, diagnostic, problem);
 							}
 						}

@@ -845,7 +845,7 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 			});
 		}
 
-		if (settings.codeAction.disableRuleComment.enable) {
+		if (settings.codeAction.disableRuleComment.enable && ruleId !== RuleMetaData.unusedDisableDirectiveId) {
 			let workspaceChange = new WorkspaceChange();
 			if (settings.codeAction.disableRuleComment.location === 'sameLine') {
 				workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(createDisableSameLineTextEdit(textDocument, editInfo));
