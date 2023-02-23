@@ -15,7 +15,7 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-languageserver": "8.1.0-next.6",
+		"vscode-languageserver": "8.1.0",
 		"vscode-languageserver-textdocument": "1.0.9",
 		"vscode-uri": "^3.0.7"
 	},
