@@ -573,6 +573,16 @@
 				"title": "Restart ESLint Server",
 				"category": "ESLint",
 				"command": "eslint.restart"
+			},
+			{
+				"title": "Enable ESLint",
+				"category": "ESLint",
+				"command": "eslint.enable"
+			},
+			{
+				"title": "Disable ESLint",
+				"category": "ESLint",
+				"command": "eslint.disable"
 			}
 		],
 		"taskDefinitions": [

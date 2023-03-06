@@ -92,6 +92,52 @@ export function activate(context: ExtensionContext) {
 		}
 	}
 
+	function enable() {
+		const folders = Workspace.workspaceFolders;
+		if (!folders) {
+			void Window.showWarningMessage('ESLint can only be enabled if VS Code is opened on a workspace folder.');
+			return;
+		}
+		const disabledFolders = folders.filter(folder => !Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
+		if (disabledFolders.length === 0) {
+			if (folders.length === 1) {
+				void Window.showInformationMessage('ESLint is already enabled in the workspace.');
+			} else {
+				void Window.showInformationMessage('ESLint is already enabled on all workspace folders.');
+			}
+			return;
+		}
+		void pickFolder(disabledFolders, 'Select a workspace folder to enable ESLint for').then(folder => {
+			if (!folder) {
+				return;
+			}
+			void Workspace.getConfiguration('eslint', folder.uri).update('enable', true);
+		});
+	}
+
+	function disable() {
+		const folders = Workspace.workspaceFolders;
+		if (!folders) {
+			void Window.showErrorMessage('ESLint can only be disabled if VS Code is opened on a workspace folder.');
+			return;
+		}
+		const enabledFolders = folders.filter(folder => Workspace.getConfiguration('eslint', folder.uri).get('enable', true));
+		if (enabledFolders.length === 0) {
+			if (folders.length === 1) {
+				void Window.showInformationMessage('ESLint is already disabled in the workspace.');
+			} else {
+				void Window.showInformationMessage('ESLint is already disabled on all workspace folders.');
+			}
+			return;
+		}
+		void pickFolder(enabledFolders, 'Select a workspace folder to disable ESLint for').then(folder => {
+			if (!folder) {
+				return;
+			}
+			void Workspace.getConfiguration('eslint', folder.uri).update('enable', false);
+		});
+	}
+
 	let activated: boolean = false;
 	const openListener: Disposable = Workspace.onDidOpenTextDocument(didOpenTextDocument);
 	const configurationListener: Disposable = Workspace.onDidChangeConfiguration(configurationChanged);
@@ -112,7 +158,9 @@ export function activate(context: ExtensionContext) {
 	];
 
 	context.subscriptions.push(
-		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration)
+		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration),
+		Commands.registerCommand('eslint.enable', enable),
+		Commands.registerCommand('eslint.disable', disable),
 	);
 
 	taskProvider.start();
