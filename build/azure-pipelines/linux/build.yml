@@ -1,8 +1,8 @@
 steps:
 - task: NodeTool@0
   inputs:
-    versionSpec: '14.16.0'
-  displayName: 'Use Node.js 14.16.0'
+    versionSpec: '16.17.1'
+  displayName: 'Use Node.js 16.17.1'
 
 - script: |
     npm ci
