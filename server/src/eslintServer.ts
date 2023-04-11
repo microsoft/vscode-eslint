@@ -680,6 +680,14 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		return charIndex;
 	}
 
+	/**
+	 * Prefix characters with special meaning in comment markers with a backslash
+	 * See also: https://github.com/microsoft/vscode-eslint/issues/1610
+	 */
+	function escapeStringRegexp(value: string) {
+		return value.replace(/[|{}\\()[\]^$+*?.]/g, '\\$&');
+	}
+
 	function createDisableLineTextEdit(textDocument: TextDocument, editInfo: Problem, indentationText: string): TextEdit {
 		const lineComment = LanguageDefaults.getLineComment(textDocument.languageId);
 		const blockComment = LanguageDefaults.getBlockComment(textDocument.languageId);
@@ -691,13 +699,13 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 
 			// For consistency, we ignore the settings here and use the comment style from that
 			// specific line.
-			const matchedLineDisable = new RegExp(`${lineComment} eslint-disable-next-line`).test(prevLine);
+			const matchedLineDisable = new RegExp(`${escapeStringRegexp(lineComment)} eslint-disable-next-line`).test(prevLine);
 			if (matchedLineDisable) {
 				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine, lineComment);
 				return TextEdit.insert(Position.create(editInfo.line - 2, insertionIndex), `, ${editInfo.ruleId}`);
 			}
 
-			const matchedBlockDisable = new RegExp(`${blockComment[0]} eslint-disable-next-line`).test(prevLine);
+			const matchedBlockDisable = new RegExp(`${escapeStringRegexp(blockComment[0])} eslint-disable-next-line`).test(prevLine);
 			if (matchedBlockDisable) {
 				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine, blockComment);
 				return TextEdit.insert(Position.create(editInfo.line - 2, insertionIndex), `, ${editInfo.ruleId}`);
