@@ -3,7 +3,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"name": "Launch Client",
 			"runtimeExecutable": "${execPath}",
@@ -17,7 +17,6 @@
 			"request": "attach",
 			"name": "Attach to Server",
 			"address": "localhost",
-			"protocol": "inspector",
 			"port": 6011,
 			"sourceMaps": true,
 			"outFiles": ["${workspaceFolder}/server/out/**/*.js"]
