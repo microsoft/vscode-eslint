@@ -142,7 +142,13 @@ function realActivate(context: ExtensionContext): void {
 		})
 	);
 
-	client.start().catch((error) => client.error(`Starting the server failed.`, error, 'force'));
+	client.start().catch((error) => {
+		client.error(`Starting the server failed.`, error, 'force');
+		const message = typeof error === 'string' ? error : typeof error.message === 'string' ? error.message : undefined;
+		if (message !== undefined && message.indexOf('ENOENT') !== -1) {
+			client.info(`PATH environment variable is: ${process.env['PATH']}`);
+		}
+	});
 }
 
 export function deactivate(): Promise<void> {
