@@ -232,13 +232,15 @@ export namespace ESLintClient {
 			return {};
 		});
 
-		client.onRequest(NoESLintLibraryRequest.type, (params) => {
+		client.onRequest(NoESLintLibraryRequest.type, async (params) => {
 			const key = 'noESLintMessageShown';
 			const state = context.globalState.get<NoESLintState>(key, {});
 
 			const uri: Uri = Uri.parse(params.source.uri);
 			const workspaceFolder = Workspace.getWorkspaceFolder(uri);
-			const packageManager = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
+			const packageManager = await commands.executeCommand<PackageManagers>(
+				'npm.packageManager'
+			);
 			const localInstall = {
 				npm: 'npm install eslint',
 				pnpm: 'pnpm install eslint',
