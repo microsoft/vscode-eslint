@@ -86,11 +86,11 @@ export function getFileSystemPath(uri: URI): string {
 	}
 	if (process.platform === 'win32' || process.platform === 'darwin') {
 		try {
-      const realpath = fs.realpathSync.native(result);
-      // Only use the real path if only the casing has changed.
-      if (realpath.toLowerCase() === result.toLowerCase()) {
-        result = realpath;
-      }
+			const realpath = fs.realpathSync.native(result);
+			// Only use the real path if only the casing has changed.
+			if (realpath.toLowerCase() === result.toLowerCase()) {
+				result = realpath;
+			}
 		} catch {
 			// Silently ignore errors from `fs.realpathSync` to handle scenarios where
 			// the file being linted is not yet written to disk. This occurs in editors
