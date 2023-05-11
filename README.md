@@ -23,6 +23,10 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd major, minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5`, `2.3.1` and `3.0.0` will all be pre-release versions. `2.2.10`, `2.4.10` and `4.0.0` will all be regular release versions.
 
+### Version 2.4.1 - Pre-release
+
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/milestone/51?closed=1)
+
 ### Version 2.4.0 (same as 2.3.5 - Pre-release)
 
 - added settings options to control the time budget for validation and fix on save before a
