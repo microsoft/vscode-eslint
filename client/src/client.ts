@@ -238,9 +238,7 @@ export namespace ESLintClient {
 
 			const uri: Uri = Uri.parse(params.source.uri);
 			const workspaceFolder = Workspace.getWorkspaceFolder(uri);
-			const packageManager = await commands.executeCommand<PackageManagers>(
-				'npm.packageManager'
-			);
+			const packageManager = await getPackageManager(uri);
 			const localInstall = {
 				npm: 'npm install eslint',
 				pnpm: 'pnpm install eslint',
@@ -582,6 +580,17 @@ export namespace ESLintClient {
 				}
 			};
 			return clientOptions;
+		}
+
+		async function getPackageManager(uri: Uri) {
+			const userProvidedPackageManager:PackageManagers = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
+			const detectedPackageMananger = await commands.executeCommand<PackageManagers>('npm.packageManager');
+
+			if (userProvidedPackageManager === detectedPackageMananger) {
+				return detectedPackageMananger;
+			}
+			client.warn(`Detected package manager(${detectedPackageMananger}) differs from the one in the deprecated packageManager setting(${userProvidedPackageManager}). We will honor this setting until it is removed.`, {}, true);
+			return userProvidedPackageManager;
 		}
 
 		async function readConfiguration(params: ConfigurationParams): Promise<(ConfigurationSettings | null)[]> {
