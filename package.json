@@ -63,7 +63,8 @@
 						"pnpm"
 					],
 					"default": "npm",
-					"description": "The package manager you use to install node modules."
+					"description": "The package manager you use to install node modules.",
+					"deprecationMessage": "The setting is deprecated. The Package Manager is automatically detected now."
 				},
 				"eslint.problems.shortenToSingleLine": {
 					"type": "boolean",
