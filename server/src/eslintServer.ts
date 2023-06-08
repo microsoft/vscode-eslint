@@ -1027,7 +1027,7 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 	const commandParams: CommandParams = params.arguments![0] as CommandParams;
 	if (params.command === CommandIds.applyAllFixes) {
 		const edits = await computeAllFixes(commandParams, AllFixesMode.command);
-		if (edits !== undefined) {
+		if (edits !== undefined && edits.length > 0) {
 			workspaceChange = new WorkspaceChange();
 			const textChange = workspaceChange.getTextEditChange(commandParams);
 			edits.forEach(edit => textChange.add(edit));
