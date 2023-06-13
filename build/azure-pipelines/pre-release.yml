@@ -1,9 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 
-trigger:
-  tags:
-    include:
-      - pre-release/*
+trigger: none
 pr: none
 
 resources:
@@ -13,6 +10,12 @@ resources:
       name: microsoft/vscode-engineering
       ref: main
       endpoint: Monaco
+
+parameters:
+  - name: publishExtension
+    displayName: 🚀 Publish Extension
+    type: boolean
+    default: false
 
 extends:
   template: azure-pipelines/extension/pre-release.yml@templates
@@ -27,3 +30,8 @@ extends:
           npm run lint
           npm run compile
         displayName: "Lint & Compile"
+
+    ghCreateTag: true
+    ghTagPrefix: pre-release/
+
+    publishExtension: ${{ parameters.publishExtension }}
