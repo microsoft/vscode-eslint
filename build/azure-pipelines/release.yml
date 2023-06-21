@@ -26,14 +26,27 @@ extends:
     buildSteps:
       - script: |
           npm ci
-        displayName: "Install dependencies"
+        displayName: 'Install dependencies'
 
       - script: |
           npm run lint
           npm run compile
-        displayName: "Lint & Compile"
+        displayName: 'Lint & Compile'
 
     ghCreateTag: true
     ghTagPrefix: release/
+
+    tsa:
+      enabled: true
+      options:
+        codebaseName: 'devdiv_$(Build.Repository.Name)'
+        serviceTreeID: 'c4cd3983-4977-4bcd-931f-a9822d2e950c'
+        instanceUrl: 'https://devdiv.visualstudio.com/defaultcollection'
+        projectName: 'DevDiv'
+        areaPath: 'DevDiv\\VS Code (compliance tracking only)\\Visual Studio Code Language Extensions'
+        notificationAliases:
+          - 'stbatt@microsoft.com'
+          - 'lszomoru@microsoft.com'
+          - 'dirkb@microsoft.com'
 
     publishExtension: ${{ parameters.publishExtension }}
