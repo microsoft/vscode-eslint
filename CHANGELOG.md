@@ -1,3 +1,11 @@
+### Version 2.4.2
+
+- same as 2.4.1 pre-release.
+
+### Version 2.4.1 - Pre-release
+
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/milestone/51?closed=1)
+
 ### Version 2.4.0 (same as 2.3.5 - Pre-release)
 
 - added settings options to control the time budget for validation and fix on save before a
