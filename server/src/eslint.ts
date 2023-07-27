@@ -866,10 +866,12 @@ export namespace ESLint {
 				moduleResolveWorkingDirectory = settings.workingDirectory.directory;
 			}
 
+			const ifUseFlatConfig = settings.experimental.useFlatConfig && fs.existsSync('eslint.config.js')
+
 			// During Flat Config is considered experimental,
 			// we need to import FlatESLint from 'eslint/use-at-your-own-risk'.
 			// See: https://eslint.org/blog/2022/08/new-config-system-part-3/
-			const eslintPath = settings.experimental.useFlatConfig ? 'eslint/use-at-your-own-risk' : 'eslint';
+			const eslintPath = ifUseFlatConfig? 'eslint/use-at-your-own-risk' : 'eslint';
 			if (nodePath !== undefined) {
 				promise = Files.resolve(eslintPath, nodePath, nodePath, trace).then<string, string>(undefined, () => {
 					return Files.resolve(eslintPath, settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
@@ -882,7 +884,7 @@ export namespace ESLint {
 			return promise.then(async (libraryPath) => {
 				let library = path2Library.get(libraryPath);
 				if (library === undefined) {
-					if (settings.experimental.useFlatConfig) {
+					if (ifUseFlatConfig) {
 						const lib = loadNodeModule<{ FlatESLint?: ESLintClassConstructor }>(libraryPath);
 						if (lib === undefined) {
 							settings.validate = Validate.off;
