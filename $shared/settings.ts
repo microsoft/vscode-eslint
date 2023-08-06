@@ -149,7 +149,7 @@ export namespace DirectoryItem {
 
 export type PackageManagers = 'npm' | 'yarn' | 'pnpm';
 
-export type ESLintOptions = object & { fixTypes?: string[] };
+export type ESLintOptions = object & { fixTypes?: string[], overrideConfig?: string | null };
 
 export type ConfigurationSettings = {
 	validate: Validate;
