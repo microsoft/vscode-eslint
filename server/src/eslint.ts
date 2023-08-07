@@ -866,11 +866,8 @@ export namespace ESLint {
 				moduleResolveWorkingDirectory = settings.workingDirectory.directory;
 			}
 
-			const ifUseFlatConfig = settings.experimental.useFlatConfig
-				&& (
-					(settings.options?.overrideConfig && fs.existsSync(settings.options?.overrideConfig))
-					|| fs.existsSync('eslint.config.js')
-				);
+			const flatConfigName = settings.options.overrideConfig ?? 'eslint.config.js';
+			const ifUseFlatConfig = settings.experimental.useFlatConfig && fs.existsSync(flatConfigName);
 
 			// During Flat Config is considered experimental,
 			// we need to import FlatESLint from 'eslint/use-at-your-own-risk'.

@@ -163,7 +163,7 @@ export type ConfigurationSettings = {
 	format: boolean;
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
-	options: ESLintOptions | undefined;
+	options: ESLintOptions;
 	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	problems: {
