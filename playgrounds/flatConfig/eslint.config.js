@@ -7,9 +7,7 @@ module.exports = [
 	{
 		files: ["**/*.js"],
 		languageOptions: {
-			parserOptions: {
-				sourceType: "module"
-			},
+			sourceType: "module",
 			globals: {
 				...globals.browser,
 				...globals.node,
@@ -31,10 +29,10 @@ module.exports = [
 			"@typescript-eslint": typescriptPlugin
 		},
 		languageOptions: {
+			sourceType: "module",
 			parser: typescriptParser,
 			parserOptions: {
 				project: "./tsconfig.json",
-				sourceType: "module",
 				ecmaVersion: 2020
 			}
 		},
