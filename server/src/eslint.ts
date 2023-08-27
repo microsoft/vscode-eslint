@@ -528,8 +528,9 @@ export namespace RuleSeverities {
 
 	const ruleSeverityCache = new LRUCache<string, RuleSeverity | null>(1024);
 
-	export function getOverride(ruleId: string, customizations: RuleCustomization[]): RuleSeverity | undefined {
-		let result: RuleSeverity | undefined | null = ruleSeverityCache.get(ruleId);
+	export function getOverride(ruleId: string, customizations: RuleCustomization[], hasFix: boolean): RuleSeverity | undefined {
+		const ruleIdWithFix = `${ruleId}@${hasFix ? 'hasFix' : '!hasFix'}`;
+		let result: RuleSeverity | undefined | null = ruleSeverityCache.get(ruleIdWithFix);
 		if (result === null) {
 			return undefined;
 		}
@@ -540,13 +541,15 @@ export namespace RuleSeverities {
 			if (asteriskMatches(customization.rule, ruleId)) {
 				result = customization.severity;
 			}
+			if (asteriskMatches(customization.rule, ruleIdWithFix)) {
+				result = customization.severity;
+			}
 		}
 		if (result === undefined) {
-			ruleSeverityCache.set(ruleId, null);
+			ruleSeverityCache.set(ruleIdWithFix, null);
 			return undefined;
 		}
-
-		ruleSeverityCache.set(ruleId, result);
+		ruleSeverityCache.set(ruleIdWithFix, result);
 		return result;
 	}
 
@@ -598,7 +601,7 @@ namespace Diagnostics {
 			endLine = startLine;
 			endChar = startLineText.length;
 		}
-		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations);
+		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations, !!problem.fix);
 		const result: Diagnostic = {
 			message: message,
 			severity: convertSeverityToDiagnosticWithOverride(problem.severity, override),

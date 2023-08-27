@@ -287,14 +287,24 @@ This extension contributes the following variables to the [settings](https://cod
 
 - `eslint.rules.customizations` (@since 2.1.20) - force rules to report a different severity within VS Code compared to the project's true ESLint configuration. Contains two properties:
   - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "rule": "no-*", "severity": "warn" }`
-    - Prefix the name with a `"!"` to target all rules that _don't_ match the name: `{ "rule": "!no-*", "severity": "info" }`
+    - Prefix the name with a `"!"` to target all rules that _don't_ match the name: `{ "rule": "!no-*", "severity": "error" }`
+    - Suffix the name with `"@hasFix"` to target the errors which that have autofix available `{ "rule": "no-*@hasFix", "severity": "info" }`
+    - Suffix the name with `"!@hasFix"` to target the errors which that _don't_ have autofix available `{ "rule": "no-*@!hasFix", "severity": "error" }`
   - `"severity"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"default"`s them to their original severity
 
   In this example, all rules are overridden to warnings:
 
   ```json
   "eslint.rules.customizations": [
-    { "rule": "*", "severity": "warn" }
+    { "rule": "*", "severity": "warn" },
+  ]
+  ```
+
+  In this example, all autofixable errors are overridden to info
+
+  ```json
+  "eslint.rules.customizations": [
+    { "rule": "*@hasFix", "severity": "info" },
   ]
   ```
 
