@@ -1,11 +1,11 @@
 {
 	"eslint.enable": true,
 	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": true
+		"source.fixAll.eslint": "explicit"
 	},
 	"eslint.format.enable": true,
 	"eslint.trace.server": "messages",
-	"eslint.debug": true,
+	"eslint.debug": false,
 	"eslint.notebooks.rules.customizations": [
 		{ "rule": "eol-last", "severity": "off" }
 	]
