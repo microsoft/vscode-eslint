@@ -15,7 +15,7 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 
-import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest } from './shared/customMessages';
+import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification, ShowOutputChannel } from './shared/customMessages';
 import { ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
@@ -934,8 +934,14 @@ export namespace ESLint {
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
 							const eslintConfig: ESLintConfig | undefined = await ESLint.withClass(async (eslintClass) => {
 								try {
-									return eslintClass.calculateConfigForFile(filePath!);
+									return await eslintClass.calculateConfigForFile(filePath!);
 								} catch (err) {
+									try {
+										void connection.sendNotification(StatusNotification.type, { uri, state: Status.error });
+										void connection.console.error(`Calculating config file for ${uri}) failed.\n${err instanceof Error ? err.stack : ''}`);
+									} catch {
+										// little we can do here
+									}
 									return undefined;
 								}
 							}, settings);
