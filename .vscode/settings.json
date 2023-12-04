@@ -15,7 +15,7 @@
 	"typescript.tsserver.trace": "off",
 	"typescript.tsserver.log": "off",
 	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": true
+		"source.fixAll.eslint": "explicit"
 	},
 	"eslint.enable": true,
 	"eslint.useESLintClass": true,

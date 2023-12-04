@@ -15,9 +15,9 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-languageserver": "8.1.0",
-		"vscode-languageserver-textdocument": "1.0.9",
-		"vscode-uri": "^3.0.7"
+		"vscode-languageserver": "9.0.1",
+		"vscode-languageserver-textdocument": "1.0.11",
+		"vscode-uri": "^3.0.8"
 	},
 	"scripts": {
 		"webpack": "npm run clean && webpack --mode production --config ./webpack.config.js",
