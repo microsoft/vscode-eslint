@@ -1001,7 +1001,7 @@ export namespace ESLint {
 				}
 				if (settings.validate === Validate.on) {
 					settings.silent = false;
-					if (settings.format && TextDocumentSettings.hasLibrary(settings)) {
+					if (settings.format && TextDocumentSettings.hasLibrary(settings) && !formatterRegistrations.has(uri)) {
 						const Uri = URI.parse(uri);
 						const isFile = Uri.scheme === 'file';
 						let pattern: string = isFile
