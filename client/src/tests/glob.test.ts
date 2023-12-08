@@ -21,9 +21,9 @@ function toOSPath(path: string): string {
 
 suite('Glob', () => {
 	test('Simple', () => {
-		let regExp = convert2RegExp('/test/*/');
+		const regExp = convert2RegExp('/test/*/');
 		isDefined(regExp);
-		let matches = regExp.exec(toOSPath('/test/foo/bar/file.txt'));
+		const matches = regExp.exec(toOSPath('/test/foo/bar/file.txt'));
 		isDefined(matches);
 		assert.strictEqual(matches.length, 1);
 		assert.strictEqual(matches[0], toOSPath('/test/foo/'));

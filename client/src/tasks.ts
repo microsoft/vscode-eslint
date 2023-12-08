@@ -113,14 +113,14 @@ export class TaskProvider {
 	 * The workspace folders have changed.
 	 */
 	private updateWorkspaceFolders(added: ReadonlyArray<vscode.WorkspaceFolder>, removed: ReadonlyArray<vscode.WorkspaceFolder>): void {
-		for (let remove of removed) {
+		for (const remove of removed) {
 			const provider = this.providers.get(remove.uri.toString());
 			if (provider) {
 				provider.dispose();
 				this.providers.delete(remove.uri.toString());
 			}
 		}
-		for (let add of added) {
+		for (const add of added) {
 			const provider = new FolderTaskProvider(add);
 			if (provider.isEnabled()) {
 				this.providers.set(add.uri.toString(), provider);
@@ -134,7 +134,7 @@ export class TaskProvider {
 	 * The configuration has changed.
 	 */
 	private updateConfiguration(): void {
-		for (let detector of this.providers.values()) {
+		for (const detector of this.providers.values()) {
 			if (!detector.isEnabled()) {
 				detector.dispose();
 				this.providers.delete(detector.workspaceFolder.uri.toString());
@@ -142,9 +142,9 @@ export class TaskProvider {
 		}
 		const folders = vscode.workspace.workspaceFolders;
 		if (folders) {
-			for (let folder of folders) {
+			for (const folder of folders) {
 				if (!this.providers.has(folder.uri.toString())) {
-					let provider = new FolderTaskProvider(folder);
+					const provider = new FolderTaskProvider(folder);
 					if (provider.isEnabled()) {
 						this.providers.set(folder.uri.toString(), provider);
 						provider.start();
@@ -176,7 +176,7 @@ export class TaskProvider {
 			return [];
 		} else {
 			const promises: Promise<vscode.Task | undefined>[] = [];
-			for (let provider of this.providers.values()) {
+			for (const provider of this.providers.values()) {
 				promises.push(provider.getTask());
 			}
 			const values = await Promise.all(promises);
