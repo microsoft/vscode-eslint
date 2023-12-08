@@ -123,7 +123,7 @@ export namespace ESLintClient {
 
 	type PerformanceStatus = {
 		firstReport: boolean;
-		validationTime: number
+		validationTime: number;
 		fixTime: number;
 		reported: number;
 		acknowledged: boolean;

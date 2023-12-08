@@ -52,7 +52,7 @@ export namespace PatternItem {
 type InspectData<T> = {
 	globalValue?: T;
 	workspaceValue?: T;
-	workspaceFolderValue?: T
+	workspaceFolderValue?: T;
 };
 
 type MigrationElement<T> = {

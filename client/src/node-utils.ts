@@ -155,7 +155,7 @@ class PatternParser {
 	}
 
 	next(): Node | undefined {
-		let start = this.index;
+		const start = this.index;
 		let ch: string | undefined;
 		while((ch = this.value[this.index]) !== this.stopChar) {
 			switch (ch) {
@@ -197,7 +197,7 @@ class PatternParser {
 				case ',':
 					if (this.mode === 'brace') {
 						if (start < this.index) {
-							let result = this.makeTextNode(start);
+							const result = this.makeTextNode(start);
 							this.index++;
 							return result;
 						}
@@ -205,8 +205,10 @@ class PatternParser {
 					this.index++;
 					break;
 				case '[':
+					// eslint-disable-next-line no-case-declarations
 					const buffer: string[] = [];
 					this.index++;
+					// eslint-disable-next-line no-case-declarations
 					const firstIndex = this.index;
 					while (this.index < this.value.length) {
 						const ch = this.value[this.index];
@@ -270,7 +272,7 @@ export function convert2RegExp(pattern: string): RegExp | undefined {
 			case NodeType.bracket:
 				return `[${node.value}]`;
 			case NodeType.brace: {
-				let buffer: string[] = [];
+				const buffer: string[] = [];
 				for (const child of node.alternatives) {
 					buffer.push(convertNode(child));
 				}
@@ -282,7 +284,7 @@ export function convert2RegExp(pattern: string): RegExp | undefined {
 	try {
 		const buffer: string[] = ['^'];
 
-		let parser = new PatternParser(pattern);
+		const parser = new PatternParser(pattern);
 		let node: Node | undefined;
 		while ((node = parser.next()) !== undefined) {
 			buffer.push(convertNode(node));

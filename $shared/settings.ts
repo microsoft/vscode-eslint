@@ -65,8 +65,8 @@ export namespace CodeActionsOnSaveRules {
 }
 
 export type CodeActionsOnSaveSettings = {
-	mode: CodeActionsOnSaveMode,
-	rules?: string[]
+	mode: CodeActionsOnSaveMode;
+	rules?: string[];
 };
 
 export enum ESLintSeverity {
@@ -125,7 +125,7 @@ export namespace ModeEnum {
 }
 
 export type ModeItem = {
-	mode: ModeEnum
+	mode: ModeEnum;
 };
 
 export namespace ModeItem {
@@ -157,7 +157,7 @@ export type ConfigurationSettings = {
 	useESLintClass: boolean;
 	experimental: {
 		useFlatConfig: boolean;
-	}
+	};
 	codeAction: CodeActionSettings;
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;

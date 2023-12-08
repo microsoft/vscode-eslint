@@ -76,7 +76,7 @@ type ESLintProblem = {
 	ruleId: string;
 	message: string;
 	fix?: ESLintAutoFixEdit;
-	suggestions?: ESLintSuggestionResult[]
+	suggestions?: ESLintSuggestionResult[];
 };
 
 type ESLintDocumentReport = {
@@ -248,7 +248,7 @@ export namespace SuggestionsProblem {
 
 interface ESLintClass {
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintlinttextcode-options
-	lintText(content: string, options: {filePath?: string, warnIgnored?: boolean}): Promise<ESLintDocumentReport[]>;
+	lintText(content: string, options: {filePath?: string; warnIgnored?: boolean}): Promise<ESLintDocumentReport[]>;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
 	isPathIgnored(path: string): Promise<boolean>;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintgetrulesmetaforresultsresults
@@ -287,10 +287,10 @@ export type ESLintModule =
 };
 
 export namespace ESLintModule {
-	export function hasESLintClass(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined; } {
+	export function hasESLintClass(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined } {
 		return value.ESLint !== undefined;
 	}
-	export function hasCLIEngine(value: ESLintModule): value is { ESLint: undefined; CLIEngine: CLIEngineConstructor; } {
+	export function hasCLIEngine(value: ESLintModule): value is { ESLint: undefined; CLIEngine: CLIEngineConstructor } {
 		return value.CLIEngine !== undefined;
 	}
 	export function isFlatConfig(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined; isFlatConfig: true } {
@@ -305,7 +305,7 @@ type RuleData = {
 };
 
 namespace RuleData {
-	export function hasMetaType(value: RuleMetaData | undefined): value is RuleMetaData & { type: string; } {
+	export function hasMetaType(value: RuleMetaData | undefined): value is RuleMetaData & { type: string } {
 		return value !== undefined && value.type !== undefined;
 	}
 }
@@ -337,7 +337,7 @@ class ESLintClassEmulator implements ESLintClass {
 	get isCLIEngine(): boolean {
 		return true;
 	}
-	async lintText(content: string, options: { filePath?: string | undefined; warnIgnored?: boolean | undefined; }): Promise<ESLintDocumentReport[]> {
+	async lintText(content: string, options: { filePath?: string | undefined; warnIgnored?: boolean | undefined }): Promise<ESLintDocumentReport[]> {
 		return this.cli.executeOnText(content, options.filePath, options.warnIgnored).results;
 	}
 	async isPathIgnored(path: string): Promise<boolean> {
@@ -440,7 +440,7 @@ export class Fixes {
 		let last: FixableProblem = sorted[0];
 		result.push(last);
 		for (let i = 1; i < sorted.length; i++) {
-			let current = sorted[i];
+			const current = sorted[i];
 			if (!Fixes.overlaps(last, current) && !Fixes.sameRange(last, current)) {
 				result.push(current);
 				last = current;
@@ -450,7 +450,7 @@ export class Fixes {
 	}
 }
 
-export type SaveRuleConfigItem = { offRules: Set<string>, onRules: Set<string>};
+export type SaveRuleConfigItem = { offRules: Set<string>; onRules: Set<string>};
 
 /**
  * Manages the special save rule configurations done in the VS Code settings.
@@ -924,7 +924,7 @@ export namespace ESLint {
 				}
 				if (settings.validate === Validate.probe && TextDocumentSettings.hasLibrary(settings)) {
 					settings.validate = Validate.off;
-					let filePath = ESLint.getFilePath(document, settings);
+					const filePath = ESLint.getFilePath(document, settings);
 					if (filePath !== undefined) {
 						const parserRegExps = languageId2ParserRegExp.get(document.languageId);
 						const pluginName = languageId2PluginName.get(document.languageId);
@@ -1165,7 +1165,7 @@ export namespace ESLint {
 	 * Global paths for the different package managers
 	 */
 	namespace GlobalPaths {
-		const globalPaths: Record<string, { cache: string | undefined; get(): string | undefined; }> = {
+		const globalPaths: Record<string, { cache: string | undefined; get(): string | undefined }> = {
 			yarn: {
 				cache: undefined,
 				get(): string | undefined {
