@@ -970,7 +970,6 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	} else {
 		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await SaveRuleConfigs.get(uri, settings) : undefined;
 		const offRules = saveConfig?.offRules;
-		const onRules = saveConfig?.onRules;
 		let overrideConfig: Required<ConfigData> | undefined;
 		if (offRules !== undefined) {
 			overrideConfig = { rules: Object.create(null) };
@@ -979,26 +978,10 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 			}
 		}
 		return ESLint.withClass(async (eslintClass) => {
+			// Don't use any precomputed fixes since neighbour fixes can produce incorrect results.
+			// See https://github.com/microsoft/vscode-eslint/issues/1745
 			const result: TextEdit[] = [];
-			let fixes: TextEdit[] | undefined;
-			if (problems !== undefined && problems.size > 0) {
-				// We have override rules that turn rules off. Filter the fixes for these rules.
-				if (offRules !== undefined) {
-					const filtered: typeof problems = new Map();
-					for (const [key, problem] of problems) {
-						if (onRules?.has(problem.ruleId)) {
-							filtered.set(key, problem);
-						}
-					}
-					fixes = filtered.size > 0 ? new Fixes(filtered).getApplicable().map(fix => FixableProblem.createTextEdit(textDocument, fix)) : undefined;
-				} else {
-					fixes = new Fixes(problems).getApplicable().map(fix => FixableProblem.createTextEdit(textDocument, fix));
-				}
-			}
-			const content = fixes !== undefined
-				? TextDocument.applyEdits(textDocument, fixes)
-				: originalContent;
-			const reportResults = await eslintClass.lintText(content, { filePath });
+			const reportResults = await eslintClass.lintText(originalContent, { filePath });
 			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
 			if (Array.isArray(reportResults) && reportResults.length === 1 && reportResults[0].output !== undefined) {
 				const fixedContent = reportResults[0].output;
@@ -1014,8 +997,6 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 						newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
 					});
 				}
-			} else if (fixes !== undefined) {
-				result.push(...fixes);
 			}
 			return result;
 		}, settings, overrideConfig !== undefined ? { fix: true, overrideConfig } : { fix: true });
