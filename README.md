@@ -154,7 +154,7 @@ The setting below turns on Auto Fix for all providers including ESLint:
 
 ```json
     "editor.codeActionsOnSave": {
-        "source.fixAll": true
+        "source.fixAll": "explicit"
     }
 ```
 
@@ -162,7 +162,7 @@ In contrast, this configuration only turns it on for ESLint:
 
 ```json
     "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": true
+        "source.fixAll.eslint": "explicit"
     }
 ```
 
@@ -170,8 +170,8 @@ You can also selectively disable ESLint via:
 
 ```json
     "editor.codeActionsOnSave": {
-        "source.fixAll": true,
-        "source.fixAll.eslint": false
+        "source.fixAll": "explicit",
+        "source.fixAll.eslint": "never"
     }
 ```
 
