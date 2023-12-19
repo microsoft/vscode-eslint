@@ -51,8 +51,8 @@
 	"eslint.format.enable": true,
 	"eslint.onIgnoredFiles": "off",
 	"editor.codeActionsOnSave": {
-		"source.fixAll": true,
-		"source.fixAll.eslint": true
+		"source.fixAll": "explicit",
+		"source.fixAll.eslint": "explicit"
 	},
 	// "[javascript][typescript]": {
 	// 	"editor.codeActionsOnSave": {

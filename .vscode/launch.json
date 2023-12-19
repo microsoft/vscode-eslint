@@ -9,23 +9,12 @@
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}" ],
 			"sourceMaps": true,
-			"outFiles": ["${workspaceFolder}/client/out/**/*.js"],
+			"autoAttachChildProcesses": true,
+			"outFiles": [
+				"${workspaceFolder}/client/out/**/*.js",
+				"${workspaceFolder}/server/out/**/*.js"
+			],
 			"preLaunchTask": "npm: watch"
-		},
-		{
-			"type": "node",
-			"request": "attach",
-			"name": "Attach to Server",
-			"address": "localhost",
-			"port": 6011,
-			"sourceMaps": true,
-			"outFiles": ["${workspaceFolder}/server/out/**/*.js"]
-		}
-	],
-	"compounds": [
-		{
-			"name": "Client + Server",
-			"configurations": ["Launch Client", "Attach to Server"]
 		}
 	]
 }
