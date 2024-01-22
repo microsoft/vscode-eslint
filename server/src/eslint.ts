@@ -571,7 +571,7 @@ namespace Diagnostics {
 		const range = diagnostic.range;
 		let message: string | undefined;
 		if (diagnostic.message) {
-			const hash  = crypto.createHash('md5');
+			const hash  = crypto.createHash('sha256');
 			hash.update(diagnostic.message);
 			message = hash.digest('base64');
 		}
@@ -1055,7 +1055,7 @@ export namespace ESLint {
 		try {
 			if (settings.workingDirectory) {
 			// A lot of libs are sensitive to drive letter casing and assume a
-			// capital drive letter. Make sure we support that correctly.
+			// upper case drive letter. Make sure we support that correctly.
 				const newCWD = normalizeWorkingDirectory(settings.workingDirectory.directory);
 				newOptions.cwd = newCWD;
 				if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(newCWD)) {
