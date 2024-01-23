@@ -25,7 +25,7 @@ From version 2.2.3 on forward odd major, minor or patch version numbers indicate
 
 ### Version 2.4.4
 
-- sme as 2.4.3 - pre-release
+- same as 2.4.3 - pre-release
 
 ### Version 2.4.3 - pre-release
 
