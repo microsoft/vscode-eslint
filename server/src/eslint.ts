@@ -752,6 +752,9 @@ export namespace ESLint {
 
 	const languageId2PluginName: Map<string, string> = new Map([
 		['html', 'html'],
+		['json', 'jsonc'],
+		['json5', 'jsonc'],
+		['jsonc', 'jsonc'],
 		['vue', 'vue'],
 		['markdown', 'markdown']
 	]);
