@@ -756,6 +756,7 @@ export namespace ESLint {
 		['json', 'jsonc'],
 		['json5', 'jsonc'],
 		['jsonc', 'jsonc'],
+		['mdx', 'mdx'],
 		['vue', 'vue'],
 		['markdown', 'markdown']
 	]);
