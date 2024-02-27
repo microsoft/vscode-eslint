@@ -310,6 +310,7 @@
 						"typescript",
 						"typescriptreact",
 						"html",
+						"mdx",
 						"vue",
 						"markdown"
 					],
