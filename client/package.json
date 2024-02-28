@@ -14,10 +14,10 @@
 		"url": "https://github.com/Microsoft/vscode-eslint/issues"
 	},
 	"engines": {
-		"vscode": "^1.68.0"
+		"vscode": "^1.86.0"
 	},
 	"devDependencies": {
-		"@types/vscode": "1.68.0"
+		"@types/vscode": "1.86.0"
 	},
 	"dependencies": {
 		"vscode-languageclient": "9.0.1"

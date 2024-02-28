@@ -6,7 +6,7 @@
 	// 		"suggestion"
 	// 	]
 	// },
-	"eslint.run": "onType",
+	"eslint.run": "onSave",
 	"eslint.workingDirectories": [
 		"./build"
 	],

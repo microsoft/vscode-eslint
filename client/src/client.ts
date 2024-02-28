@@ -15,7 +15,7 @@ import {
 import {
 	LanguageClient, LanguageClientOptions, TransportKind, ErrorHandler, CloseAction, RevealOutputChannelOn, ServerOptions, DocumentFilter,
 	DidCloseTextDocumentNotification, DidOpenTextDocumentNotification, State, VersionedTextDocumentIdentifier, ExecuteCommandParams,
-	ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType
+	ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType, DiagnosticPullMode, DocumentDiagnosticRequest
 } from 'vscode-languageclient/node';
 
 import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
@@ -308,11 +308,16 @@ export namespace ESLintClient {
 		});
 
 		client.onRequest(ProbeFailedRequest.type, (params) => {
-			validator.add(client.protocol2CodeConverter.asUri(params.textDocument.uri));
+			const uri = client.protocol2CodeConverter.asUri(params.textDocument.uri);
+			validator.add(uri);
 			const closeFeature = client.getFeature(DidCloseTextDocumentNotification.method);
+			const diagnosticsFeature = client.getFeature(DocumentDiagnosticRequest.method);
 			for (const document of Workspace.textDocuments) {
-				if (document.uri.toString() === params.textDocument.uri) {
+				if (document.uri.toString() === uri.toString()) {
 					closeFeature.getProvider(document)?.send(document).catch((error) => client.error(`Sending close notification failed`, error));
+					if (diagnosticsFeature !== undefined) {
+						diagnosticsFeature.getProvider(document)?.forget(document);
+					}
 				}
 			}
 		});
@@ -416,7 +421,6 @@ export namespace ESLintClient {
 		function createClientOptions(): LanguageClientOptions {
 			const clientOptions: LanguageClientOptions = {
 				documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
-				diagnosticCollectionName: 'eslint',
 				revealOutputChannelOn: RevealOutputChannelOn.Never,
 				initializationOptions: {
 				},
@@ -444,6 +448,22 @@ export namespace ESLintClient {
 						}
 						return defaultErrorHandler.closed();
 					}
+				},
+				diagnosticPullOptions: {
+					onChange: true,
+					onSave: true,
+					onFocus: true,
+					filter: (document, mode) => {
+						const config = Workspace.getConfiguration('eslint', document);
+						const run = config.get<RunValues>('run', 'onType');
+						if (mode === DiagnosticPullMode.onType && run !== 'onType') {
+							return true;
+						} else if (mode === DiagnosticPullMode.onSave && run !== 'onSave') {
+							return true;
+						}
+						return validator.check(document) === Validate.off;
+					},
+					onTabs: false
 				},
 				middleware: {
 					didOpen: async (document, next) => {
@@ -584,12 +604,12 @@ export namespace ESLintClient {
 
 		async function getPackageManager(uri: Uri) {
 			const userProvidedPackageManager:PackageManagers = Workspace.getConfiguration('eslint', uri).get('packageManager', 'npm');
-			const detectedPackageMananger = await commands.executeCommand<PackageManagers>('npm.packageManager');
+			const detectedPackageManager = await commands.executeCommand<PackageManagers>('npm.packageManager');
 
-			if (userProvidedPackageManager === detectedPackageMananger) {
-				return detectedPackageMananger;
+			if (userProvidedPackageManager === detectedPackageManager) {
+				return detectedPackageManager;
 			}
-			client.warn(`Detected package manager(${detectedPackageMananger}) differs from the one in the deprecated packageManager setting(${userProvidedPackageManager}). We will honor this setting until it is removed.`, {}, true);
+			client.warn(`Detected package manager(${detectedPackageManager}) differs from the one in the deprecated packageManager setting(${userProvidedPackageManager}). We will honor this setting until it is removed.`, {}, true);
 			return userProvidedPackageManager;
 		}
 

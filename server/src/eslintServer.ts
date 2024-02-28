@@ -7,11 +7,10 @@ import * as path from 'path';
 import { EOL } from 'os';
 
 import {
-	createConnection, Connection, ResponseError, RequestType, NotificationType, RequestHandler, NotificationHandler, Diagnostic, Range, CancellationToken,
-	TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange, CodeActionRequest, VersionedTextDocumentIdentifier, ExecuteCommandRequest,
-	DidChangeWatchedFilesNotification, DidChangeConfigurationNotification, DidChangeWorkspaceFoldersNotification, CodeAction, CodeActionKind, Position,
-	DocumentFormattingRequest, TextDocumentEdit, LSPErrorCodes, Message as LMessage, ResponseMessage as LResponseMessage, uinteger, ServerCapabilities,
-	NotebookDocuments, ProposedFeatures, ClientCapabilities
+	createConnection, Diagnostic, Range, TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange,
+	VersionedTextDocumentIdentifier, DidChangeConfigurationNotification, DidChangeWorkspaceFoldersNotification,
+	CodeAction, CodeActionKind, Position, TextDocumentEdit, Message as LMessage, ResponseMessage as LResponseMessage,
+	uinteger, ServerCapabilities, NotebookDocuments, ProposedFeatures, ClientCapabilities, type FullDocumentDiagnosticReport, DocumentDiagnosticReportKind
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -152,213 +151,13 @@ function inferFilePath(documentOrUri: string | TextDocument | URI | undefined): 
 ESLint.initialize(connection, documents, inferFilePath, loadNodeModule);
 SaveRuleConfigs.inferFilePath = inferFilePath;
 
-/**
- * Special message queue implementation to be able to invalidate requests.
- * No necessary anymore when using diagnostic pull mode
- */
-
-interface Request<P, R> {
-	method: string;
-	params: P;
-	documentVersion: number | undefined;
-	resolve: (value: R | Promise<R>) => void | undefined;
-	reject: (error: any) => void | undefined;
-	token: CancellationToken;
-}
-
-namespace Request {
-	export function is(value: any): value is Request<any, any> {
-		const candidate: Request<any, any> = value;
-		return candidate && candidate.token !== undefined && candidate.resolve !== undefined && candidate.reject !== undefined;
-	}
-}
-
-interface Notification<P> {
-	method: string;
-	params: P;
-	documentVersion: number | undefined;
-}
-
-type Message<P, R> = Notification<P> | Request<P, R>;
-
-interface VersionProvider<P> {
-	(params: P): number | undefined;
-}
-
-namespace Thenable {
-	export function is<T>(value: any): value is Thenable<T> {
-		const candidate: Thenable<T> = value;
-		return candidate && typeof candidate.then === 'function';
-	}
-}
-
-class BufferedMessageQueue {
-
-	private queue: Message<any, any>[];
-	private requestHandlers: Map<string, { handler: RequestHandler<any, any, any>; versionProvider?: VersionProvider<any> }>;
-	private notificationHandlers: Map<string, { handler: NotificationHandler<any>; versionProvider?: VersionProvider<any> }>;
-	private timer: NodeJS.Immediate | undefined;
-
-	constructor(private connection: Connection) {
-		this.queue = [];
-		this.requestHandlers = new Map();
-		this.notificationHandlers = new Map();
-	}
-
-	public registerRequest<P, R, E>(type: RequestType<P, R, E>, handler: RequestHandler<P, R, E>, versionProvider?: VersionProvider<P>): void {
-		this.connection.onRequest(type, (params, token) => {
-			return new Promise<R>((resolve, reject) => {
-				this.queue.push({
-					method: type.method,
-					params: params,
-					documentVersion: versionProvider ? versionProvider(params) : undefined,
-					resolve: resolve,
-					reject: reject,
-					token: token
-				});
-				this.trigger();
-			});
-		});
-		this.requestHandlers.set(type.method, { handler, versionProvider });
-	}
-
-	public registerNotification<P>(type: NotificationType<P>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
-		connection.onNotification(type, (params) => {
-			this.queue.push({
-				method: type.method,
-				params: params,
-				documentVersion: versionProvider ? versionProvider(params) : undefined,
-			});
-			this.trigger();
-		});
-		this.notificationHandlers.set(type.method, { handler, versionProvider });
-	}
-
-	public addNotificationMessage<P>(type: NotificationType<P>, params: P, version: number) {
-		this.queue.push({
-			method: type.method,
-			params,
-			documentVersion: version
-		});
-		this.trigger();
-	}
-
-	public onNotification<P>(type: NotificationType<P>, handler: NotificationHandler<P>, versionProvider?: (params: P) => number): void {
-		this.notificationHandlers.set(type.method, { handler, versionProvider });
-	}
-
-	private trigger(): void {
-		if (this.timer || this.queue.length === 0) {
-			return;
-		}
-		this.timer = setImmediate(() => {
-			this.timer = undefined;
-			this.processQueue();
-			this.trigger();
-		});
-	}
-
-	private processQueue(): void {
-		const message = this.queue.shift();
-		if (!message) {
-			return;
-		}
-		if (Request.is(message)) {
-			const requestMessage = message;
-			if (requestMessage.token.isCancellationRequested) {
-				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
-				return;
-			}
-			const elem = this.requestHandlers.get(requestMessage.method);
-			if (elem === undefined) {
-				throw new Error(`No handler registered`);
-			}
-			if (elem.versionProvider && requestMessage.documentVersion !== undefined && requestMessage.documentVersion !== elem.versionProvider(requestMessage.params)) {
-				requestMessage.reject(new ResponseError(LSPErrorCodes.RequestCancelled, 'Request got cancelled'));
-				return;
-			}
-			const result = elem.handler(requestMessage.params, requestMessage.token);
-			if (Thenable.is(result)) {
-				result.then((value) => {
-					requestMessage.resolve(value);
-				}, (error) => {
-					requestMessage.reject(error);
-				});
-			} else {
-				requestMessage.resolve(result);
-			}
-		} else {
-			const notificationMessage = message;
-			const elem = this.notificationHandlers.get(notificationMessage.method);
-			if (elem === undefined) {
-				throw new Error(`No handler registered`);
-			}
-			if (elem.versionProvider && notificationMessage.documentVersion !== undefined && notificationMessage.documentVersion !== elem.versionProvider(notificationMessage.params)) {
-				return;
-			}
-			elem.handler(notificationMessage.params);
-		}
-	}
-}
-
-namespace ValidateNotification {
-	export const type: NotificationType<TextDocument> = new NotificationType<TextDocument>('eslint/validate');
-}
-const messageQueue: BufferedMessageQueue = new BufferedMessageQueue(connection);
-
-messageQueue.onNotification(ValidateNotification.type, (document) => {
-	void validateSingle(document, true);
-}, (document): number => {
-	return document.version;
-});
-
-documents.onDidOpen(async (event) => {
-	const document = event.document;
-	const settings = await ESLint.resolveSettings(document);
-	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-		return;
-	}
-	if (settings.run === 'onSave') {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	}
-});
-
-// A text document has changed. Validate the document according the run setting.
-documents.onDidChangeContent(async (event) => {
-	const document = event.document;
-	const uri = document.uri;
-	CodeActions.remove(uri);
-	const settings = await ESLint.resolveSettings(document);
-
-	if (settings.validate !== Validate.on || settings.run !== 'onType') {
-		return;
-	}
-	messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-});
-
-// A text document has been saved. Validate the document according the run setting.
-documents.onDidSave(async (event) => {
-	const document = event.document;
-	const settings = await ESLint.resolveSettings(document);
-
-	if (settings.validate !== Validate.on || settings.run !== 'onSave') {
-		return;
-	}
-	messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-});
-
 documents.onDidClose(async (event) => {
 	const document = event.document;
-	const settings = await ESLint.resolveSettings(document);
-
 	const uri = document.uri;
 	ESLint.removeSettings(uri);
 	SaveRuleConfigs.remove(uri);
 	CodeActions.remove(uri);
 	ESLint.unregisterAsFormatter(document);
-	if (settings.validate === Validate.on) {
-		void connection.sendDiagnostics({ uri: uri, diagnostics: [] });
-	}
 });
 
 function environmentChanged() {
@@ -366,10 +165,7 @@ function environmentChanged() {
 	RuleSeverities.clear();
 	SaveRuleConfigs.clear();
 	ESLint.clearFormatters();
-
-	for (const document of documents.all()) {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	}
+	connection.languages.diagnostics.refresh();
 }
 
 namespace CommandIds {
@@ -411,6 +207,11 @@ connection.onInitialize((params, _cancel, progress) => {
 				CommandIds.applyDisableFile,
 				CommandIds.openRuleDoc,
 			]
+		},
+		diagnosticProvider: {
+			identifier: 'eslint',
+			workspaceDiagnostics: false,
+			interFileDependencies: false
 		}
 	};
 
@@ -418,6 +219,12 @@ connection.onInitialize((params, _cancel, progress) => {
 		capabilities.codeActionProvider = {
 			codeActionKinds: [CodeActionKind.QuickFix, `${CodeActionKind.SourceFixAll}.eslint`]
 		};
+	}
+
+	if (clientCapabilities.workspace?.workspaceFolders === true) {
+		connection.workspace.onDidChangeWorkspaceFolders((_params) => {
+			environmentChanged();
+		});
 	}
 
 	return { capabilities };
@@ -431,37 +238,37 @@ connection.onInitialized(() => {
 	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
 });
 
-messageQueue.registerNotification(DidChangeConfigurationNotification.type, (_params) => {
+connection.onDidChangeConfiguration((_params) => {
 	environmentChanged();
 });
 
-messageQueue.registerNotification(DidChangeWorkspaceFoldersNotification.type, (_params) => {
-	environmentChanged();
-});
+const emptyDiagnosticResult: FullDocumentDiagnosticReport = {
+	kind: DocumentDiagnosticReportKind.Full,
+	items: []
+};
 
-async function validateSingle(document: TextDocument, publishDiagnostics: boolean = true): Promise<void> {
-	// We validate document in a queue but open / close documents directly. So we need to deal with the
-	// fact that a document might be gone from the server.
-	if (!documents.get(document.uri)) {
-		return;
+connection.languages.diagnostics.on(async (params) => {
+	const document = documents.get(params.textDocument.uri);
+	if (document === undefined) {
+		return emptyDiagnosticResult;
 	}
 
 	const settings = await ESLint.resolveSettings(document);
 	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
-		return;
+		return emptyDiagnosticResult;
 	}
 	try {
 		const start = Date.now();
 		const diagnostics = await ESLint.validate(document, settings);
-		if (publishDiagnostics) {
-			void connection.sendDiagnostics({ uri: document.uri, diagnostics });
-		}
 		const timeTaken = Date.now() - start;
 		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok, validationTime: timeTaken });
+		return {
+			kind: DocumentDiagnosticReportKind.Full,
+			items: diagnostics
+		};
 	} catch (err) {
 		// if an exception has occurred while validating clear all errors to ensure
 		// we are not showing any stale once
-		void connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 		if (!settings.silent) {
 			let status: Status | undefined = undefined;
 			for (const handler of ESLint.ErrorHandlers.single) {
@@ -476,17 +283,11 @@ async function validateSingle(document: TextDocument, publishDiagnostics: boolea
 			connection.console.info(ESLint.ErrorHandlers.getMessage(err, document));
 			void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok });
 		}
+		return emptyDiagnosticResult;
 	}
-}
+});
 
-function validateMany(documents: TextDocument[]): void {
-	documents.forEach(document => {
-		messageQueue.addNotificationMessage(ValidateNotification.type, document, document.version);
-	});
-}
-
-
-messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async (params) => {
+connection.onDidChangeWatchedFiles(async (params) => {
 	// A .eslintrc has change. No smartness here.
 	// Simply revalidate all file.
 	RuleMetaData.clear();
@@ -514,7 +315,7 @@ messageQueue.registerNotification(DidChangeWatchedFilesNotification.type, async 
 			}
 		}
 	}));
-	validateMany(documents.all());
+	connection.languages.diagnostics.refresh();
 });
 
 type RuleCodeActions = {
@@ -637,7 +438,7 @@ namespace CommandParams {
 const changes = new Changes();
 const ESLintSourceFixAll: string = `${CodeActionKind.SourceFixAll}.eslint`;
 
-messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
+connection.onCodeAction(async (params) => {
 	const result: CodeActionResult = new CodeActionResult();
 	const uri = params.textDocument.uri;
 	const textDocument = documents.get(uri);
@@ -932,9 +733,6 @@ messageQueue.registerRequest(CodeActionRequest.type, async (params) => {
 		));
 	}
 	return result.all();
-}, (params): number | undefined => {
-	const document = documents.get(params.textDocument.uri);
-	return document !== undefined ? document.version : undefined;
 });
 
 enum AllFixesMode {
@@ -1003,7 +801,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	}
 }
 
-messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
+connection.onExecuteCommand(async (params) => {
 	let workspaceChange: WorkspaceChange | undefined;
 	const commandParams: CommandParams = params.arguments![0] as CommandParams;
 	if (params.command === CommandIds.applyAllFixes) {
@@ -1040,24 +838,14 @@ messageQueue.registerRequest(ExecuteCommandRequest.type, async (params) => {
 		connection.console.error(`Failed to apply command: ${params.command}`);
 		return null;
 	});
-}, (params): number | undefined => {
-	const commandParam: CommandParams = params.arguments![0] as CommandParams;
-	if (changes.isUsable(commandParam.uri, commandParam.version)) {
-		return commandParam.version;
-	} else {
-		return undefined;
-	}
 });
 
-messageQueue.registerRequest(DocumentFormattingRequest.type, (params) => {
+connection.onDocumentFormatting((params) => {
 	const textDocument = documents.get(params.textDocument.uri);
 	if (textDocument === undefined) {
 		return [];
 	}
 	return computeAllFixes({ uri: textDocument.uri, version: textDocument.version }, AllFixesMode.format);
-}, (params) => {
-	const document = documents.get(params.textDocument.uri);
-	return document !== undefined ? document.version : undefined;
 });
 
 
