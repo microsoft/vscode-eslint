@@ -149,7 +149,7 @@ export namespace DirectoryItem {
 
 export type PackageManagers = 'npm' | 'yarn' | 'pnpm';
 
-export type ESLintOptions = object & { fixTypes?: string[] };
+export type ESLintOptions = object & { fixTypes?: string[], overrideConfig?: string | null };
 
 export type ConfigurationSettings = {
 	validate: Validate;
@@ -163,7 +163,7 @@ export type ConfigurationSettings = {
 	format: boolean;
 	quiet: boolean;
 	onIgnoredFiles: ESLintSeverity;
-	options: ESLintOptions | undefined;
+	options: ESLintOptions;
 	rulesCustomizations: RuleCustomization[];
 	run: RunValues;
 	problems: {
