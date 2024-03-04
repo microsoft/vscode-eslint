@@ -210,8 +210,8 @@ connection.onInitialize((params, _cancel, progress) => {
 		},
 		diagnosticProvider: {
 			identifier: 'eslint',
-			workspaceDiagnostics: false,
-			interFileDependencies: false
+			interFileDependencies: true,
+			workspaceDiagnostics: false
 		}
 	};
 
@@ -306,7 +306,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
 		if (dirname) {
 			const library = ESLint.ErrorHandlers.getConfigErrorReported(fsPath);
 			if (library !== undefined) {
-				const eslintClass = ESLint.newClass(library, {}, false);
+				const eslintClass = await ESLint.newClass(library, {}, false);
 				try {
 					await eslintClass.lintText('', { filePath: path.join(dirname, '___test___.js') });
 					ESLint.ErrorHandlers.removeConfigErrorReported(fsPath);

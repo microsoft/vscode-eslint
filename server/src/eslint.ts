@@ -260,6 +260,7 @@ interface ESLintClass {
 }
 
 interface ESLintClassConstructor {
+	configType?: 'eslintrc' | 'flat';
 	new(options: ESLintClassOptions): ESLintClass;
 }
 
@@ -275,18 +276,24 @@ export type ESLintModule =
 	// version < 7.0
 	ESLint: undefined;
 	CLIEngine: CLIEngineConstructor;
+	loadESLint?: undefined;
 } | {
 	// 7.0 <= version < 8.0
 	ESLint: ESLintClassConstructor;
 	CLIEngine: CLIEngineConstructor;
+	loadESLint?: undefined;
 } | {
 	// 8.0 <= version.
 	ESLint: ESLintClassConstructor;
 	isFlatConfig?: boolean;
 	CLIEngine: undefined;
+	loadESLint?: (options?: { cwd?: string; useFlatConfig?: boolean }) => Promise<ESLintClassConstructor>;
 };
 
 export namespace ESLintModule {
+	export function hasLoadESLint(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined; loadESLint: (options?: { cwd?: string; useFlatConfig?: boolean }) => Promise<ESLintClassConstructor> } {
+		return value.loadESLint !== undefined;
+	}
 	export function hasESLintClass(value: ESLintModule): value is { ESLint: ESLintClassConstructor; CLIEngine: undefined } {
 		return value.ESLint !== undefined;
 	}
@@ -1041,7 +1048,15 @@ export namespace ESLint {
 		return resultPromise;
 	}
 
-	export function newClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions, useESLintClass: boolean): ESLintClass {
+	export async function newClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions, useESLintClass: boolean): Promise<ESLintClass> {
+		// Since ESLint version 8.57 we have a dedicated loadESLint function
+		// which takes care of loading the right ESLint class. We available
+		// we use it.
+		if (ESLintModule.hasLoadESLint(library)) {
+			return new (await library.loadESLint())(newOptions);
+		}
+		// If we have version 7 where we have both ESLint class and CLIEngine we only
+		// use the ESLint class if a corresponding setting (useESLintClass) is set.
 		if (ESLintModule.hasESLintClass(library) && useESLintClass) {
 			return new library.ESLint(newOptions);
 		}
@@ -1059,8 +1074,8 @@ export namespace ESLint {
 		const cwd = process.cwd();
 		try {
 			if (settings.workingDirectory) {
-			// A lot of libs are sensitive to drive letter casing and assume a
-			// upper case drive letter. Make sure we support that correctly.
+				// A lot of libs are sensitive to drive letter casing and assume a
+				// upper case drive letter. Make sure we support that correctly.
 				const newCWD = normalizeWorkingDirectory(settings.workingDirectory.directory);
 				newOptions.cwd = newCWD;
 				if (settings.workingDirectory['!cwd'] !== true && fs.existsSync(newCWD)) {
@@ -1068,7 +1083,7 @@ export namespace ESLint {
 				}
 			}
 
-			const eslintClass = newClass(settings.library, newOptions, settings.useESLintClass);
+			const eslintClass = await newClass(settings.library, newOptions, settings.useESLintClass);
 			// We need to await the result to ensure proper execution of the
 			// finally block.
 			return await func(eslintClass);

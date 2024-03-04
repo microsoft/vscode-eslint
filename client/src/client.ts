@@ -315,9 +315,7 @@ export namespace ESLintClient {
 			for (const document of Workspace.textDocuments) {
 				if (document.uri.toString() === uri.toString()) {
 					closeFeature.getProvider(document)?.send(document).catch((error) => client.error(`Sending close notification failed`, error));
-					if (diagnosticsFeature !== undefined) {
-						diagnosticsFeature.getProvider(document)?.forget(document);
-					}
+					diagnosticsFeature?.getProvider(document)?.forget(document);
 				}
 			}
 		});
@@ -676,12 +674,14 @@ export namespace ESLintClient {
 						}
 					}
 				});
+				const useFlatConfig = config.get<boolean | null>('useFlatConfig', null);
 				const settings: ConfigurationSettings = {
 					validate: Validate.off,
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
 					useESLintClass: config.get<boolean>('useESLintClass', false),
+					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
 					experimental: {
-						useFlatConfig: config.get<boolean>('experimental.useFlatConfig', false)
+						useFlatConfig: config.get<boolean>('experimental.useFlatConfig', false),
 					},
 					codeActionOnSave: {
 						mode: CodeActionsOnSaveMode.all

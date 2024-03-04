@@ -7,6 +7,6 @@ function bar() {
 function foo(x) {
 	console.log(x);
 	bar();
-	var y = 10;
-	console.log(y);
+	var x = 10;
+	console.log(undef);
 }

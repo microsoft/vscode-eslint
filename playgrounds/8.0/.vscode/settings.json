@@ -6,15 +6,12 @@
 	// 		"suggestion"
 	// 	]
 	// },
-	"eslint.run": "onSave",
+	"eslint.run": "onType",
 	"eslint.workingDirectories": [
 		"./build"
 	],
 	"eslint.packageManager": "yarn",
-	"eslint.trace.server": {
-		"verbosity": "off",
-		"format": "text"
-	},
+	"eslint.trace.server": "messages",
 	"files.autoSave": "off",
 	"editor.formatOnSave": false,
 	// , "languageServerExample.trace.server": "messages"
