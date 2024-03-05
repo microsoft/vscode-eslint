@@ -7,9 +7,8 @@ import * as path from 'path';
 import { EOL } from 'os';
 
 import {
-	createConnection, Diagnostic, Range, TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange,
-	VersionedTextDocumentIdentifier, DidChangeConfigurationNotification, DidChangeWorkspaceFoldersNotification,
-	CodeAction, CodeActionKind, Position, TextDocumentEdit, Message as LMessage, ResponseMessage as LResponseMessage,
+	createConnection, Diagnostic, Range, TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange, VersionedTextDocumentIdentifier,
+	DidChangeConfigurationNotification,  CodeAction, CodeActionKind, Position, TextDocumentEdit, Message as LMessage, ResponseMessage as LResponseMessage,
 	uinteger, ServerCapabilities, NotebookDocuments, ProposedFeatures, ClientCapabilities, type FullDocumentDiagnosticReport, DocumentDiagnosticReportKind
 } from 'vscode-languageserver/node';
 
@@ -34,18 +33,21 @@ import LanguageDefaults from './languageDefaults';
 // The connection to use. Code action requests get removed from the queue if
 // canceled.
 const connection: ProposedFeatures.Connection = createConnection(ProposedFeatures.all, {
-	cancelUndispatched: (message: LMessage) => {
+	connectionStrategy: {
+		cancelUndispatched: (message: LMessage) => {
 		// Code actions can safely be cancel on request.
-		if (LMessage.isRequest(message) && message.method === 'textDocument/codeAction') {
-			const response: LResponseMessage = {
-				jsonrpc: message.jsonrpc,
-				id: message.id,
-				result: null
-			};
-			return response;
+			if (LMessage.isRequest(message) && message.method === 'textDocument/codeAction') {
+				const response: LResponseMessage = {
+					jsonrpc: message.jsonrpc,
+					id: message.id,
+					result: null
+				};
+				return response;
+			}
+			return undefined;
 		}
-		return undefined;
-	}
+	},
+	maxParallelism: 1
 });
 
 // Set when handling the initialize request.
@@ -165,7 +167,9 @@ function environmentChanged() {
 	RuleSeverities.clear();
 	SaveRuleConfigs.clear();
 	ESLint.clearFormatters();
-	connection.languages.diagnostics.refresh();
+	connection.languages.diagnostics.refresh().catch(() => {
+		connection.console.error('Failed to refresh diagnostics');
+	});
 }
 
 namespace CommandIds {
@@ -221,26 +225,24 @@ connection.onInitialize((params, _cancel, progress) => {
 		};
 	}
 
-	if (clientCapabilities.workspace?.workspaceFolders === true) {
-		connection.workspace.onDidChangeWorkspaceFolders((_params) => {
-			environmentChanged();
-		});
-	}
-
 	return { capabilities };
 });
 
 connection.onInitialized(() => {
 	if (clientCapabilities.workspace?.didChangeConfiguration?.dynamicRegistration === true) {
+		connection.onDidChangeConfiguration((_params) => {
+			environmentChanged();
+		});
 		void connection.client.register(DidChangeConfigurationNotification.type, undefined);
 	}
 
-	void connection.client.register(DidChangeWorkspaceFoldersNotification.type, undefined);
+	if (clientCapabilities.workspace?.workspaceFolders === true) {
+		connection.workspace.onDidChangeWorkspaceFolders((_params) => {
+			environmentChanged();
+		});
+	}
 });
 
-connection.onDidChangeConfiguration((_params) => {
-	environmentChanged();
-});
 
 const emptyDiagnosticResult: FullDocumentDiagnosticReport = {
 	kind: DocumentDiagnosticReportKind.Full,
@@ -272,7 +274,7 @@ connection.languages.diagnostics.on(async (params) => {
 		if (!settings.silent) {
 			let status: Status | undefined = undefined;
 			for (const handler of ESLint.ErrorHandlers.single) {
-				status = handler(err, document, settings.library);
+				status = handler(err, document, settings.library, settings);
 				if (status) {
 					break;
 				}
@@ -304,9 +306,9 @@ connection.onDidChangeWatchedFiles(async (params) => {
 		}
 		const dirname = path.dirname(fsPath);
 		if (dirname) {
-			const library = ESLint.ErrorHandlers.getConfigErrorReported(fsPath);
-			if (library !== undefined) {
-				const eslintClass = await ESLint.newClass(library, {}, false);
+			const data = ESLint.ErrorHandlers.getConfigErrorReported(fsPath);
+			if (data !== undefined) {
+				const eslintClass = await ESLint.newClass(data.library, {}, data.settings);
 				try {
 					await eslintClass.lintText('', { filePath: path.join(dirname, '___test___.js') });
 					ESLint.ErrorHandlers.removeConfigErrorReported(fsPath);
@@ -315,7 +317,9 @@ connection.onDidChangeWatchedFiles(async (params) => {
 			}
 		}
 	}));
-	connection.languages.diagnostics.refresh();
+	connection.languages.diagnostics.refresh().catch(() => {
+		connection.console.error('Failed to refresh diagnostics');
+	});
 });
 
 type RuleCodeActions = {

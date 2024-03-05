@@ -8,6 +8,9 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { execSync } from 'child_process';
 
+import semverParse = require('semver/functions/parse');
+import semverGte = require('semver/functions/gte');
+
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
 	Diagnostic, DiagnosticSeverity, DiagnosticTag, ProposedFeatures, Range, TextEdit, Files, DocumentFilter, DocumentFormattingRegistrationOptions,
@@ -185,11 +188,11 @@ export namespace RuleMetaData {
 	}
 }
 
-export type ParserOptions = {
+type ParserOptions = {
 	parser?: string;
 };
 
-export type ESLintConfig = {
+type ESLintRcConfig = {
  	env: Record<string, boolean>;
 	extends:  string | string[];
  	// globals: Record<string, GlobalConf>;
@@ -205,6 +208,7 @@ export type ESLintConfig = {
  	rules: Record<string, RuleConf>;
  	settings: object;
 };
+type ESLintConfig = ESLintRcConfig;
 
 export type Problem = {
 	label: string;
@@ -246,7 +250,7 @@ export namespace SuggestionsProblem {
 	}
 }
 
-interface ESLintClass {
+interface ESLintClass extends Object {
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintlinttextcode-options
 	lintText(content: string, options: {filePath?: string; warnIgnored?: boolean}): Promise<ESLintDocumentReport[]>;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
@@ -259,8 +263,19 @@ interface ESLintClass {
 	isCLIEngine?: boolean;
 }
 
+namespace ESLintClass {
+	export function getConfigType(eslint: ESLintClass): 'eslintrc' | 'flat' {
+		if (eslint.isCLIEngine === true) {
+			return 'eslintrc';
+		}
+		const configType = (eslint.constructor as ESLintClassConstructor).configType;
+		return configType ?? 'eslintrc';
+	}
+}
+
 interface ESLintClassConstructor {
 	configType?: 'eslintrc' | 'flat';
+	version?: string;
 	new(options: ESLintClassOptions): ESLintClass;
 }
 
@@ -862,7 +877,6 @@ export namespace ESLint {
 			} else {
 				settings.workingDirectory = workingDirectoryConfig;
 			}
-			let promise: Promise<string>;
 			let nodePath: string | undefined;
 			if (settings.nodePath !== null) {
 				nodePath = settings.nodePath;
@@ -878,6 +892,7 @@ export namespace ESLint {
 				moduleResolveWorkingDirectory = settings.workingDirectory.directory;
 			}
 
+			let promise: Promise<string>;
 			// During Flat Config is considered experimental,
 			// we need to import FlatESLint from 'eslint/use-at-your-own-risk'.
 			// See: https://eslint.org/blog/2022/08/new-config-system-part-3/
@@ -931,6 +946,16 @@ export namespace ESLint {
 							path2Library.set(libraryPath, library);
 						}
 					}
+					if (library !== undefined && ESLintModule.hasESLintClass(library) && typeof library.ESLint.version === 'string') {
+						const esLintVersion = semverParse(library.ESLint.version);
+						if (esLintVersion !== null) {
+							if (semverGte(esLintVersion, '8.57.0') && settings.experimental.useFlatConfig === true) {
+								connection.console.info(`ESLint version ${library.ESLint.version} supports flat config without experimental opt-in. The 'eslint.experimental.useFlatConfig' setting can be removed.`);
+							} else if (semverGte(esLintVersion, '10.0.0') && (settings.experimental.useFlatConfig === false || settings.useFlatConfig === false)) {
+								connection.console.info(`ESLint version ${library.ESLint.version} only supports flat configs. Setting is ignored.`);
+							}
+						}
+					}
 				} else {
 					settings.library = library;
 				}
@@ -944,9 +969,9 @@ export namespace ESLint {
 						if (defaultLanguageIds.has(document.languageId)) {
 							settings.validate = Validate.on;
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
-							const eslintConfig: ESLintConfig | undefined = await ESLint.withClass(async (eslintClass) => {
+							const [eslintConfig, configType] = await ESLint.withClass(async (eslintClass) => {
 								try {
-									return await eslintClass.calculateConfigForFile(filePath!);
+									return [await eslintClass.calculateConfigForFile(filePath!), ESLintClass.getConfigType(eslintClass)];
 								} catch (err) {
 									try {
 										void connection.sendNotification(StatusNotification.type, { uri, state: Status.error });
@@ -954,11 +979,11 @@ export namespace ESLint {
 									} catch {
 										// little we can do here
 									}
-									return undefined;
+									return [undefined, undefined];
 								}
 							}, settings);
 							if (eslintConfig !== undefined) {
-								if (ESLintModule.isFlatConfig(settings.library)) {
+								if (configType === 'flat' || ESLintModule.isFlatConfig(settings.library)) {
 									// We have a flat configuration. This means that the config file needs to
 									// have a section per file extension we want to validate. If there is none than
 									// `calculateConfigForFile` will return no config since the config options without
@@ -1048,16 +1073,16 @@ export namespace ESLint {
 		return resultPromise;
 	}
 
-	export async function newClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions, useESLintClass: boolean): Promise<ESLintClass> {
+	export async function newClass(library: ESLintModule, newOptions: ESLintClassOptions | CLIOptions, settings: TextDocumentSettings): Promise<ESLintClass> {
 		// Since ESLint version 8.57 we have a dedicated loadESLint function
 		// which takes care of loading the right ESLint class. We available
 		// we use it.
 		if (ESLintModule.hasLoadESLint(library)) {
-			return new (await library.loadESLint())(newOptions);
+			return new (await library.loadESLint({ useFlatConfig: settings.useFlatConfig }))(newOptions);
 		}
 		// If we have version 7 where we have both ESLint class and CLIEngine we only
 		// use the ESLint class if a corresponding setting (useESLintClass) is set.
-		if (ESLintModule.hasESLintClass(library) && useESLintClass) {
+		if (ESLintModule.hasESLintClass(library) && settings.useESLintClass) {
 			return new library.ESLint(newOptions);
 		}
 		if (ESLintModule.hasCLIEngine(library)) {
@@ -1083,7 +1108,7 @@ export namespace ESLint {
 				}
 			}
 
-			const eslintClass = await newClass(settings.library, newOptions, settings.useESLintClass);
+			const eslintClass = await newClass(settings.library, newOptions, settings);
 			// We need to await the result to ensure proper execution of the
 			// finally block.
 			return await func(eslintClass);
@@ -1249,7 +1274,7 @@ export namespace ESLint {
 
 	export namespace ErrorHandlers {
 
-		export const single: ((error: any, document: TextDocument, library: ESLintModule) => Status | undefined)[] = [
+		export const single: ((error: any, document: TextDocument, library: ESLintModule, settings: TextDocumentSettings) => Status | undefined)[] = [
 			tryHandleNoConfig,
 			tryHandleConfigError,
 			tryHandleMissingModule,
@@ -1295,9 +1320,9 @@ export namespace ESLint {
 			return Status.warn;
 		}
 
-		const configErrorReported: Map<string, ESLintModule> = new Map<string, ESLintModule>();
+		const configErrorReported: Map<string, { library: ESLintModule; settings: TextDocumentSettings }> = new Map();
 
-		export function getConfigErrorReported(key: string): ESLintModule | undefined {
+		export function getConfigErrorReported(key: string): { library: ESLintModule; settings: TextDocumentSettings } | undefined {
 			return configErrorReported.get(key);
 		}
 
@@ -1305,7 +1330,7 @@ export namespace ESLint {
 			return configErrorReported.delete(key);
 		}
 
-		function tryHandleConfigError(error: any, document: TextDocument, library: ESLintModule): Status | undefined {
+		function tryHandleConfigError(error: any, document: TextDocument, library: ESLintModule, settings: TextDocumentSettings): Status | undefined {
 			if (!error.message) {
 				return undefined;
 			}
@@ -1316,7 +1341,7 @@ export namespace ESLint {
 					if (!documents.get(URI.file(filename).toString())) {
 						connection.window.showInformationMessage(getMessage(error, document));
 					}
-					configErrorReported.set(filename, library);
+					configErrorReported.set(filename, { library, settings });
 				}
 				return Status.warn;
 			}
