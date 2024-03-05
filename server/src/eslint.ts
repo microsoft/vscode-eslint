@@ -967,11 +967,20 @@ export namespace ESLint {
 						const pluginName = languageId2PluginName.get(document.languageId);
 						const parserOptions = languageId2ParserOptions.get(document.languageId);
 						if (defaultLanguageIds.has(document.languageId)) {
-							settings.validate = Validate.on;
+							const isIgnored = await ESLint.withClass(async (eslintClass) => {
+								return eslintClass.isPathIgnored(filePath);
+							}, settings);
+							if (!isIgnored) {
+								settings.validate = Validate.on;
+							}
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
 							const [eslintConfig, configType] = await ESLint.withClass(async (eslintClass) => {
 								try {
-									return [await eslintClass.calculateConfigForFile(filePath!), ESLintClass.getConfigType(eslintClass)];
+									if (await eslintClass.isPathIgnored(filePath)) {
+										return [undefined, undefined];
+									} else {
+										return [await eslintClass.calculateConfigForFile(filePath), ESLintClass.getConfigType(eslintClass)];
+									}
 								} catch (err) {
 									try {
 										void connection.sendNotification(StatusNotification.type, { uri, state: Status.error });
