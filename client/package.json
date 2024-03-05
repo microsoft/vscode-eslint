@@ -2,7 +2,7 @@
 	"name": "client",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "2.4.1",
+	"version": "2.5.0",
 	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
