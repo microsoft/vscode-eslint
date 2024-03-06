@@ -10,6 +10,7 @@
 	"eslint.workingDirectories": [
 		"./build"
 	],
+	"eslint.useFlatConfig": false,
 	"eslint.packageManager": "yarn",
 	"eslint.trace.server": "messages",
 	"files.autoSave": "off",
