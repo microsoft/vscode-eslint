@@ -214,7 +214,7 @@ connection.onInitialize((params, _cancel, progress) => {
 		},
 		diagnosticProvider: {
 			identifier: 'eslint',
-			interFileDependencies: true,
+			interFileDependencies: false,
 			workspaceDiagnostics: false
 		}
 	};

@@ -583,6 +583,11 @@
 				"title": "Restart ESLint Server",
 				"category": "ESLint",
 				"command": "eslint.restart"
+			},
+			{
+				"title": "Revalidate all open files",
+				"category": "ESLint",
+				"command": "eslint.revalidate"
 			}
 		],
 		"taskDefinitions": [
