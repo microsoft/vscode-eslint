@@ -19,6 +19,7 @@
 	},
 	"eslint.enable": true,
 	"eslint.useESLintClass": true,
+	"eslint.useFlatConfig": true,
 	"eslint.codeActionsOnSave.rules": [
 		"@typescript-eslint/semi",
 		"@typescript-eslint/indent",
@@ -29,7 +30,7 @@
 		"./client",
 		"./server"
 	],
-	"eslint.trace.server": "off",
+	"eslint.trace.server": "messages",
 	"eslint.debug": false,
 	"eslint.lintTask.enable": false,
 	"eslint.format.enable": true,

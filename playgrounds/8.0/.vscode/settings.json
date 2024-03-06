@@ -10,11 +10,9 @@
 	"eslint.workingDirectories": [
 		"./build"
 	],
+	"eslint.useFlatConfig": false,
 	"eslint.packageManager": "yarn",
-	"eslint.trace.server": {
-		"verbosity": "off",
-		"format": "text"
-	},
+	"eslint.trace.server": "messages",
 	"files.autoSave": "off",
 	"editor.formatOnSave": false,
 	// , "languageServerExample.trace.server": "messages"

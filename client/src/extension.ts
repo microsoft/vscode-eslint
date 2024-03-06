@@ -10,6 +10,7 @@ import {
 } from 'vscode';
 
 import {
+	DocumentDiagnosticRequest,
 	LanguageClient
 } from 'vscode-languageclient/node';
 
@@ -108,7 +109,8 @@ export function activate(context: ExtensionContext) {
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
 		Commands.registerCommand('eslint.showOutputChannel', notValidating),
 		Commands.registerCommand('eslint.migrateSettings', notValidating),
-		Commands.registerCommand('eslint.restart', notValidating)
+		Commands.registerCommand('eslint.restart', notValidating),
+		Commands.registerCommand('eslint.revalidate', notValidating)
 	];
 
 	context.subscriptions.push(
@@ -139,6 +141,9 @@ function realActivate(context: ExtensionContext): void {
 		}),
 		Commands.registerCommand('eslint.restart', () => {
 			client.restart().catch((error) => client.error(`Restarting client failed`, error, 'force'));
+		}),
+		Commands.registerCommand('eslint.revalidate', () => {
+			client.getFeature(DocumentDiagnosticRequest.method).refresh();
 		})
 	);
 

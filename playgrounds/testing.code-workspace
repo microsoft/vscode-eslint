@@ -5,6 +5,15 @@
 		},
 		{
 			"path": "ts"
+		},
+		{
+			"path": "8.0"
+		},
+		{
+			"path": "loadESLint"
+		},
+		{
+			"path": "flatConfig"
 		}
 	],
 	"settings": {
@@ -12,7 +21,7 @@
 			"verbosity": "messages",
 			"format": "text"
 		},
-		"files.autoSave": "off",
+		"files.autoSave": "afterDelay",
 		"eslint.alwaysShowStatus": true,
 		"typescript.surveys.enabled": false
 	}

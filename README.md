@@ -21,7 +21,15 @@ On new folders you might also need to create an `.eslintrc` configuration file. 
 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md).
 
-From version 2.2.3 on forward odd major, minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5`, `2.3.1` and `3.0.0` will all be pre-release versions. `2.2.10`, `2.4.10` and `4.0.0` will all be regular release versions.
+From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
+
+### Version 3.0.1 - pre-release
+
+- converted the server to use diagnostic pull instead of push.
+- files will be revalidated on focus gain.
+- Add a command `ESLint: Revalidate all open files` to revalidate all open files.
+- Probing support for [Astro](https://github.com/microsoft/vscode-eslint/pull/1795), [MDX](https://github.com/microsoft/vscode-eslint/pull/1794) and [JSON](https://github.com/microsoft/vscode-eslint/pull/1787)
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3ANext)
 
 ### Version 2.4.4
 
