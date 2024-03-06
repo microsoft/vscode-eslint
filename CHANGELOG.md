@@ -1,3 +1,11 @@
+### Version 3.0.1 - pre-release
+
+- converted the server to use diagnostic pull instead of push.
+- files will be revalidated on focus gain.
+- Add a command `ESLint: Revalidate all open files` to revalidate all open files.
+- Probing support for [Astro](https://github.com/microsoft/vscode-eslint/pull/1795), [MDX](https://github.com/microsoft/vscode-eslint/pull/1794) and [JSON](https://github.com/microsoft/vscode-eslint/pull/1787)
+- various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3ANext)
+
 ### Version 2.4.4
 
 - same as 2.4.3 - pre-release
