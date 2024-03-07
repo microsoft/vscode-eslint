@@ -10,6 +10,7 @@ contributing.md
 .azure-pipelines.yml
 shared.webpack.config.js
 .eslintignore
+eslint.config.js
 .lsifrc.json
 build/**
 *.zip
