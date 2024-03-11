@@ -1188,7 +1188,7 @@ export namespace ESLint {
 					docReport.messages.forEach((problem) => {
 						if (problem) {
 							const [diagnostic, override] = Diagnostics.create(settings, problem, document);
-							if (!(override === RuleSeverity.off || (settings.quiet && diagnostic.severity === DiagnosticSeverity.Warning))) {
+							if (!(override === RuleSeverity.off || (settings.quiet && diagnostic.severity !== DiagnosticSeverity.Error))) {
 								diagnostics.push(diagnostic);
 							}
 							if (fixTypes !== undefined && problem.ruleId !== undefined && problem.fix !== undefined) {
