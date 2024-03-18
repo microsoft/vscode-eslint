@@ -1,5 +1,5 @@
 {
-  "name": "eslint8_flat_config",
+  "name": "eslint8_flat_config_mjs",
   "private": true,
   "version": "1.0.0",
   "devDependencies": {
