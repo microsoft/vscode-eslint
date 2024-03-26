@@ -790,15 +790,16 @@ export namespace ESLint {
 	const projectFolderIndicators: {
 		fileName: string;
 		isRoot: boolean;
+		isFlatConfig: boolean;
 	}[] = [
-		{ fileName: 'package.json', isRoot: true },
-		{ fileName: '.eslintignore', isRoot: true },
-		{ fileName: 'eslint.config.js', isRoot: true },
-		{ fileName: '.eslintrc', isRoot: false },
-		{ fileName: '.eslintrc.json', isRoot: false },
-		{ fileName: '.eslintrc.js', isRoot: false },
-		{ fileName: '.eslintrc.yaml', isRoot: false },
-		{ fileName: '.eslintrc.yml', isRoot: false },
+		{ fileName: 'package.json', isRoot: true, isFlatConfig: false },
+		{ fileName: '.eslintignore', isRoot: true, isFlatConfig: false },
+		{ fileName: 'eslint.config.js', isRoot: true, isFlatConfig: true},
+		{ fileName: '.eslintrc', isRoot: false, isFlatConfig: false },
+		{ fileName: '.eslintrc.json', isRoot: false, isFlatConfig: false },
+		{ fileName: '.eslintrc.js', isRoot: false, isFlatConfig: false },
+		{ fileName: '.eslintrc.yaml', isRoot: false, isFlatConfig: false },
+		{ fileName: '.eslintrc.yml', isRoot: false, isFlatConfig: false }
 	];
 
 	const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
@@ -854,19 +855,26 @@ export namespace ESLint {
 			settings.resolvedGlobalPackageManagerPath = GlobalPaths.get(settings.packageManager);
 			const filePath = inferFilePath(document);
 			const workspaceFolderPath = settings.workspaceFolder !== undefined ? inferFilePath(settings.workspaceFolder.uri) : undefined;
+			let assumeFlatConfig:boolean = false;
 			const hasUserDefinedWorkingDirectories: boolean = configuration.workingDirectory !== undefined;
 			const workingDirectoryConfig = configuration.workingDirectory ?? { mode: ModeEnum.location };
 			if (ModeItem.is(workingDirectoryConfig)) {
 				let candidate: string | undefined;
 				if (workingDirectoryConfig.mode === ModeEnum.location) {
 					if (workspaceFolderPath !== undefined) {
-						candidate = workspaceFolderPath;
+						const [configLocation, isFlatConfig] = findWorkingDirectory(workspaceFolderPath, filePath);
+						if (isFlatConfig && settings.useFlatConfig !== false) {
+							candidate = configLocation;
+							assumeFlatConfig = true;
+						} else {
+							candidate = workspaceFolderPath;
+						}
 					} else if (filePath !== undefined && !isUNC(filePath)) {
 						candidate = path.dirname(filePath);
 					}
 				} else if (workingDirectoryConfig.mode === ModeEnum.auto) {
 					if (workspaceFolderPath !== undefined) {
-						candidate = findWorkingDirectory(workspaceFolderPath, filePath);
+						candidate = findWorkingDirectory(workspaceFolderPath, filePath)[0];
 					} else if (filePath !== undefined && !isUNC(filePath)) {
 						candidate = path.dirname(filePath);
 					}
@@ -967,11 +975,20 @@ export namespace ESLint {
 						const pluginName = languageId2PluginName.get(document.languageId);
 						const parserOptions = languageId2ParserOptions.get(document.languageId);
 						if (defaultLanguageIds.has(document.languageId)) {
-							const isIgnored = await ESLint.withClass(async (eslintClass) => {
-								return eslintClass.isPathIgnored(filePath);
-							}, settings);
-							if (!isIgnored) {
-								settings.validate = Validate.on;
+							try {
+								const [isIgnored, configType] = await ESLint.withClass(async (eslintClass) => {
+									return [await eslintClass.isPathIgnored(filePath), ESLintClass.getConfigType(eslintClass)];
+								}, settings);
+								if (isIgnored === false) {
+									settings.validate = Validate.on;
+									if (assumeFlatConfig && configType === 'eslintrc') {
+										connection.console.info(`Expected to use flat configuration from directory ${settings.workingDirectory?.directory} but loaded eslintrc config.`);
+									}
+								}
+							} catch (error: any) {
+								settings.validate = Validate.off;
+								await connection.sendNotification(StatusNotification.type, { uri, state: Status.error });
+								connection.console.error(`Calculating config file for ${uri}) failed.\n${error instanceof Error ? error.stack : ''}`);
 							}
 						} else if (parserRegExps !== undefined || pluginName !== undefined || parserOptions !== undefined) {
 							const [eslintConfig, configType] = await ESLint.withClass(async (eslintClass) => {
@@ -983,8 +1000,8 @@ export namespace ESLint {
 									}
 								} catch (err) {
 									try {
-										void connection.sendNotification(StatusNotification.type, { uri, state: Status.error });
-										void connection.console.error(`Calculating config file for ${uri}) failed.\n${err instanceof Error ? err.stack : ''}`);
+										await connection.sendNotification(StatusNotification.type, { uri, state: Status.error });
+										connection.console.error(`Calculating config file for ${uri}) failed.\n${err instanceof Error ? err.stack : ''}`);
 									} catch {
 										// little we can do here
 									}
@@ -992,6 +1009,9 @@ export namespace ESLint {
 								}
 							}, settings);
 							if (eslintConfig !== undefined) {
+								if (assumeFlatConfig && configType === 'eslintrc') {
+									connection.console.info(`Expected to use flat configuration from directory ${settings.workingDirectory?.directory} but loaded eslintrc config.`);
+								}
 								if (configType === 'flat' || ESLintModule.isFlatConfig(settings.library)) {
 									// We have a flat configuration. This means that the config file needs to
 									// have a section per file extension we want to validate. If there is none than
@@ -1253,21 +1273,23 @@ export namespace ESLint {
 		}
 	}
 
-	export function findWorkingDirectory(workspaceFolder: string, file: string | undefined): string | undefined {
+	export function findWorkingDirectory(workspaceFolder: string, file: string | undefined): [string, boolean] {
 		if (file === undefined || isUNC(file)) {
-			return workspaceFolder;
+			return [workspaceFolder, false];
 		}
 		// Don't probe for something in node modules folder.
 		if (file.indexOf(`${path.sep}node_modules${path.sep}`) !== -1) {
-			return workspaceFolder;
+			return [workspaceFolder, false];
 		}
 
 		let result: string = workspaceFolder;
+		let flatConfig: boolean = false;
 		let directory: string | undefined = path.dirname(file);
 		outer: while (directory !== undefined && directory.startsWith(workspaceFolder)) {
-			for (const { fileName, isRoot } of projectFolderIndicators) {
+			for (const { fileName, isRoot, isFlatConfig } of projectFolderIndicators) {
 				if (fs.existsSync(path.join(directory, fileName))) {
 					result = directory;
+					flatConfig = isFlatConfig;
 					if (isRoot) {
 						break outer;
 					} else {
@@ -1278,7 +1300,7 @@ export namespace ESLint {
 			const parent = path.dirname(directory);
 			directory = parent !== directory ? parent : undefined;
 		}
-		return result;
+		return [result, flatConfig];
 	}
 
 	export namespace ErrorHandlers {
