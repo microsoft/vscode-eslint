@@ -23,13 +23,17 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
 
-### Version 3.0.1 - pre-release
+### Version 3.0.3 - pre-release
 
-- converted the server to use diagnostic pull instead of push.
-- files will be revalidated on focus gain.
+- Support for the new ESLint flat config files has improved. The following changes have been implemented:
+  - To use flat config files it is recommended to use ESLint version 8.57.0 or above.
+  - There is a new `eslint.useFlatConfig` setting which is honored by ESLint version 8.57.0 and above. If one of those versions is used, the extension adheres to the [ESLint Flat config rollout plan](https://eslint.org/blog/2023/10/flat-config-rollout-plans/). The setting has the same meaning as the environment variable `ESLINT_USE_FLAT_CONFIG`.
+  - The experimental settings `eslint.experimental.useFlatConfig` is deprecated and should only be used for ESLint versions >= 8.21 < 8.57.0.
+- Converted the server to use diagnostic pull instead of push.
+- Files will be revalidated on focus gain.
 - Add a command `ESLint: Revalidate all open files` to revalidate all open files.
 - Probing support for [Astro](https://github.com/microsoft/vscode-eslint/pull/1795), [MDX](https://github.com/microsoft/vscode-eslint/pull/1794) and [JSON](https://github.com/microsoft/vscode-eslint/pull/1787)
-- various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3ANext)
+- Various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3ANext)
 
 ### Version 2.4.4
 
