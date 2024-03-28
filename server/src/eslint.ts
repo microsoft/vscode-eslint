@@ -792,9 +792,11 @@ export namespace ESLint {
 		isRoot: boolean;
 		isFlatConfig: boolean;
 	}[] = [
+		{ fileName: 'eslint.config.js', isRoot: true, isFlatConfig: true},
+		{ fileName: 'eslint.config.cjs', isRoot: true, isFlatConfig: true},
+		{ fileName: 'eslint.config.mjs', isRoot: true, isFlatConfig: true},
 		{ fileName: 'package.json', isRoot: true, isFlatConfig: false },
 		{ fileName: '.eslintignore', isRoot: true, isFlatConfig: false },
-		{ fileName: 'eslint.config.js', isRoot: true, isFlatConfig: true},
 		{ fileName: '.eslintrc', isRoot: false, isFlatConfig: false },
 		{ fileName: '.eslintrc.json', isRoot: false, isFlatConfig: false },
 		{ fileName: '.eslintrc.js', isRoot: false, isFlatConfig: false },
