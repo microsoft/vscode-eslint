@@ -1,3 +1,7 @@
+### Version 3.0.5 - pre-release
+
+- Support for the new ESLint flat config files has improved. See README.MD for a detailed description of the changes.
+
 ### Version 3.0.1 - pre-release
 
 - converted the server to use diagnostic pull instead of push.
