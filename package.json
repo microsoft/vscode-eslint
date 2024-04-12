@@ -320,7 +320,9 @@
 						"html",
 						"mdx",
 						"vue",
-						"markdown"
+						"markdown",
+						"json",
+						"jsonc"
 					],
 					"description": "An array of language ids for which the extension should probe if support is installed."
 				},
