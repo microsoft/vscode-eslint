@@ -109,6 +109,8 @@ export enum RuleSeverity {
 export type RuleCustomization = {
 	rule: string;
 	severity: RuleSeverity;
+	/** Only apply to autofixable rules */
+	fixable?: boolean;
 };
 
 export type RunValues = 'onType' | 'onSave';

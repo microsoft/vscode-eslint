@@ -550,7 +550,7 @@ export namespace RuleSeverities {
 
 	const ruleSeverityCache = new LRUCache<string, RuleSeverity | null>(1024);
 
-	export function getOverride(ruleId: string, customizations: RuleCustomization[]): RuleSeverity | undefined {
+	export function getOverride(ruleId: string, customizations: RuleCustomization[], isFixable?: boolean): RuleSeverity | undefined {
 		let result: RuleSeverity | undefined | null = ruleSeverityCache.get(ruleId);
 		if (result === null) {
 			return undefined;
@@ -559,7 +559,12 @@ export namespace RuleSeverities {
 			return result;
 		}
 		for (const customization of customizations) {
-			if (asteriskMatches(customization.rule, ruleId)) {
+			if (
+				// Rule name should match
+				asteriskMatches(customization.rule, ruleId) &&
+				// Fixable flag should match the fixability of the rule if it's defined
+				(customization.fixable === undefined || customization.fixable === isFixable)
+			) {
 				result = customization.severity;
 			}
 		}
@@ -620,7 +625,8 @@ namespace Diagnostics {
 			endLine = startLine;
 			endChar = startLineText.length;
 		}
-		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations);
+
+		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations, problem.fix !== undefined);
 		const result: Diagnostic = {
 			message: message,
 			severity: convertSeverityToDiagnosticWithOverride(problem.severity, override),

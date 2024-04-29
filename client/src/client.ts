@@ -807,10 +807,18 @@ export namespace ESLintClient {
 
 			return rawConfig.map(rawValue => {
 				if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
-					return {
-						severity: rawValue.severity,
-						rule: rawValue.rule,
-					};
+					if (typeof rawValue.fixable === 'boolean') {
+						return {
+							severity: rawValue.severity,
+							rule: rawValue.rule,
+							fixable: rawValue.fixable
+						};
+					} else {
+						return {
+							severity: rawValue.severity,
+							rule: rawValue.rule,
+						};
+					}
 				}
 
 				return undefined;
