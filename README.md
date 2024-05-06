@@ -313,6 +313,7 @@ This extension contributes the following variables to the [settings](https://cod
   - `"rule`": Select on rules with names that match, factoring in asterisks as wildcards: `{ "rule": "no-*", "severity": "warn" }`
     - Prefix the name with a `"!"` to target all rules that _don't_ match the name: `{ "rule": "!no-*", "severity": "info" }`
   - `"severity"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"default"`s them to their original severity
+  - `"fixable`": Select only autofixable rules: `{ "rule": "no-*", "fixable": true, "severity": "info" }`
 
   In this example, all rules are overridden to warnings:
 
@@ -329,6 +330,14 @@ This extension contributes the following variables to the [settings](https://cod
     { "rule": "no-*", "severity": "info" },
     { "rule": "!no-*", "severity": "downgrade" },
     { "rule": "radix", "severity": "default" }
+  ]
+  ```
+
+  In this example, all autofixable rules are overridden to info:
+
+  ```json
+  "eslint.rules.customizations": [
+    { "rule": "*", "fixable": true, "severity": "info" }
   ]
   ```
 
