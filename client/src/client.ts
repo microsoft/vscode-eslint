@@ -249,7 +249,6 @@ export namespace ESLintClient {
 				pnpm: 'pnpm install -g eslint',
 				yarn: 'yarn global add eslint'
 			};
-			const isPackageManagerNpm = packageManager === 'npm';
 			interface ButtonItem extends MessageItem {
 				id: number;
 			}
@@ -265,7 +264,6 @@ export namespace ESLintClient {
 					`To use ESLint please install eslint by running ${localInstall[packageManager]} in the workspace folder ${workspaceFolder.name}`,
 					`or globally using '${globalInstall[packageManager]}'. You need to reopen the workspace after installing eslint.`,
 					'',
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					`Alternatively you can disable ESLint for the workspace folder ${workspaceFolder.name} by executing the 'Disable ESLint' command.`
 				].filter((str => (str !== null))).join('\n'));
 
@@ -285,7 +283,6 @@ export namespace ESLintClient {
 				client.info([
 					`Failed to load the ESLint library for the document ${uri.fsPath}`,
 					`To use ESLint for single JavaScript file install eslint globally using '${globalInstall[packageManager]}'.`,
-					isPackageManagerNpm ? 'If you are using yarn or pnpm instead of npm set the setting `eslint.packageManager` to either `yarn` or `pnpm`' : null,
 					'You need to reopen VS Code after installing eslint.',
 				].filter((str => (str !== null))).join('\n'));
 
