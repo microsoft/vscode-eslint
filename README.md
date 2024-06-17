@@ -23,6 +23,14 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
 
+### Version 3.0.10 - release
+
+- Bump VS Code version to 1.90 to ensure NodeJS 20.
+
+### Version 3.0.8 - release
+
+- same as pre-release
+
 ### Version 3.0.5 - pre-release
 
 - Support for the new ESLint flat config files has improved. The following changes have been implemented:

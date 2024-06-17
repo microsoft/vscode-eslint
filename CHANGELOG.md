@@ -1,3 +1,7 @@
+### Version 3.0.10 - Release
+
+- Bump VS Code version to 1.90 to ensure NodeJS 20.
+
 ### Version 3.0.8 - Release
 
 - Same as 3.0.7 - pre-release
