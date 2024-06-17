@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "3.0.5",
+	"version": "3.0.8",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
