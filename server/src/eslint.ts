@@ -987,7 +987,7 @@ export namespace ESLint {
 								const [isIgnored, configType] = await ESLint.withClass(async (eslintClass) => {
 									return [await eslintClass.isPathIgnored(filePath), ESLintClass.getConfigType(eslintClass)];
 								}, settings);
-								if (isIgnored === false) {
+								if (isIgnored === false || (isIgnored === true && settings.onIgnoredFiles !== ESLintSeverity.off)) {
 									settings.validate = Validate.on;
 									if (assumeFlatConfig && configType === 'eslintrc') {
 										connection.console.info(`Expected to use flat configuration from directory ${settings.workingDirectory?.directory} but loaded eslintrc config.`);
