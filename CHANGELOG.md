@@ -1,3 +1,15 @@
+### Version 3.0.10 - Release
+
+- Bump VS Code version to 1.90 to ensure NodeJS 20.
+
+### Version 3.0.8 - Release
+
+- Same as 3.0.7 - pre-release
+
+### Version 3.0.7 - pre-release
+
+- bug fixes to better support flat configs.
+
 ### Version 3.0.5 - pre-release
 
 - Support for the new ESLint flat config files has improved. See README.MD for a detailed description of the changes.
