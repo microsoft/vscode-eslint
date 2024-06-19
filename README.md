@@ -35,7 +35,10 @@ From version 2.2.3 on forward odd minor or patch version numbers indicate an ins
 
 - Support for the new ESLint flat config files has improved. The following changes have been implemented:
   - To use flat config files it is recommended to use ESLint version 8.57.0 or above.
-  - There is a new `eslint.useFlatConfig` setting which is honored by ESLint version 8.57.0 and above. If one of those versions is used, the extension adheres to the [ESLint Flat config rollout plan](https://eslint.org/blog/2023/10/flat-config-rollout-plans/). The setting has the same meaning as the environment variable `ESLINT_USE_FLAT_CONFIG`.
+  - There is a new `eslint.useFlatConfig` setting which is honored by ESLint version 8.57.0 and above. If one of those versions is used, the extension adheres to the [ESLint Flat config rollout plan](https://eslint.org/blog/2023/10/flat-config-rollout-plans/). The setting has the same meaning as the environment variable `ESLINT_USE_FLAT_CONFIG`. That means:
+    - *8.57.0 <= ESLint version < 9.x*: setting is honored and defaults to false.
+    - *9.0.0 <= ESLint version < 10.x*: settings is honored and defaults to true.
+    - *10.0.0 <= ESLint version*: setting is ignored. Flat configs are the default and can't be turned off.
   - The experimental settings `eslint.experimental.useFlatConfig` is deprecated and should only be used for ESLint versions >= 8.21 < 8.57.0.
 - Converted the server to use diagnostic pull instead of push.
 - Files will be revalidated on focus gain.
