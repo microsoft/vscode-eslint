@@ -912,7 +912,7 @@ export namespace ESLint {
 			// During Flat Config is considered experimental,
 			// we need to import FlatESLint from 'eslint/use-at-your-own-risk'.
 			// See: https://eslint.org/blog/2022/08/new-config-system-part-3/
-			const eslintPath = settings.experimental.useFlatConfig ? 'eslint/use-at-your-own-risk' : 'eslint';
+			const eslintPath = settings.experimental?.useFlatConfig ? 'eslint/use-at-your-own-risk' : 'eslint';
 			if (nodePath !== undefined) {
 				promise = Files.resolve(eslintPath, nodePath, nodePath, trace).then<string, string>(undefined, () => {
 					return Files.resolve(eslintPath, settings.resolvedGlobalPackageManagerPath, moduleResolveWorkingDirectory, trace);
@@ -925,7 +925,7 @@ export namespace ESLint {
 			return promise.then(async (libraryPath) => {
 				let library = path2Library.get(libraryPath);
 				if (library === undefined) {
-					if (settings.experimental.useFlatConfig) {
+					if (settings.experimental?.useFlatConfig === true) {
 						const lib = loadNodeModule<{ FlatESLint?: ESLintClassConstructor }>(libraryPath);
 						if (lib === undefined) {
 							settings.validate = Validate.off;
@@ -965,9 +965,9 @@ export namespace ESLint {
 					if (library !== undefined && ESLintModule.hasESLintClass(library) && typeof library.ESLint.version === 'string') {
 						const esLintVersion = semverParse(library.ESLint.version);
 						if (esLintVersion !== null) {
-							if (semverGte(esLintVersion, '8.57.0') && settings.experimental.useFlatConfig === true) {
+							if (semverGte(esLintVersion, '8.57.0') && settings.experimental?.useFlatConfig === true) {
 								connection.console.info(`ESLint version ${library.ESLint.version} supports flat config without experimental opt-in. The 'eslint.experimental.useFlatConfig' setting can be removed.`);
-							} else if (semverGte(esLintVersion, '10.0.0') && (settings.experimental.useFlatConfig === false || settings.useFlatConfig === false)) {
+							} else if (semverGte(esLintVersion, '10.0.0') && (settings.experimental?.useFlatConfig === false || settings.useFlatConfig === false)) {
 								connection.console.info(`ESLint version ${library.ESLint.version} only supports flat configs. Setting is ignored.`);
 							}
 						}
