@@ -158,7 +158,7 @@ export type ConfigurationSettings = {
 	packageManager: PackageManagers;
 	useESLintClass: boolean;
 	useFlatConfig?: boolean | undefined;
-	experimental: {
+	experimental?: {
 		useFlatConfig: boolean;
 	};
 	codeAction: CodeActionSettings;
