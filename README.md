@@ -23,6 +23,16 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
 
+### Version 3.0.11 - pre-release
+
+- Enforcement of the validate setting. If the `eslint.validate` setting is specified only files in that list will be validated. For example, a setting of the form
+  ```
+  "eslint.validate": [
+ 	  "javascript"
+  ]
+  ```
+  will only validate JavaScript files. This is comparable to providing extensions on the command line.
+
 ### Version 3.0.10 - release
 
 - Bump VS Code version to 1.90 to ensure NodeJS 20.
@@ -44,7 +54,7 @@ From version 2.2.3 on forward odd minor or patch version numbers indicate an ins
 - Files will be revalidated on focus gain.
 - Add a command `ESLint: Revalidate all open files` to revalidate all open files.
 - Probing support for [Astro](https://github.com/microsoft/vscode-eslint/pull/1795), [MDX](https://github.com/microsoft/vscode-eslint/pull/1794) and [JSON](https://github.com/microsoft/vscode-eslint/pull/1787)
-- Various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3ANext)
+- Various [bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aclosed+milestone%3A3.0.10)
 
 ### Version 2.4.4
 
@@ -248,7 +258,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.nodeEnv` - use this setting if an ESLint plugin or configuration needs `process.env.NODE_ENV` to be defined.
 - `eslint.nodePath` - use this setting if an installed ESLint package can't be detected, for example `/myGlobalNodePackages/node_modules`.
 - `eslint.probe` - an array for language identifiers for which the ESLint extension should be activated and should try to validate the file. If validation fails for probed languages the extension says silent. Defaults to `["javascript", "javascriptreact", "typescript", "typescriptreact", "html", "vue", "markdown"]`.
-- `eslint.validate` - an array of language identifiers specifying the files for which validation is to be enforced. This is an old legacy setting and should in normal cases not be necessary anymore. Defaults to `["javascript", "javascriptreact"]`.
+- `eslint.validate` - an array of language identifiers specifying the files for which validation is to be enforced. If specified only files with one of the language Ids specified will be validated. This is comparable to the `--ext` command line option. Defaults to `null`.
 - `eslint.format.enable`: enables ESLint as a formatter for validated files. Although you can also use the formatter on save using the setting `editor.formatOnSave` it is recommended to use the `editor.codeActionsOnSave` feature since it allows for better configurability.
 - `eslint.workingDirectories` - specifies how the working directories ESLint is using are computed. ESLint resolves configuration files (e.g. `eslintrc`, `.eslintignore`) relative to a working directory so it is important to configure this correctly. If executing ESLint in the terminal requires you to change the working directory in the terminal into a sub folder then it is usually necessary to tweak this setting. (see also [ESLint class options#cwd](https://eslint.org/docs/developer-guide/nodejs-api#eslint-class)). Please also keep in mind that the `.eslintrc*` file is resolved considering the parent directories whereas the `.eslintignore` file is only honored in the current working directory. The following values can be used:
   - `[{ "mode": "location" }]` (@since 2.0.0): instructs ESLint to uses the workspace folder location or the file location (if no workspace folder is open) as the working directory. This is the default and is the same strategy as used in older versions of the ESLint extension (1.9.x versions).

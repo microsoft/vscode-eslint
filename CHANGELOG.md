@@ -1,3 +1,13 @@
+### Version 3.0.11 - pre-release
+
+- Enforcement of the validate setting. If the `eslint.validate` setting is specified only files in that list will be validated. For example, a setting of the form
+  ```
+  "eslint.validate": [
+ 	  "javascript"
+  ]
+  ```
+  will only validate JavaScript files. This is comparable to providing extensions on the command line.
+
 ### Version 3.0.10 - Release
 
 - Bump VS Code version to 1.90 to ensure NodeJS 20.

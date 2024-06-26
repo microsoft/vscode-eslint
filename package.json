@@ -185,7 +185,7 @@
 				},
 				"eslint.useFlatConfig": {
 					"scope": "resource",
-					"type": [ "boolean", "null"],
+					"type": ["boolean", "null"],
 					"default": null,
 					"markdownDescription": "Controls whether flat config should be used or not. This setting requires ESLint version 8.57 or later and is interpreted according to the [ESLint Flat Config rollout plan](https://eslint.org/blog/2023/10/flat-config-rollout-plans/). This means:\n\n - *8.57.0 <= ESLint version < 9.x*: setting is honored and defaults to false\n- *9.0.0 <= ESLint version < 10.x*: settings is honored and defaults to true\n- *10.0.0 <= ESLint version*: setting is ignored. Flat configs are the default and can't be turned off."
 				},
@@ -275,7 +275,7 @@
 				},
 				"eslint.validate": {
 					"scope": "resource",
-					"type": "array",
+					"type": ["array", "null"],
 					"items": {
 						"anyOf": [
 							{
@@ -297,6 +297,7 @@
 							}
 						]
 					},
+					"default": null,
 					"description": "An array of language ids which should be validated by ESLint. If not installed ESLint will show an error."
 				},
 				"eslint.ignoreUntitled": {

@@ -48,7 +48,7 @@ export class Validator {
 		}
 
 		const languageId = textDocument.languageId;
-		const validate = config.get<(ValidateItem | string)[]>('validate');
+		const validate = config.get<((ValidateItem | string)[]) | null>('validate', null);
 		if (Array.isArray(validate)) {
 			for (const item of validate) {
 				if (Is.string(item) && item === languageId) {
@@ -57,6 +57,7 @@ export class Validator {
 					return Validate.on;
 				}
 			}
+			return Validate.off;
 		}
 
 		if (this.probeFailed.has(textDocument.uri.toString())) {
