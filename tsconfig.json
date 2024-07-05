@@ -1,11 +1,11 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"module": "commonjs",
-		"target": "es2020",
+		"module": "Node16",
+		"target": "ES2020",
 		"outDir": "out",
 		"rootDir": "src",
-		"lib": [ "es2020" ],
+		"lib": [ "ES2023" ],
 		"sourceMap": true
 	},
 	"include": [
