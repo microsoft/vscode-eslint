@@ -688,6 +688,7 @@ export namespace ESLintClient {
 					quiet: config.get<boolean>('quiet', false),
 					onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 					options: config.get<ESLintOptions>('options', {}),
+					flags: config.get<string[] | null>('flags', null) ?? undefined,
 					rulesCustomizations: getRuleCustomizations(config, resource),
 					run: config.get<RunValues>('run', 'onType'),
 					problems: {
