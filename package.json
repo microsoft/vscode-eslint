@@ -368,7 +368,7 @@
 						}
 					],
 					"default": null,
-					"markdownDescription": "Additional exec argv argument passed to the runtime. This can for example be used to control the maximum heap space using --max_old_space_size"
+					"markdownDescription": "Additional exec argv argument passed to the runtime. This can for example be used to control the maximum heap space using --max_old_space_size. Please note that VS Code's NodeJS runtime uses a compact heap, which limits the heap size to 4 GB. If you want to increase the heap size beyond 4 GB, you need to use a custom NodeJS runtime (see the eslint.runtime setting)."
 				},
 				"eslint.debug": {
 					"scope": "window",
