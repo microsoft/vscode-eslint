@@ -5,7 +5,7 @@
 		"target": "ES2022",
 		"outDir": "out",
 		"rootDir": "src",
-		"lib": [ "ES2023" ],
+		"lib": [ "ES2023", "WebWorker" ],
 		"sourceMap": true
 	},
 	"include": [
