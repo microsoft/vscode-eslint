@@ -9,7 +9,9 @@ import * as path from 'path';
 import {
 	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
-	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter
+	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter,
+	WorkspaceFolder,
+	workspace
 } from 'vscode';
 
 import {
@@ -27,17 +29,40 @@ import { pickFolder } from './vscode-utils';
 export class Validator {
 
 	private readonly probeFailed: Set<string> = new Set();
-
+	private configurationPerWorkspace = new WeakMap<WorkspaceFolder, WorkspaceConfiguration>();
+	private readonly cachedChecks = new WeakMap<TextDocument, Validate>();
+	private globalConfig ?: WorkspaceConfiguration;
 	public clear(): void {
 		this.probeFailed.clear();
-	}
+		workspace.workspaceFolders?.forEach(folder => this.configurationPerWorkspace.delete(folder));
+		this.globalConfig = undefined;
+}
 
 	public add(uri: Uri): void {
 		this.probeFailed.add(uri.toString());
 	}
 
+	private getConfiguration(uri: Uri): WorkspaceConfiguration {
+		const workspaceFolder = Workspace.getWorkspaceFolder(uri);
+		if (workspaceFolder){
+			const config = this.configurationPerWorkspace.get(workspaceFolder) || Workspace.getConfiguration('eslint', workspaceFolder.uri);
+			this.configurationPerWorkspace.set(workspaceFolder, config);
+			return config;
+		}
+		return this.globalConfig ??= Workspace.getConfiguration('eslint');
+	}
+
 	public check(textDocument: TextDocument): Validate {
-		const config = Workspace.getConfiguration('eslint', textDocument.uri);
+		const cached = this.cachedChecks.get(textDocument);
+		if (cached !== undefined) {
+			return cached;
+		}
+		const result = this.docheck(textDocument);
+		this.cachedChecks.set(textDocument, result);
+		return result;
+	}
+	public docheck(textDocument: TextDocument): Validate {
+		const config = this.getConfiguration(textDocument.uri);
 
 		if (!config.get<boolean>('enable', true)) {
 			return Validate.off;
