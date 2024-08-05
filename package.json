@@ -33,6 +33,7 @@
 	"enabledApiProposals": [
 	],
 	"main": "./client/out/extension",
+	"browser": "./client/out/extension.web",
 	"capabilities": {
 		"virtualWorkspaces": {
 			"supported": false,

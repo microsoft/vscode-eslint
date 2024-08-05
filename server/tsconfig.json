@@ -7,7 +7,7 @@
 		"sourceMap": true,
 		"outDir": "out",
 		"rootDir": "src",
-		"lib": [ "ES2023" ]
+		"lib": [ "ES2023", "WebWorker" ]
 	},
 	"include": [
 		"src"
