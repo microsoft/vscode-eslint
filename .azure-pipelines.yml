@@ -2,20 +2,26 @@ trigger:
   batch: true
   branches:
     include:
-    - '*'
+      - '*'
+
+pr:
+  branches:
+    include:
+      - main
+      - release/*
 
 variables:
   Codeql.Enabled: true
 
 jobs:
-- job: Windows
-  pool:
-    vmImage: 'windows-latest'
-  steps:
-  - template: build/azure-pipelines/win32/build.yml
+  - job: Windows
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+      - template: build/azure-pipelines/win32/build.yml
 
-- job: Linux
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: build/azure-pipelines/linux/build.yml
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - template: build/azure-pipelines/linux/build.yml
