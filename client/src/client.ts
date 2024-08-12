@@ -138,7 +138,7 @@ export namespace ESLintClient {
 
 		// Filters for client options
 		const packageJsonFilter: DocumentFilter = { scheme: 'file', pattern: '**/package.json' };
-		const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/{.eslintr{c.js,c.yaml,c.yml,c,c.json},eslint.config.js}' };
+		const configFileFilter: DocumentFilter = { scheme: 'file', pattern: '**/{.eslintr{c.js,c.yaml,c.yml,c,c.json},eslint.confi{g.js,g.mjs,g.cjs}}' };
 		const supportedQuickFixKinds: Set<string> = new Set([CodeActionKind.Source.value, CodeActionKind.SourceFixAll.value, `${CodeActionKind.SourceFixAll.value}.eslint`, CodeActionKind.QuickFix.value]);
 
 		// A map of documents synced to the server
