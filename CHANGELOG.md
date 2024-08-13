@@ -1,3 +1,7 @@
+### Version 3.0.13 - pre-release
+
+- move to latest LSP libraries
+
 ### Version 3.0.11 - pre-release
 
 - Enforcement of the validate setting. If the `eslint.validate` setting is specified only files in that list will be validated. For example, a setting of the form
