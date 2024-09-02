@@ -653,7 +653,7 @@
 		"rimraf": "^5.0.5",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
-		"webpack": "^5.92.1",
+		"webpack": "^5.94.0",
 		"webpack-cli": "^5.1.4",
 		"shelljs": "^0.8.5",
 		"esbuild": "^0.23.0"
