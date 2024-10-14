@@ -3,7 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "devDependencies": {
-    "eslint": "^9.5.0",
-    "globals": "^15.0.0"
+    "eslint": "^9.9.1",
+    "globals": "^15.9.0",
+    "@stylistic/eslint-plugin-js": "^2.6.5"
   }
 }

@@ -1,3 +1,5 @@
 {
-	"eslint.onIgnoredFiles": "warn"
+	"eslint.onIgnoredFiles": "warn",
+	"eslint.trace.server": "messages",
+	"files.eol": "auto"
 }

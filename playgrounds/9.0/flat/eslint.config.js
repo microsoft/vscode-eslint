@@ -1,4 +1,6 @@
 const globals = require('globals');
+const stylisticJS = require('@stylistic/eslint-plugin-js')
+
 
 module.exports = [
 	{
@@ -6,6 +8,9 @@ module.exports = [
 	},
 	{
 		files: ["**/*.js"],
+		plugins: {
+			'@stylistic/js': stylisticJS
+		},
 		languageOptions: {
 			sourceType: "module",
 			globals: {
@@ -16,6 +21,7 @@ module.exports = [
 			}
 		},
 		rules: {
+			"@stylistic/js/linebreak-style": ["error", "unix"],
 			"no-use-before-define": "error",
 			"no-useless-escape": "error",
 			"no-const-assign": "warn",

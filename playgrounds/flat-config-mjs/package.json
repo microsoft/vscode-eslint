@@ -2,6 +2,7 @@
   "name": "eslint8_flat_config_mjs",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "devDependencies": {
     "eslint": "^8.57.0",
     "globals": "^14.0.0",

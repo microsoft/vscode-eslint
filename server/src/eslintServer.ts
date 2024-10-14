@@ -26,7 +26,7 @@ import {
 } from './eslint';
 
 import { getFileSystemPath, getUri, isUNC } from './paths';
-import { stringDiff } from './diff';
+//import { stringDiff } from './diff';
 import LanguageDefaults from './languageDefaults';
 
 // The connection to use. Code action requests get removed from the queue if
@@ -785,19 +785,33 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 			const reportResults = await eslintClass.lintText(originalContent, { filePath });
 			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
 			if (Array.isArray(reportResults) && reportResults.length === 1 && reportResults[0].output !== undefined) {
-				const fixedContent = reportResults[0].output;
+				// const fixedContent = reportResults[0].output;
 				start = Date.now();
-				const diffs = stringDiff(originalContent, fixedContent, false);
+				// const diffs = stringDiff(originalContent, fixedContent, false);
 				connection.tracer.log(`Computing minimal edits took: ${Date.now() - start} ms.`);
-				for (const diff of diffs) {
-					result.push({
-						range: {
-							start: textDocument.positionAt(diff.originalStart),
-							end: textDocument.positionAt(diff.originalStart + diff.originalLength)
-						},
-						newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
-					});
-				}
+				// for (const diff of diffs) {
+				// 	result.push({
+				// 		range: {
+				// 			start: textDocument.positionAt(diff.originalStart),
+				// 			end: textDocument.positionAt(diff.originalStart + diff.originalLength)
+				// 		},
+				// 		newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
+				// 	});
+				// }
+				result.push({
+					range: {
+						start: { line: 0, character: 0 },
+						end: { line: 0, character: 1 }
+					},
+					newText: 'g'
+				});
+				result.push({
+					range: {
+						start: { line: 0, character: 16 },
+						end: { line: 1, character: 0 }
+					},
+					newText: '\n'
+				});
 			}
 			return result;
 		}, settings, overrideConfig !== undefined ? { fix: true, overrideConfig } : { fix: true });
