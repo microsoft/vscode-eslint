@@ -606,12 +606,12 @@ export namespace ESLintClient {
 				client.warn(`Detected package manager(${detectedPackageManager}) differs from the one in the deprecated eslint.packageManager setting(${userProvidedPackageManager}). We will honor this setting until it is removed.`, {}, true);
 				return userProvidedPackageManager;
 			}
-			if (!detectedPackageManager){
-				client.warn(`Failed to detect package manager.`, {}, true);
-				return 'npm'
+			if (detectedPackageManager === 'npm' || detectedPackageManager === 'yarn' || detectedPackageManager === 'pnpm'){
+				return detectedPackageManager;
 			}
 			
-			return detectedPackageManager;
+			client.warn(`Could not use detected package manager (${detectedPackageManager}). Defaulting to npm.`, {}, true);
+			return 'npm';
 		}
 
 		async function readConfiguration(params: ConfigurationParams): Promise<(ConfigurationSettings | null)[]> {
