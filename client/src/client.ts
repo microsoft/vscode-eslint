@@ -599,8 +599,8 @@ export namespace ESLintClient {
 		}
 
 		async function getPackageManager(uri: Uri) {
-			const userProvidedPackageManager:PackageManagers = Workspace.getConfiguration('eslint', uri).get('packageManager');
-			const detectedPackageManager = await commands.executeCommand<PackageManagers>('npm.packageManager', uri);
+			const userProvidedPackageManager: string | undefined = Workspace.getConfiguration('eslint', uri).get('packageManager');
+			const detectedPackageManager = await commands.executeCommand<string>('npm.packageManager', uri);
 
 			if (userProvidedPackageManager && detectedPackageManager && userProvidedPackageManager !== detectedPackageManager){
 				client.warn(`Detected package manager(${detectedPackageManager}) differs from the one in the deprecated eslint.packageManager setting(${userProvidedPackageManager}). We will honor this setting until it is removed.`, {}, true);
