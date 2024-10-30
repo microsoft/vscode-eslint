@@ -21,7 +21,7 @@ import {
 import { Validate, CodeActionsOnSaveMode } from './shared/settings';
 
 import {
-	CodeActions, ConfigData, ESLint, FixableProblem, Fixes, Problem, RuleMetaData, RuleSeverities,
+	CodeActions, ESLint, ESLintClassOptions, FixableProblem, Fixes, Problem, RuleMetaData, RuleSeverities,
 	SaveRuleConfigs, SuggestionsProblem, TextDocumentSettings,
 } from './eslint';
 
@@ -771,12 +771,21 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	} else {
 		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await SaveRuleConfigs.get(uri, settings) : undefined;
 		const offRules = saveConfig?.offRules;
-		let overrideConfig: Required<ConfigData> | undefined;
-		if (offRules !== undefined) {
-			overrideConfig = { rules: Object.create(null) };
+		let eslintOptions: ESLintClassOptions | undefined;
+		if (settings.codeActionOnSave.options) {
+			eslintOptions = settings.codeActionOnSave.options;
+		}
+		else if (offRules !== undefined) {
+			const overrideConfig = { rules: Object.create(null) };
 			for (const ruleId of offRules) {
 				overrideConfig.rules[ruleId] = 'off';
 			}
+			eslintOptions = {
+				fix: true,
+				overrideConfig,
+			};
+		} else {
+			eslintOptions = { fix: true };
 		}
 		return ESLint.withClass(async (eslintClass) => {
 			// Don't use any precomputed fixes since neighbour fixes can produce incorrect results.
@@ -800,7 +809,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 				}
 			}
 			return result;
-		}, settings, overrideConfig !== undefined ? { fix: true, overrideConfig } : { fix: true });
+		}, settings, eslintOptions );
 	}
 }
 

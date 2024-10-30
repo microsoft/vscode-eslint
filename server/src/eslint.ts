@@ -18,7 +18,7 @@ import {
 import { URI } from 'vscode-uri';
 
 import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification } from './shared/customMessages';
-import { ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
+import { ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
 import { LRUCache } from './linkedMap';
@@ -471,7 +471,7 @@ export class Fixes {
 	}
 }
 
-export type SaveRuleConfigItem = { offRules: Set<string>; onRules: Set<string>};
+export type SaveRuleConfigItem = { offRules: Set<string>; onRules: Set<string>; options: ESLintOptions};
 
 /**
  * Manages the special save rule configurations done in the VS Code settings.
@@ -491,6 +491,7 @@ export namespace SaveRuleConfigs {
 			return result;
 		}
 		const rules = settings.codeActionOnSave.rules;
+		const options = settings.codeActionOnSave.options;
 		result = await ESLint.withClass(async (eslint) => {
 			if (rules === undefined || eslint.isCLIEngine) {
 				return undefined;
@@ -512,7 +513,7 @@ export namespace SaveRuleConfigs {
 					}
 				}
 			}
-			return offRules.size > 0 ? { offRules, onRules } : undefined;
+			return offRules.size > 0 ? { offRules, onRules, options: options ?? {} } : undefined;
 		}, settings);
 		if (result === undefined || result === null) {
 			saveRuleConfigCache.set(uri, null);

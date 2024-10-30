@@ -457,6 +457,12 @@
 					"default": null,
 					"markdownDescription": "The rules that should be executed when computing the code actions on save or formatting a file. Defaults to the rules configured via the ESLint configuration"
 				},
+				"eslint.codeActionsOnSave.options": {
+					"scope": "resource",
+					"type": "object",
+					"default": {},
+					"markdownDescription": "The eslint options object to use on save. (see https://eslint.org/docs/developer-guide/nodejs-api#eslint-class)."
+				},
 				"eslint.format.enable": {
 					"scope": "resource",
 					"type": "boolean",

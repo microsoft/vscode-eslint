@@ -713,6 +713,7 @@ export namespace ESLintClient {
 					settings.format = !!config.get<boolean>('format.enable', false);
 					settings.codeActionOnSave.mode = CodeActionsOnSaveMode.from(config.get<CodeActionsOnSaveMode>('codeActionsOnSave.mode', CodeActionsOnSaveMode.all));
 					settings.codeActionOnSave.rules = CodeActionsOnSaveRules.from(config.get<string[] | null>('codeActionsOnSave.rules', null));
+					settings.codeActionOnSave.options = CodeActionsOnSaveRules.from(config.get<string[] | null>('codeActionsOnSave.options', null));
 				}
 				if (workspaceFolder !== undefined) {
 					settings.workspaceFolder = {
