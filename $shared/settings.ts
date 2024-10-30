@@ -67,6 +67,7 @@ export namespace CodeActionsOnSaveRules {
 export type CodeActionsOnSaveSettings = {
 	mode: CodeActionsOnSaveMode;
 	rules?: string[];
+	options?: ESLintOptions;
 };
 
 export enum ESLintSeverity {
