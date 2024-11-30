@@ -771,21 +771,19 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	} else {
 		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await SaveRuleConfigs.get(uri, settings) : undefined;
 		const offRules = saveConfig?.offRules;
-		let eslintOptions: ESLintClassOptions | undefined;
-		if (settings.codeActionOnSave.options) {
-			eslintOptions = settings.codeActionOnSave.options;
-		}
-		else if (offRules !== undefined) {
-			const overrideConfig = { rules: Object.create(null) };
-			for (const ruleId of offRules) {
-				overrideConfig.rules[ruleId] = 'off';
+		const overrideOptions = saveConfig?.options;
+		let eslintOptions: ESLintClassOptions = {fix: true};
+		if (offRules !== undefined || overrideOptions !== undefined) {
+			if (overrideOptions !== undefined) {
+				eslintOptions = {...overrideOptions, ...eslintOptions};
 			}
-			eslintOptions = {
-				fix: true,
-				overrideConfig,
-			};
-		} else {
-			eslintOptions = { fix: true };
+			if (offRules !== undefined && offRules.size > 0) {
+				const overrideConfig = {rules: Object.create(null)};
+				for (const ruleId of offRules) {
+					overrideConfig.rules[ruleId] = 'off';
+				}
+				eslintOptions.overrideConfig = overrideConfig;
+			}
 		}
 		return ESLint.withClass(async (eslintClass) => {
 			// Don't use any precomputed fixes since neighbour fixes can produce incorrect results.
