@@ -779,6 +779,7 @@ export namespace ESLint {
 
 	const languageId2PluginName: Map<string, string> = new Map([
 		['astro', 'astro'],
+		['civet', 'civet'],
 		['html', 'html'],
 		['json', 'jsonc'],
 		['json5', 'jsonc'],
