@@ -314,6 +314,7 @@
 					},
 					"default": [
 						"astro",
+						"civet",
 						"javascript",
 						"javascriptreact",
 						"typescript",
