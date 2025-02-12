@@ -649,7 +649,7 @@
 		"@typescript-eslint/parser": "^7.1.1",
 		"eslint": "^8.57.0",
 		"merge-options": "^3.0.4",
-		"mocha": "^10.3.0",
+		"mocha": "^10.8.2",
 		"rimraf": "^5.0.5",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
