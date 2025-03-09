@@ -411,8 +411,7 @@ export class Fixes {
 	public getScoped(diagnostics: Diagnostic[]): Problem[] {
 		const result: Problem[] = [];
 		for (const diagnostic of diagnostics) {
-			const key = Diagnostics.computeKey(diagnostic);
-			const editInfo = this.edits.get(key);
+			const editInfo = this.edits.get(diagnostic.data.key);
 			if (editInfo) {
 				result.push(editInfo);
 			}
@@ -635,6 +634,7 @@ namespace Diagnostics {
 				end: { line: endLine, character: endChar }
 			}
 		};
+		result.data = { key: computeKey(result) };
 		if (problem.ruleId) {
 			const url = RuleMetaData.getUrl(problem.ruleId);
 			result.code = problem.ruleId;
@@ -733,7 +733,7 @@ export namespace CodeActions {
 			edits = new Map<string, Problem>();
 			CodeActions.set(uri, edits);
 		}
-		edits.set(Diagnostics.computeKey(diagnostic), {
+		edits.set(diagnostic.data.key, {
 			label: `Fix this ${problem.ruleId} problem`,
 			documentVersion: document.version,
 			ruleId: problem.ruleId,
