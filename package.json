@@ -462,7 +462,7 @@
 					"scope": "resource",
 					"type": "object",
 					"default": {},
-					"markdownDescription": "The eslint options object to use on save. (see https://eslint.org/docs/developer-guide/nodejs-api#eslint-class). eslint.codeActionsOnSave.rules, if specified, will take priority over any rule options here."
+					"markdownDescription": "The ESLint options object to use on save (see https://eslint.org/docs/developer-guide/nodejs-api#eslint-class). `eslint.codeActionsOnSave.rules`, if specified, will take priority over any rule options here."
 				},
 				"eslint.format.enable": {
 					"scope": "resource",
