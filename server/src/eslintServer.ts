@@ -772,13 +772,13 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await SaveRuleConfigs.get(uri, settings) : undefined;
 		const offRules = saveConfig?.offRules;
 		const overrideOptions = saveConfig?.options;
-		let eslintOptions: ESLintClassOptions = {fix: true};
+		let eslintOptions: ESLintClassOptions = { fix: true };
 		if (offRules !== undefined || overrideOptions !== undefined) {
 			if (overrideOptions !== undefined) {
-				eslintOptions = {...overrideOptions, ...eslintOptions};
+				eslintOptions = { ...eslintOptions, ...overrideOptions };
 			}
 			if (offRules !== undefined && offRules.size > 0) {
-				const overrideConfig = {rules: Object.create(null)};
+				const overrideConfig = { rules: Object.create(null) };
 				for (const ruleId of offRules) {
 					overrideConfig.rules[ruleId] = 'off';
 				}
@@ -807,7 +807,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 				}
 			}
 			return result;
-		}, settings, eslintOptions );
+		}, settings, eslintOptions);
 	}
 }
 
