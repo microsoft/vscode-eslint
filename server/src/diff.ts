@@ -44,9 +44,9 @@ class StringDiffSequence implements ISequence {
 
 	getElements(): Int32Array | number[] | string[] {
 		const source = this.source;
-		const characters = new Int32Array(source.length);
-		for (let i = 0, len = source.length; i < len; i++) {
-			characters[i] = source.charCodeAt(i);
+		const characters = new Int32Array(Array.from([...source]).length);
+		for (let i = 0, len = characters.length; i < len; i++) {
+			characters[i] = source.codePointAt(i)!;
 		}
 		return characters;
 	}
