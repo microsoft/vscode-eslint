@@ -64,9 +64,19 @@ export namespace CodeActionsOnSaveRules {
 	}
 }
 
+export namespace CodeActionsOnSaveOptions {
+	export function from(value: object | undefined | null): ESLintOptions | undefined {
+		if (value === undefined || value === null || typeof value !== 'object') {
+			return undefined;
+		}
+		return value;
+	}
+}
+
 export type CodeActionsOnSaveSettings = {
 	mode: CodeActionsOnSaveMode;
 	rules?: string[];
+	options?: ESLintOptions;
 };
 
 export enum ESLintSeverity {

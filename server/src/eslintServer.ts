@@ -21,7 +21,7 @@ import {
 import { Validate, CodeActionsOnSaveMode } from './shared/settings';
 
 import {
-	CodeActions, ConfigData, ESLint, FixableProblem, Fixes, Problem, RuleMetaData, RuleSeverities,
+	CodeActions, ESLint, ESLintClassOptions, FixableProblem, Fixes, Problem, RuleMetaData, RuleSeverities,
 	SaveRuleConfigs, SuggestionsProblem, TextDocumentSettings,
 } from './eslint';
 
@@ -771,11 +771,18 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	} else {
 		const saveConfig = filePath !== undefined && mode === AllFixesMode.onSave ? await SaveRuleConfigs.get(uri, settings) : undefined;
 		const offRules = saveConfig?.offRules;
-		let overrideConfig: Required<ConfigData> | undefined;
-		if (offRules !== undefined) {
-			overrideConfig = { rules: Object.create(null) };
-			for (const ruleId of offRules) {
-				overrideConfig.rules[ruleId] = 'off';
+		const overrideOptions = saveConfig?.options;
+		let eslintOptions: ESLintClassOptions = { fix: true };
+		if (offRules !== undefined || overrideOptions !== undefined) {
+			if (overrideOptions !== undefined) {
+				eslintOptions = { ...eslintOptions, ...overrideOptions };
+			}
+			if (offRules !== undefined && offRules.size > 0) {
+				const overrideConfig = { rules: Object.create(null) };
+				for (const ruleId of offRules) {
+					overrideConfig.rules[ruleId] = 'off';
+				}
+				eslintOptions.overrideConfig = overrideConfig;
 			}
 		}
 		return ESLint.withClass(async (eslintClass) => {
@@ -800,7 +807,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 				}
 			}
 			return result;
-		}, settings, overrideConfig !== undefined ? { fix: true, overrideConfig } : { fix: true });
+		}, settings, eslintOptions);
 	}
 }
 

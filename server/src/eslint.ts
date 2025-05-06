@@ -18,7 +18,7 @@ import {
 import { URI } from 'vscode-uri';
 
 import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification } from './shared/customMessages';
-import { ConfigurationSettings, DirectoryItem, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
+import { ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
 import { LRUCache } from './linkedMap';
@@ -471,7 +471,7 @@ export class Fixes {
 	}
 }
 
-export type SaveRuleConfigItem = { offRules: Set<string>; onRules: Set<string>};
+export type SaveRuleConfigItem = { offRules: Set<string>; onRules: Set<string>; options: ESLintOptions | undefined};
 
 /**
  * Manages the special save rule configurations done in the VS Code settings.
@@ -491,8 +491,9 @@ export namespace SaveRuleConfigs {
 			return result;
 		}
 		const rules = settings.codeActionOnSave.rules;
+		const options = settings.codeActionOnSave.options;
 		result = await ESLint.withClass(async (eslint) => {
-			if (rules === undefined || eslint.isCLIEngine) {
+			if ((rules === undefined && options === undefined) || eslint.isCLIEngine) {
 				return undefined;
 			}
 			const config = await eslint.calculateConfigForFile(filePath);
@@ -501,18 +502,20 @@ export namespace SaveRuleConfigs {
 			}
 			const offRules: Set<string> = new Set();
 			const onRules: Set<string> = new Set();
-			if (rules.length === 0) {
-				Object.keys(config.rules).forEach(ruleId => offRules.add(ruleId));
-			} else {
-				for (const ruleId of Object.keys(config.rules)) {
-					if (isOff(ruleId, rules)) {
-						offRules.add(ruleId);
-					} else {
-						onRules.add(ruleId);
+			if (rules !== undefined) {
+				if (rules.length === 0) {
+					Object.keys(config.rules).forEach(ruleId => offRules.add(ruleId));
+				} else {
+					for (const ruleId of Object.keys(config.rules)) {
+						if (isOff(ruleId, rules)) {
+							offRules.add(ruleId);
+						} else {
+							onRules.add(ruleId);
+						}
 					}
 				}
 			}
-			return offRules.size > 0 ? { offRules, onRules } : undefined;
+			return (offRules.size > 0 || options) ? { offRules, onRules, options } : undefined;
 		}, settings);
 		if (result === undefined || result === null) {
 			saveRuleConfigCache.set(uri, null);
