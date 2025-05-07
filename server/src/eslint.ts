@@ -405,7 +405,7 @@ export class Fixes {
 		if (this.isEmpty()) {
 			throw new Error('No edits recorded.');
 		}
-		return this.edits.values().next().value.documentVersion;
+		return this.edits.values().next().value!.documentVersion;
 	}
 
 	public getScoped(diagnostics: Diagnostic[]): Problem[] {
