@@ -7,7 +7,8 @@
 		"sourceMap": true,
 		"outDir": "out",
 		"rootDir": "src",
-		"lib": [ "ES2023" ]
+		"lib": [ "ES2023" ],
+		"tsBuildInfoFile": "out/compile.tsbuildinfo"
 	},
 	"include": [
 		"src"
