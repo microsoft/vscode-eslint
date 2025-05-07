@@ -8,7 +8,9 @@
 		"outDir": "out",
 		"rootDir": "src",
 		"lib": [ "ES2023" ],
-		"tsBuildInfoFile": "out/compile.tsbuildinfo"
+		"tsBuildInfoFile": "out/compile.tsbuildinfo",
+        "incremental": true,
+        "composite": true
 	},
 	"include": [
 		"src"
