@@ -424,7 +424,7 @@ export namespace ESLintClient {
 				synchronize: {
 					fileEvents: [
 						Workspace.createFileSystemWatcher('**/.eslintr{c.js,c.cjs,c.yaml,c.yml,c,c.json}'),
-						Workspace.createFileSystemWatcher('**/eslint.config.js'),
+						Workspace.createFileSystemWatcher('**/eslint.config.{js,mjs,cjs,ts,mts,cts}'),
 						Workspace.createFileSystemWatcher('**/.eslintignore'),
 						Workspace.createFileSystemWatcher('**/package.json')
 					]
