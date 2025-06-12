@@ -4,6 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 const typescriptParser =  require('@typescript-eslint/parser');
 const typescriptPlugin = require('@typescript-eslint/eslint-plugin');
+const stylistic = require('@stylistic/eslint-plugin');
 
 module.exports = [
 	{
@@ -22,7 +23,8 @@ module.exports = [
 			'playgrounds/**/*.ts'
 		],
 	    plugins: {
-        	'@typescript-eslint': typescriptPlugin
+        	'@typescript-eslint': typescriptPlugin,
+			'@stylistic': stylistic
 		},
 		languageOptions: {
 			sourceType: 'module',
@@ -34,8 +36,8 @@ module.exports = [
 
 		rules: {
 			'semi': 'off',
-			'@typescript-eslint/semi': 'error',
-			'@typescript-eslint/member-delimiter-style': ['error' ,{
+			'@stylistic/semi': 'error',
+			'@stylistic/member-delimiter-style': ['error' ,{
 				'multiline': {
 				'delimiter': 'semi',
 				'requireLast': true
@@ -47,7 +49,7 @@ module.exports = [
 				'multilineDetection': 'brackets'
 			}],
 			'indent': 'off',
-			'@typescript-eslint/indent': ['warn', 'tab', { 'SwitchCase': 1 } ],
+			'@stylistic/indent': ['warn', 'tab', { 'SwitchCase': 1 } ],
 			'@typescript-eslint/no-floating-promises': 'error',
 			'@typescript-eslint/consistent-type-exports': 'error',
 			'@typescript-eslint/naming-convention': [
