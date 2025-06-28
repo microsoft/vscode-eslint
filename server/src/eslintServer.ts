@@ -136,7 +136,7 @@ function inferFilePath(documentOrUri: string | TextDocument | URI | undefined): 
 					const extension = LanguageDefaults.getExtension(textDocument.languageId);
 					if (extension !== undefined) {
 						const extname = path.extname(filePath);
-						if (extname.length === 0 && filePath[0] === '.') {
+						if (extname.length === 0 && filePath.startsWith('.')) {
 							return `${filePath}.${extension}`;
 						} else if (extname.length > 0 && extname !== extension) {
 							return `${filePath.substring(0, filePath.length - extname.length)}.${extension}`;
@@ -802,7 +802,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 							start: textDocument.positionAt(diff.originalStart),
 							end: textDocument.positionAt(diff.originalStart + diff.originalLength)
 						},
-						newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
+						newText: fixedContent.slice(diff.modifiedStart, diff.modifiedStart + diff.modifiedLength)
 					});
 				}
 			}
