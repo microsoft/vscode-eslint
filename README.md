@@ -1,7 +1,7 @@
 # VS Code ESLint extension
 
 
-[![Build Status](https://dev.azure.com/vscode/vscode-eslint/_apis/build/status%2Fvscode-eslint?branchName=main)](https://dev.azure.com/vscode/vscode-eslint/_build?definitionId=51)
+[![Build Status](https://dev.azure.com/vscode/vscode-eslint/_apis/build/status%2Fvscode-eslint?branchName=main)](https://dev.azure.com/vscode/vscode-eslint/_build?definitionId=57)
 
 Integrates [ESLint](http://eslint.org/) into VS Code. If you are new to ESLint check the [documentation](http://eslint.org/).
 
