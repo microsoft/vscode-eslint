@@ -1,3 +1,13 @@
+### Version 3.0.16 - release
+
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.16.0)
+
+- same as 3.15.0 - pre-release
+
+### Version 3.0.15 - pre-release
+
+- move to latest LSP libraries
+
 ### Version 3.0.13 - pre-release
 
 - move to latest LSP libraries
