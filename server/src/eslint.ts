@@ -192,20 +192,20 @@ type ParserOptions = {
 };
 
 type ESLintRcConfig = {
- 	env: Record<string, boolean>;
+	env: Record<string, boolean>;
 	extends:  string | string[];
- 	// globals: Record<string, GlobalConf>;
- 	ignorePatterns: string | string[];
- 	noInlineConfig: boolean;
- 	// overrides: OverrideConfigData[];
- 	parser: string | null;
- 	parserOptions?: ParserOptions;
- 	plugins: string[];
- 	processor: string;
- 	reportUnusedDisableDirectives: boolean | undefined;
- 	root: boolean;
- 	rules: Record<string, RuleConf>;
- 	settings: object;
+	// globals: Record<string, GlobalConf>;
+	ignorePatterns: string | string[];
+	noInlineConfig: boolean;
+	// overrides: OverrideConfigData[];
+	parser: string | null;
+	parserOptions?: ParserOptions;
+	plugins: string[];
+	processor: string;
+	reportUnusedDisableDirectives: boolean | undefined;
+	root: boolean;
+	rules: Record<string, RuleConf>;
+	settings: object;
 };
 type ESLintConfig = ESLintRcConfig;
 
@@ -789,7 +789,8 @@ export namespace ESLint {
 		['jsonc', 'jsonc'],
 		['mdx', 'mdx'],
 		['vue', 'vue'],
-		['markdown', 'markdown']
+		['markdown', 'markdown'],
+		['css', 'css']
 	]);
 
 	const defaultLanguageIds: Set<string> = new Set([
