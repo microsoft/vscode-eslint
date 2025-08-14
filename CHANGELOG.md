@@ -1,3 +1,7 @@
+### Version 3.0.17 - pre-release
+
+- add probe support for css
+
 ### Version 3.0.16 - release
 
 - [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.16.0)
