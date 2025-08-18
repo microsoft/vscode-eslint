@@ -5,9 +5,64 @@
 
 Integrates [ESLint](http://eslint.org/) into VS Code. If you are new to ESLint check the [documentation](http://eslint.org/).
 
-The extension uses the ESLint library installed in the opened workspace folder. If the folder doesn't provide one the extension looks for a global install version. If you haven't installed ESLint either locally or globally do so by running `npm install eslint` in the workspace folder for a local install or `npm install -g eslint` for a global install.
 
-On new folders you might also need to create an `.eslintrc` configuration file. You can do this by either using the VS Code command `Create ESLint configuration` or by running the `eslint` command in a terminal with [`npx eslint --init`](http://eslint.org/docs/user-guide/command-line-interface).
+Integrates [ESLint](http://eslint.org/) into VS Code. If you are new to ESLint check the [documentation](http://eslint.org/).
+
+The extension uses the ESLint library installed in the opened workspace folder.
+If the folder doesn't provide one, the extension looks for a global install version.
+If you haven't installed ESLint either locally or globally, do so by running:
+
+**Local install (recommended):**
+
+```bash
+# npm
+npm install --save-dev eslint
+
+# yarn
+yarn add --dev eslint
+
+# pnpm
+pnpm add --save-dev eslint
+
+# bun
+bun add --dev eslint
+```
+
+**Global install:**
+
+```bash
+# npm
+npm install -g eslint
+
+# yarn
+yarn global add eslint
+
+# pnpm
+pnpm add -g eslint
+
+# bun
+bun add -g eslint
+```
+
+On new projects you might need to create an ESLint configuration file.
+For ESLint v9 and later (or v8.57+ with flat config), this should be one of:
+
+- eslint.config.js (most common)
+- eslint.config.mjs
+- eslint.config.cjs
+- eslint.config.ts
+- eslint.config.mts
+
+You can generate a starter config by running:
+
+`npx eslint --init`
+
+Read more about [ESLint CLI](https://eslint.org/docs/latest/use/command-line-interface).
+
+For projects using older ESLint versions (< 8.57), use a legacy `.eslintrc` file (`.eslintrc.json`, `.eslintrc.js`, etc.).
+
+If you're using the legacy version, consider reading [how to migrate to flat config](https://eslint.org/docs/latest/use/configure/migration-guide).
+
 
 # Index
 * [Release Notes](#release-notes)
