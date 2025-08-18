@@ -136,7 +136,7 @@ function inferFilePath(documentOrUri: string | TextDocument | URI | undefined): 
 					const extension = LanguageDefaults.getExtension(textDocument.languageId);
 					if (extension !== undefined) {
 						const extname = path.extname(filePath);
-						if (extname.length === 0 && filePath.startsWith('.')) {
+						if (extname.length === 0 && filePath[0] === '.') {
 							return `${filePath}.${extension}`;
 						} else if (extname.length > 0 && extname !== extension) {
 							return `${filePath.substring(0, filePath.length - extname.length)}.${extension}`;
