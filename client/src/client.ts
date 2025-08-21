@@ -963,7 +963,7 @@ export namespace ESLintClient {
 			}
 
 			if (detail !== undefined && languageStatus.detail !== detail) {
-				 languageStatus.detail = detail;
+				languageStatus.detail = detail;
 			}
 			if (languageStatus.severity !== severity) {
 				languageStatus.severity = severity;
