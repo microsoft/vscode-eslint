@@ -678,6 +678,7 @@ export namespace ESLintClient {
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
 					useESLintClass: config.get<boolean>('useESLintClass', false),
 					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
+					useRealpaths: config.get<boolean>('useRealpaths', true),
 					experimental: {
 						useFlatConfig: config.get<boolean>('experimental.useFlatConfig', false),
 					},
