@@ -478,11 +478,11 @@ export type SaveRuleConfigItem = { offRules: Set<string>; onRules: Set<string>; 
  */
 export namespace SaveRuleConfigs {
 
-	export let inferFilePath: (documentOrUri: string | TextDocument | URI | undefined) => string | undefined;
+	export let inferFilePath: (documentOrUri: string | TextDocument | URI | undefined, useRealpaths: boolean) => string | undefined;
 
 	const saveRuleConfigCache = new LRUCache<string, SaveRuleConfigItem | null>(128);
 	export async function get(uri: string, settings: TextDocumentSettings  & { library: ESLintModule }): Promise<SaveRuleConfigItem | undefined> {
-		const filePath = inferFilePath(uri);
+		const filePath = inferFilePath(uri, settings.useRealpaths);
 		let result = saveRuleConfigCache.get(uri);
 		if (filePath === undefined || result === null) {
 			return undefined;
@@ -755,7 +755,7 @@ export namespace ESLint {
 
 	let connection: ProposedFeatures.Connection;
 	let documents: TextDocuments<TextDocument>;
-	let inferFilePath: (documentOrUri: string | TextDocument | URI | undefined) => string | undefined;
+	let inferFilePath: (documentOrUri: string | TextDocument | URI | undefined, useRealpaths: boolean) => string | undefined;
 	let loadNodeModule: <T>(moduleName: string) => T | undefined;
 
 	const languageId2ParserRegExp: Map<string, RegExp[]> = function createLanguageId2ParserRegExp() {
@@ -823,7 +823,7 @@ export namespace ESLint {
 	const document2Settings: Map<string, Promise<TextDocumentSettings>> = new Map<string, Promise<TextDocumentSettings>>();
 	const formatterRegistrations: Map<string, Promise<Disposable>> = new Map();
 
-	export function initialize($connection: ProposedFeatures.Connection, $documents: TextDocuments<TextDocument>, $inferFilePath: (documentOrUri: string | TextDocument | URI | undefined) => string | undefined, $loadNodeModule: <T>(moduleName: string) => T | undefined) {
+	export function initialize($connection: ProposedFeatures.Connection, $documents: TextDocuments<TextDocument>, $inferFilePath: (documentOrUri: string | TextDocument | URI | undefined, useRealpaths: boolean) => string | undefined, $loadNodeModule: <T>(moduleName: string) => T | undefined) {
 		connection = $connection;
 		documents = $documents;
 		inferFilePath = $inferFilePath;
@@ -870,8 +870,8 @@ export namespace ESLint {
 				return settings;
 			}
 			settings.resolvedGlobalPackageManagerPath = GlobalPaths.get(settings.packageManager);
-			const filePath = inferFilePath(document);
-			const workspaceFolderPath = settings.workspaceFolder !== undefined ? inferFilePath(settings.workspaceFolder.uri) : undefined;
+			const filePath = inferFilePath(document, settings.useRealpaths);
+			const workspaceFolderPath = settings.workspaceFolder !== undefined ? inferFilePath(settings.workspaceFolder.uri, settings.useRealpaths) : undefined;
 			let assumeFlatConfig:boolean = false;
 			const hasUserDefinedWorkingDirectories: boolean = configuration.workingDirectory !== undefined;
 			const workingDirectoryConfig = configuration.workingDirectory ?? { mode: ModeEnum.location };
@@ -1097,7 +1097,7 @@ export namespace ESLint {
 						if (!isFile) {
 							formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
 						} else {
-							const filePath = inferFilePath(uri)!;
+							const filePath = inferFilePath(uri, settings.useRealpaths)!;
 							await ESLint.withClass(async (eslintClass) => {
 								if (!await eslintClass.isPathIgnored(filePath)) {
 									formatterRegistrations.set(uri, connection.client.register(DocumentFormattingRequest.type, options));
@@ -1183,14 +1183,14 @@ export namespace ESLint {
 		if (uri.scheme !== 'file') {
 			if (settings.workspaceFolder !== undefined) {
 				const ext = LanguageDefaults.getExtension(document.languageId);
-				const workspacePath = inferFilePath(settings.workspaceFolder.uri);
+				const workspacePath = inferFilePath(settings.workspaceFolder.uri, settings.useRealpaths);
 				if (workspacePath !== undefined && ext !== undefined) {
 					return path.join(workspacePath, `test.${ext}`);
 				}
 			}
 			return undefined;
 		} else {
-			return inferFilePath(uri);
+			return inferFilePath(uri, settings.useRealpaths);
 		}
 	}
 
@@ -1418,14 +1418,14 @@ export namespace ESLint {
 			missingModuleReported.clear();
 		}
 
-		function tryHandleMissingModule(error: any, document: TextDocument, library: ESLintModule): Status | undefined {
+		function tryHandleMissingModule(error: any, document: TextDocument, library: ESLintModule, settings: TextDocumentSettings): Status | undefined {
 			if (!error.message) {
 				return undefined;
 			}
 
 			function handleMissingModule(plugin: string, module: string, error: ESLintError): Status {
 				if (!missingModuleReported.has(plugin)) {
-					const fsPath = inferFilePath(document);
+					const fsPath = inferFilePath(document, settings.useRealpaths);
 					missingModuleReported.set(plugin, library);
 					if (error.messageTemplate === 'plugin-missing') {
 						connection.console.error([
