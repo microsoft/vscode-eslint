@@ -5,9 +5,6 @@
 
 Integrates [ESLint](http://eslint.org/) into VS Code. If you are new to ESLint check the [documentation](http://eslint.org/).
 
-
-Integrates [ESLint](http://eslint.org/) into VS Code. If you are new to ESLint check the [documentation](http://eslint.org/).
-
 The extension uses the ESLint library installed in the opened workspace folder.
 If the folder doesn't provide one, the extension looks for a global install version.
 If you haven't installed ESLint either locally or globally, do so by running:
