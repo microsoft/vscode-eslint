@@ -199,7 +199,7 @@
 				"eslint.useRealpaths": {
 					"scope": "resource",
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"description": "Whether ESLint should use real paths when resolving files. This is useful when working with symlinks or when the casing of file paths is inconsistent."
 				},
 				"eslint.workingDirectories": {
