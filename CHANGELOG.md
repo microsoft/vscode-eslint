@@ -1,3 +1,7 @@
+### Version 3.0.19 - pre-release
+
+- add probe support for Ember's glimmer
+
 ### Version 3.0.17 - pre-release
 
 - add probe support for css
