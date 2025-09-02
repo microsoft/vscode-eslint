@@ -331,7 +331,9 @@
 						"markdown",
 						"json",
 						"jsonc",
-						"css"
+						"css",
+						"glimmer-js",
+						"glimmer-ts"
 					],
 					"description": "An array of language ids for which the extension should probe if support is installed."
 				},

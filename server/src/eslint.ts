@@ -790,7 +790,9 @@ export namespace ESLint {
 		['mdx', 'mdx'],
 		['vue', 'vue'],
 		['markdown', 'markdown'],
-		['css', 'css']
+		['css', 'css'],
+		['glimmer-js', 'ember'],
+		['glimmer-ts', 'ember']
 	]);
 
 	const defaultLanguageIds: Set<string> = new Set([
