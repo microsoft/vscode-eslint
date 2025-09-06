@@ -789,7 +789,10 @@ export namespace ESLint {
 		['jsonc', 'jsonc'],
 		['mdx', 'mdx'],
 		['vue', 'vue'],
-		['markdown', 'markdown']
+		['markdown', 'markdown'],
+		['css', 'css'],
+		['glimmer-js', 'ember'],
+		['glimmer-ts', 'ember']
 	]);
 
 	const defaultLanguageIds: Set<string> = new Set([

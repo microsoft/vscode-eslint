@@ -5,9 +5,61 @@
 
 Integrates [ESLint](http://eslint.org/) into VS Code. If you are new to ESLint check the [documentation](http://eslint.org/).
 
-The extension uses the ESLint library installed in the opened workspace folder. If the folder doesn't provide one the extension looks for a global install version. If you haven't installed ESLint either locally or globally do so by running `npm install eslint` in the workspace folder for a local install or `npm install -g eslint` for a global install.
+The extension uses the ESLint library installed in the opened workspace folder.
+If the folder doesn't provide one, the extension looks for a global install version.
+If you haven't installed ESLint either locally or globally, do so by running:
 
-On new folders you might also need to create an `.eslintrc` configuration file. You can do this by either using the VS Code command `Create ESLint configuration` or by running the `eslint` command in a terminal with [`npx eslint --init`](http://eslint.org/docs/user-guide/command-line-interface).
+**Local install (recommended):**
+
+```bash
+# npm
+npm install --save-dev eslint
+
+# yarn
+yarn add --dev eslint
+
+# pnpm
+pnpm add --save-dev eslint
+
+# bun
+bun add --dev eslint
+```
+
+**Global install:**
+
+```bash
+# npm
+npm install -g eslint
+
+# yarn
+yarn global add eslint
+
+# pnpm
+pnpm add -g eslint
+
+# bun
+bun add -g eslint
+```
+
+On new projects you might need to create an ESLint configuration file.
+For ESLint v9 and later (or v8.57+ with flat config), this should be one of:
+
+- eslint.config.js (most common)
+- eslint.config.mjs
+- eslint.config.cjs
+- eslint.config.ts
+- eslint.config.mts
+
+You can generate a starter config by running:
+
+`npx eslint --init`
+
+Read more about [ESLint CLI](https://eslint.org/docs/latest/use/command-line-interface).
+
+For projects using older ESLint versions (< 8.57), use a legacy `.eslintrc` file (`.eslintrc.json`, `.eslintrc.js`, etc.).
+
+If you're using the legacy version, consider reading [how to migrate to flat config](https://eslint.org/docs/latest/use/configure/migration-guide).
+
 
 # Index
 * [Release Notes](#release-notes)
@@ -23,6 +75,18 @@ On new folders you might also need to create an `.eslintrc` configuration file. 
 This section describes major releases and their improvements. For a detailed list of changes please refer to the [change log](./CHANGELOG.md).
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
+
+### Version 3.0.17 - pre-release
+
+- add probe support for css
+
+### Version 3.0.16 - release
+
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.16.0)
+
+### Version 3.0.15 - pre-release
+
+- move to latest LSP libraries
 
 ### Version 3.0.13 - pre-release
 

@@ -29,7 +29,7 @@ namespace LanguageDefaults {
 	}
 
 	export function getBlockComment(languageId: string): [string, string] {
-		return languageId2Config.get(languageId)?.blockComment ?? ['/**', '*/'];
+		return languageId2Config.get(languageId)?.blockComment ?? ['/*', '*/'];
 	}
 
 	export function getExtension(languageId: string): string | undefined {
