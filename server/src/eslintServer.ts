@@ -116,20 +116,20 @@ process.on('uncaughtException', (error: any) => {
  * cell document it uses the file path from the notebook with a corresponding
  * extension (e.g. TypeScript -> ts)
  */
-function inferFilePath(documentOrUri: string | TextDocument | URI | undefined): string | undefined {
+function inferFilePath(documentOrUri: string | TextDocument | URI | undefined, useRealpaths: boolean): string | undefined {
 	if (!documentOrUri) {
 		return undefined;
 	}
 	const uri = getUri(documentOrUri);
 	if (uri.scheme === 'file') {
-		return getFileSystemPath(uri);
+		return getFileSystemPath(uri, useRealpaths);
 	}
 
 	const notebookDocument = notebooks.findNotebookDocumentForCell(uri.toString());
 	if (notebookDocument !== undefined ) {
 		const notebookUri = URI.parse(notebookDocument.uri);
 		if (notebookUri.scheme === 'file') {
-			const filePath = getFileSystemPath(uri);
+			const filePath = getFileSystemPath(uri, useRealpaths);
 			if (filePath !== undefined) {
 				const textDocument = documents.get(uri.toString());
 				if (textDocument !== undefined) {
@@ -299,7 +299,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
 	SaveRuleConfigs.clear();
 
 	await Promise.all(params.changes.map(async (change) => {
-		const fsPath = inferFilePath(change.uri);
+		const fsPath = inferFilePath(change.uri, false);
 		if (fsPath === undefined || fsPath.length === 0 || isUNC(fsPath)) {
 			return;
 		}
@@ -756,7 +756,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings) || (mode === AllFixesMode.format && !settings.format)) {
 		return [];
 	}
-	const filePath = inferFilePath(textDocument);
+	const filePath = inferFilePath(textDocument, settings.useRealpaths);
 	const problems = CodeActions.get(uri);
 	const originalContent = textDocument.getText();
 	let start = Date.now();

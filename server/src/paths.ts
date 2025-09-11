@@ -76,7 +76,7 @@ export function isUNC(path: string): boolean {
 	return true;
 }
 
-export function getFileSystemPath(uri: URI): string {
+export function getFileSystemPath(uri: URI, useRealpaths: boolean): string {
 	let result = uri.fsPath;
 	if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
 		// Node by default uses an upper case drive letter and ESLint uses
@@ -84,20 +84,27 @@ export function getFileSystemPath(uri: URI): string {
 		// if the drive letter is lower case in th URI. Ensure upper case.
 		result = result[0].toUpperCase() + result.substr(1);
 	}
-	if (process.platform === 'win32' || process.platform === 'darwin') {
-		try {
-			const realpath = fs.realpathSync.native(result);
-			// Only use the real path if only the casing has changed.
-			if (realpath.toLowerCase() === result.toLowerCase()) {
-				result = realpath;
-			}
-		} catch {
-			// Silently ignore errors from `fs.realpathSync` to handle scenarios where
-			// the file being linted is not yet written to disk. This occurs in editors
-			// such as Neovim for non-written buffers.
+	if (useRealpaths) {
+		result = tryRealpath(result);
+	} else if (process.platform === 'win32' || process.platform === 'darwin') {
+		const realpath = tryRealpath(result);
+		// Only use the real path if only the casing has changed.
+		if (realpath.toLowerCase() === result.toLowerCase()) {
+			result = realpath;
 		}
 	}
 	return result;
+}
+
+function tryRealpath(path: string): string {
+	try {
+		return fs.realpathSync.native(path);
+	} catch (error) {
+		// Silently ignore errors from `fs.realpathSync` to handle scenarios where
+		// the file being linted is not yet written to disk. This occurs in editors
+		// such as Neovim for non-written buffers.
+		return path;
+	}
 }
 
 export function normalizePath(path: string): string;
