@@ -686,6 +686,7 @@ export namespace ESLintClient {
 					},
 					format: false,
 					quiet: config.get<boolean>('quiet', false),
+					resolvePathsToRealpath: config.get<boolean | undefined>('resolvePathsToRealpath', true),
 					onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 					options: config.get<ESLintOptions>('options', {}),
 					rulesCustomizations: getRuleCustomizations(config, resource),
@@ -962,7 +963,7 @@ export namespace ESLintClient {
 			}
 
 			if (detail !== undefined && languageStatus.detail !== detail) {
-				 languageStatus.detail = detail;
+				languageStatus.detail = detail;
 			}
 			if (languageStatus.severity !== severity) {
 				languageStatus.severity = severity;

@@ -322,6 +322,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.useESLintClass` (@since 2.2.0) - whether to use the ESLint class API even if the CLIEngine API is present. The setting is only honor when using ESLint version 7.x.
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.quiet` - ignore warnings, default is `false`.
+- `eslint.resolvePathsToRealpath` (@since 3.x) - resolve all file system paths through `fs.realpath` (normalizes casing & collapses symlinks on Windows & macOS). Defaults to `true`. Set to `false` if you rely on original (symlinked or differently cased) paths being preserved.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under. [Use `"node"`](https://github.com/microsoft/vscode-eslint/issues/1233#issuecomment-815521280) if you want to use your default system version of node.
     - _NOTE_ If you are using remote connections (e.g., WSL, Remote SSH, DevContainer, etc.) and don’t want to modify workspace-wide settings, you need to run the "Preferences: Open Remote Settings (JSON)" command via the Command Palette. Set the desired options there, and then reload the editor to ensure the linter server applies the changes.
 - `eslint.execArgv` - use this setting to pass additional arguments to the node runtime like `--max-old-space-size=4096`

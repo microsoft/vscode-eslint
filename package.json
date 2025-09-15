@@ -157,6 +157,12 @@
 					"default": false,
 					"description": "Turns on quiet mode, which ignores warnings."
 				},
+				"eslint.resolvePathsToRealpath": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Controls whether the extension resolves file system paths using Node's fs.realpath before using them. This normalizes path casing and collapses symlinks on Windows and macOS. Disable (set to false) to preserve original (possibly symlinked) paths."
+				},
 				"eslint.onIgnoredFiles": {
 					"scope": "resource",
 					"type": "string",

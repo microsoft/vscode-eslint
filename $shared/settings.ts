@@ -182,6 +182,8 @@ export type ConfigurationSettings = {
 	problems: {
 		shortenToSingleLine: boolean;
 	};
+	/** See shared documentation in root $shared/settings.ts */
+	resolvePathsToRealpath?: boolean;
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;

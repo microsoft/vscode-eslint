@@ -84,7 +84,7 @@ export function getFileSystemPath(uri: URI): string {
 		// if the drive letter is lower case in th URI. Ensure upper case.
 		result = result[0].toUpperCase() + result.substr(1);
 	}
-	if (process.platform === 'win32' || process.platform === 'darwin') {
+	if (resolvePathsToRealpath && (process.platform === 'win32' || process.platform === 'darwin')) {
 		try {
 			const realpath = fs.realpathSync.native(result);
 			// Only use the real path if only the casing has changed.
@@ -98,6 +98,14 @@ export function getFileSystemPath(uri: URI): string {
 		}
 	}
 	return result;
+}
+
+// Setting controlled via configuration (eslint.resolvePathsToRealpath). Defaults to true.
+let resolvePathsToRealpath: boolean = true;
+
+export function setResolvePathsToRealpath(value: boolean | undefined): void {
+	// Only disable if explicitly set to false. Undefined means use default (true)
+	resolvePathsToRealpath = value !== false;
 }
 
 export function normalizePath(path: string): string;

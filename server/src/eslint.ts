@@ -22,7 +22,7 @@ import { ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, Mo
 
 import * as Is from './is';
 import { LRUCache } from './linkedMap';
-import { isUNC, normalizeDriveLetter, normalizePath } from './paths';
+import { isUNC, normalizeDriveLetter, normalizePath, setResolvePathsToRealpath } from './paths';
 import LanguageDefaults from './languageDefaults';
 
 
@@ -860,6 +860,8 @@ export namespace ESLint {
 			return resultPromise;
 		}
 		resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((configuration: ConfigurationSettings) => {
+			// Apply path resolution setting early so all subsequent path operations honor it.
+			setResolvePathsToRealpath(configuration.resolvePathsToRealpath);
 			const settings: TextDocumentSettings = Object.assign(
 				{},
 				configuration,
