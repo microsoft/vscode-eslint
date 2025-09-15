@@ -168,6 +168,7 @@ export type ConfigurationSettings = {
 	packageManager: PackageManagers;
 	useESLintClass: boolean;
 	useFlatConfig?: boolean | undefined;
+	useRealPath?: boolean | undefined;
 	experimental?: {
 		useFlatConfig: boolean;
 	};

@@ -568,6 +568,12 @@
 						"error": 6000
 					},
 					"markdownDescription": "The time budget in milliseconds to spend on computing fixes before showing a warning or error."
+				},
+				"eslint.useRealPath": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Controls whether real (resolved symlink) filesystem paths are used when communicating with the ESLint server."
 				}
 			}
 		},
