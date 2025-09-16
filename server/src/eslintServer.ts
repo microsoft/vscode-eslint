@@ -115,21 +115,24 @@ process.on('uncaughtException', (error: any) => {
  * Infers a file path for a given URI / TextDocument. If the document is a notebook
  * cell document it uses the file path from the notebook with a corresponding
  * extension (e.g. TypeScript -> ts)
+ *
+ * useRealPath must be explicitly provided by the caller to avoid silently defaulting
+ * to either behavior. Callers that don't have per-document settings should pass false.
  */
-function inferFilePath(documentOrUri: string | TextDocument | URI | undefined): string | undefined {
+function inferFilePath(documentOrUri: string | TextDocument | URI | undefined, useRealPath: boolean): string | undefined {
 	if (!documentOrUri) {
 		return undefined;
 	}
 	const uri = getUri(documentOrUri);
 	if (uri.scheme === 'file') {
-		return getFileSystemPath(uri);
+		return getFileSystemPath(uri, useRealPath);
 	}
 
 	const notebookDocument = notebooks.findNotebookDocumentForCell(uri.toString());
 	if (notebookDocument !== undefined ) {
 		const notebookUri = URI.parse(notebookDocument.uri);
 		if (notebookUri.scheme === 'file') {
-			const filePath = getFileSystemPath(uri);
+			const filePath = getFileSystemPath(uri, useRealPath);
 			if (filePath !== undefined) {
 				const textDocument = documents.get(uri.toString());
 				if (textDocument !== undefined) {
@@ -299,7 +302,7 @@ connection.onDidChangeWatchedFiles(async (params) => {
 	SaveRuleConfigs.clear();
 
 	await Promise.all(params.changes.map(async (change) => {
-		const fsPath = inferFilePath(change.uri);
+		const fsPath = inferFilePath(change.uri, false);
 		if (fsPath === undefined || fsPath.length === 0 || isUNC(fsPath)) {
 			return;
 		}
@@ -756,7 +759,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings) || (mode === AllFixesMode.format && !settings.format)) {
 		return [];
 	}
-	const filePath = inferFilePath(textDocument);
+	const filePath = inferFilePath(textDocument, settings.useRealPath === true);
 	const problems = CodeActions.get(uri);
 	const originalContent = textDocument.getText();
 	let start = Date.now();
