@@ -1317,41 +1317,65 @@ export namespace ESLint {
 			hasPackageJson: false
 		};
 
+		let files: string[];
+		try {
+			files = fs.readdirSync(directory);
+		} catch {
+			// Directory doesn't exist or can't be read
+			return indicators;
+		}
+
+		const fileSet = new Set(files);
+
 		for (const fileName of flatConfigFiles) {
-			if (fs.existsSync(path.join(directory, fileName))) {
+			if (fileSet.has(fileName)) {
 				indicators.flatConfigs.push(fileName);
 			}
 		}
 
 		for (const fileName of legacyConfigFiles) {
-			if (fs.existsSync(path.join(directory, fileName))) {
+			if (fileSet.has(fileName)) {
 				indicators.legacyConfigs.push(fileName);
 			}
 		}
 
 		for (const fileName of lockfileAndWorkspaceFiles) {
-			if (fs.existsSync(path.join(directory, fileName))) {
+			if (fileSet.has(fileName)) {
 				indicators.lockfiles.push(fileName);
 			}
 		}
 
-		if (fs.existsSync(path.join(directory, 'package.json'))) {
+		if (fileSet.has('package.json')) {
 			indicators.hasPackageJson = true;
 		}
 
 		return indicators;
 	}
 
+	// Safeguard: maximum 50 levels of traversal
+	// to avoid infinite loops
+	const maxTraversalIterations = 50;
+
 	function traverseUpwards(startDirectory: string, workspaceFolder: string): DirectoryIndicators[] {
 		const candidates: DirectoryIndicators[] = [];
 		let directory: string | undefined = startDirectory;
+		// Normalize workspace folder once since it comes from config
+		const normalizedWorkspace = path.normalize(workspaceFolder);
+		
+		let iterations = 0;
 
-		while (directory !== undefined && directory.startsWith(workspaceFolder)) {
+		while (directory !== undefined && iterations < maxTraversalIterations) {
+			// Check if we're still within workspace
+			if (!directory.startsWith(normalizedWorkspace)) {
+				break;
+			}
+			
 			const indicators = collectProjectIndicators(directory);
 			candidates.push(indicators);
 
 			const parent = path.dirname(directory);
 			directory = parent !== directory ? parent : undefined;
+			iterations++;
 		}
 
 		return candidates;
@@ -1367,7 +1391,7 @@ export namespace ESLint {
 			? candidates.slice(candidates.indexOf(lockfileRoot)).find(c => c.flatConfigs.length > 0)
 			: undefined;
 		
-		const uppermostPackageJson = [...candidates].reverse().find(c => c.hasPackageJson);
+		const uppermostPackageJson = candidates.findLast(c => c.hasPackageJson);
 
 		// Priority 1: Flat config at or above lockfile root (best practice)
 		if (lockfileRoot && flatConfigAtOrAboveLockfile) {
