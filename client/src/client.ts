@@ -623,7 +623,7 @@ export namespace ESLintClient {
 				const textDocument = getTextDocument(resource);
 				const config = Workspace.getConfiguration('eslint', textDocument ?? resource);
 				const workspaceFolder = resource.scheme === 'untitled'
-					? Workspace.workspaceFolders !== undefined ? Workspace.workspaceFolders[0] : undefined
+					? Workspace.workspaceFolders?.[0]
 					: Workspace.getWorkspaceFolder(resource);
 				await migrationSemaphore.lock(async () => {
 					const globalMigration = Workspace.getConfiguration('eslint').get('migration.2_x', 'on');
@@ -678,6 +678,7 @@ export namespace ESLintClient {
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
 					useESLintClass: config.get<boolean>('useESLintClass', false),
 					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
+					useRealpaths: config.get<boolean>('useRealpaths', false),
 					experimental: {
 						useFlatConfig: config.get<boolean>('experimental.useFlatConfig', false),
 					},

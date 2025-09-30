@@ -196,6 +196,12 @@
 					"deprecationMessage": "Use ESLint version 8.57 or later and `eslint.useFlatConfig` instead.",
 					"description": "Enables support of experimental Flat Config (aka eslint.config.js). Requires ESLint version >= 8.21 < 8.57.0)."
 				},
+				"eslint.useRealpaths": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "Whether ESLint should use real paths when resolving files. This is useful when working with symlinks or when the casing of file paths is inconsistent."
+				},
 				"eslint.workingDirectories": {
 					"scope": "resource",
 					"type": "array",
