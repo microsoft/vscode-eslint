@@ -34,7 +34,3 @@ To add a new settings follow these steps:
 4. Use setting inside `eslint.ts` logic (e.g., adapt `validate()` or `resolveSettings()`).
 
 ## Design Decisions
-
-### Converting URIs into file system paths
-
-The VS Code API uses URIs to identify resource. ESLint in contrast uses file system paths. The conversion from URIs into file system paths happens in the function `getFileSystemPath` in the `server\src\paths.ts` file
