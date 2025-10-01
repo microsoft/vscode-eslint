@@ -40,8 +40,6 @@ class FolderTaskProvider {
 			return undefined;
 		}
 		try {
-			const command = await findEslint(rootPath);
-
 			const kind: EslintTaskDefinition = {
 				type: 'eslint'
 			};
@@ -49,14 +47,24 @@ class FolderTaskProvider {
 			const options: vscode.ShellExecutionOptions = { cwd: this.workspaceFolder.uri.fsPath };
 			const config = vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri);
 			const lintTaskOptions= config.get<string>('lintTask.options', '.');
+
+			const eslintCommands: string[] = [];
+			for (const workingDirectory of this.workingDirectories()) {
+				const eslint = await findEslint(workingDirectory);
+				eslintCommands.push(`pushd ${workingDirectory} && ${eslint} ${lintTaskOptions} && popd`);
+			}
 			return new vscode.Task(
 				kind, this.workspaceFolder,
-				'lint whole folder', 'eslint', new vscode.ShellExecution(`${command} ${lintTaskOptions}`, options),
+				'lint whole folder', 'eslint', new vscode.ShellExecution(eslintCommands.join(' && '), options),
 				'$eslint-stylish'
 			);
 		} catch (error) {
 			return undefined;
 		}
+	}
+
+	private workingDirectories() : string []{
+		return vscode.workspace.getConfiguration('eslint', this._workspaceFolder.uri).get('workingDirectories', undefined) || ['.'];
 	}
 }
 
