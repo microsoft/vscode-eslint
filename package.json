@@ -344,17 +344,17 @@
 					"deprecationMessage": "This option is deprecated. Use eslint.lintTask.enable instead.",
 					"description": "Controls whether a task for linting the whole workspace will be available."
 				},
-				"eslint.lintTask.command": {
-					"scope": "resource",
-					"type": "string",
-					"default": "eslint",
-					"markdownDescription": "The command to run the task for linting the whole workspace. Defaults to the found eslint binary for the workspace, or 'eslint' if no binary could be found."
-				},
 				"eslint.lintTask.enable": {
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
 					"description": "Controls whether a task for linting the whole workspace will be available."
+				},
+				"eslint.lintTask.command": {
+					"scope": "resource",
+					"type": "string",
+					"default": "eslint",
+					"markdownDescription": "The command to run the task for linting the whole workspace. Defaults to the found eslint binary for the workspace, or 'eslint' if no binary could be found."
 				},
 				"eslint.lintTask.options": {
 					"scope": "resource",
