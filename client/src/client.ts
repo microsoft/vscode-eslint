@@ -399,8 +399,8 @@ export namespace ESLintClient {
 			}
 			const debugArgv = ['--nolazy', '--inspect=6011'];
 			const result: ServerOptions = {
-				run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd: process.cwd(), env } },
-				debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd: process.cwd(), env } }
+				run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, env } },
+				debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, env } }
 			};
 			return result;
 		}
