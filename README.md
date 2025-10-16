@@ -322,7 +322,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.useESLintClass` (@since 2.2.0) - whether to use the ESLint class API even if the CLIEngine API is present. The setting is only honor when using ESLint version 7.x.
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.quiet` - ignore warnings, default is `false`.
-- `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under. [Use `"node"`](https://github.com/microsoft/vscode-eslint/issues/1233#issuecomment-815521280) if you want to use your default system version of node.
+- `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under. [Use `"node"`](https://github.com/microsoft/vscode-eslint/issues/1233#issuecomment-815521280) along with [`"application.shellEnvironmentResolutionTimeout": 30`](https://github.com/microsoft/vscode-eslint/issues/1754#issuecomment-3410201863) if you want to use your default system version of node.
     - _NOTE_ If you are using remote connections (e.g., WSL, Remote SSH, DevContainer, etc.) and don’t want to modify workspace-wide settings, you need to run the "Preferences: Open Remote Settings (JSON)" command via the Command Palette. Set the desired options there, and then reload the editor to ensure the linter server applies the changes.
 - `eslint.execArgv` - use this setting to pass additional arguments to the node runtime like `--max-old-space-size=4096`
     - _NOTE_ If you are using remote connections (e.g., WSL, Remote SSH, DevContainer, etc.) and don’t want to modify workspace-wide settings, you need to run the "Preferences: Open Remote Settings (JSON)" command via the Command Palette. Set the desired options there, and then reload the editor to ensure the linter server applies the changes.
@@ -488,4 +488,5 @@ As with JavaScript validating TypeScript in a mono repository requires that you 
 ## ESLint 6.x
 
 Migrating from ESLint 5.x to ESLint 6.x might need some adaption (see the [ESLint Migration Guide](https://eslint.org/docs/user-guide/migrating-to-6.0.0) for details). Before filing an issue against the VS Code ESLint extension please ensure that you can successfully validate your files in a terminal using the eslint command.
+
 
