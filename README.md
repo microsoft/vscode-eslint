@@ -76,6 +76,16 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
 
+### Version 3.0.20 - release
+
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.20.0)
+
+- [PRs](https://github.com/microsoft/vscode-eslint/pulls?q=is%3Apr+milestone%3A3.20.0+is%3Aclosed)
+
+### Version 3.0.19 - pre-release
+
+- move to latest LSP libraries
+
 ### Version 3.0.17 - pre-release
 
 - add probe support for css

@@ -1,3 +1,13 @@
+### Version 3.0.20 - release
+
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.20.0)
+
+- [PRs](https://github.com/microsoft/vscode-eslint/pulls?q=is%3Apr+milestone%3A3.20.0+is%3Aclosed)
+
+### Version 3.0.19 - pre-release
+
+- move to latest LSP libraries
+
 ### Version 3.0.17 - pre-release
 
 - add probe support for css
