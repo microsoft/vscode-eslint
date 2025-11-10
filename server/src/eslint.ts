@@ -792,7 +792,8 @@ export namespace ESLint {
 		['markdown', 'markdown'],
 		['css', 'css'],
 		['glimmer-js', 'ember'],
-		['glimmer-ts', 'ember']
+		['glimmer-ts', 'ember'],
+		['svelte', 'svelte'],
 	]);
 
 	const defaultLanguageIds: Set<string> = new Set([
