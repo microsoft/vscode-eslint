@@ -333,7 +333,8 @@
 						"jsonc",
 						"css",
 						"glimmer-js",
-						"glimmer-ts"
+						"glimmer-ts",
+						"svelte"
 					],
 					"description": "An array of language ids for which the extension should probe if support is installed."
 				},
