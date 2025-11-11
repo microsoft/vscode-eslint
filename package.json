@@ -155,7 +155,7 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
-					"description": "Turns on quiet mode, which ignores warnings."
+					"description": "Turns on quiet mode, which ignores warnings and info diagnostics."
 				},
 				"eslint.onIgnoredFiles": {
 					"scope": "resource",
