@@ -11,7 +11,8 @@ import {
 
 import {
 	DocumentDiagnosticRequest,
-	LanguageClient
+	LanguageClient,
+	State
 } from 'vscode-languageclient/node';
 
 import { Validate } from './shared/settings';
@@ -61,6 +62,7 @@ function createDefaultConfiguration(): void {
 
 let onActivateCommands: Disposable[] | undefined;
 let client: LanguageClient;
+let acknowledgePerformanceStatus: () => void;
 const taskProvider: TaskProvider = new TaskProvider();
 const validator: Validator = new Validator();
 
@@ -128,7 +130,6 @@ function realActivate(context: ExtensionContext): void {
 		onActivateCommands = undefined;
 	}
 
-	let acknowledgePerformanceStatus: () => void;
 	[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
 
 	context.subscriptions.push(
@@ -139,8 +140,22 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			void ESLintClient.migrateSettings(client);
 		}),
-		Commands.registerCommand('eslint.restart', () => {
-			client.restart().catch((error) => client.error(`Restarting client failed`, error, 'force'));
+		Commands.registerCommand('eslint.restart', async () => {
+			// If the previous start failed, we need to create a new client to pick up
+			// a potentially updated environment (e.g., PATH changes from direnv).
+			if (client.state === State.StartFailed) {
+				await client.dispose();
+				[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
+				return client.start().catch((error) => {
+					client.error(`Starting the server failed.`, error, 'force');
+					const message = typeof error === 'string' ? error : typeof error.message === 'string' ? error.message : undefined;
+					if (message !== undefined && message.indexOf('ENOENT') !== -1) {
+						client.info(`PATH environment variable is: ${process.env['PATH']}`);
+					}
+				});
+			} else {
+				return client.restart().catch((error) => client.error(`Restarting client failed`, error, 'force'));
+			}
 		}),
 		Commands.registerCommand('eslint.revalidate', () => {
 			client.getFeature(DocumentDiagnosticRequest.method).refresh();
