@@ -1,3 +1,8 @@
+### Version 3.0.20 - pre-release
+
+- move to latest LSP libraries
+- `eslint.quite` blocks info messages as well.
+
 ### Version 3.0.20 - release
 
 - [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.20.0)

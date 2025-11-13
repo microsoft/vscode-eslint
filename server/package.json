@@ -1,6 +1,6 @@
 {
 	"name": "eslint-server",
-	"version": "3.0.15",
+	"version": "3.0.21",
 	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
@@ -18,7 +18,7 @@
 		"@types/semver": "^7.7.0"
 	},
 	"dependencies": {
-		"vscode-languageserver": "10.0.0-next.13",
+		"vscode-languageserver": "10.0.0-next.15",
 		"vscode-languageserver-textdocument": "1.0.12",
 		"vscode-uri": "^3.1.0",
 		"semver": "^7.7.2"
