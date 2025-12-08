@@ -380,6 +380,21 @@ export namespace ESLintClient {
 
 		return [client, acknowledgePerformanceStatus];
 
+		function getCurrentServerWorkingDirectory(): string {
+			if (!Workspace.isTrusted) {
+				return process.cwd();
+			}
+			const workspaceFolders = Workspace.workspaceFolders;
+			if (workspaceFolders === undefined || workspaceFolders.length !== 1) {
+				return process.cwd();
+			}
+			const uri = workspaceFolders[0].uri;
+			if (uri.scheme !== 'file') {
+				return process.cwd();
+			}
+			return uri.fsPath;
+		}
+
 		function createServerOptions(extensionUri: Uri): ServerOptions {
 			const serverModule = Uri.joinPath(extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 			const eslintConfig = Workspace.getConfiguration('eslint');
@@ -397,10 +412,11 @@ export namespace ESLintClient {
 				env = env || {};
 				env.NODE_ENV = nodeEnv;
 			}
+			const cwd = getCurrentServerWorkingDirectory();
 			const debugArgv = ['--nolazy', '--inspect=6011'];
 			const result: ServerOptions = {
-				run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd: process.cwd(), env } },
-				debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd: process.cwd(), env } }
+				run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd, env } },
+				debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd, env } }
 			};
 			return result;
 		}
