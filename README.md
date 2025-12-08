@@ -76,7 +76,11 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
 
-### Version 3.0.20 - pre-release
+### Version 3.0.22 - release
+
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.20.0)
+
+### Version 3.0.21 - pre-release
 
 - move to latest LSP libraries
 - `eslint.quite` blocks info messages as well.
