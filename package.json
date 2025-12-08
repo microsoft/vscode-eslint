@@ -2,7 +2,7 @@
 	"name": "vscode-eslint",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint JavaScript into VS Code.",
-	"version": "3.0.17",
+	"version": "3.0.21",
 	"author": "Microsoft Corporation",
 	"license": "MIT",
 	"repository": {
@@ -155,7 +155,7 @@
 					"scope": "resource",
 					"type": "boolean",
 					"default": false,
-					"description": "Turns on quiet mode, which ignores warnings."
+					"description": "Turns on quiet mode, which ignores warnings and info diagnostics."
 				},
 				"eslint.onIgnoredFiles": {
 					"scope": "resource",
@@ -333,7 +333,8 @@
 						"jsonc",
 						"css",
 						"glimmer-js",
-						"glimmer-ts"
+						"glimmer-ts",
+						"svelte"
 					],
 					"description": "An array of language ids for which the extension should probe if support is installed."
 				},
