@@ -328,6 +328,8 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.options": { "overrideConfigFile": "C:/mydirectory/.eslintrc.json" }
   }
   ```
+  Please note that if you override the config file location and use a relative path you might need to specify a working directory as well to ensure the config file is resolved relative to that directory.
+
   An example to point to a custom `.eslintrc.json` file using the old CLIEngine API is:
   ```json
   {
