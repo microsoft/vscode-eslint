@@ -186,4 +186,10 @@ export type ConfigurationSettings = {
 	nodePath: string | null;
 	workspaceFolder: WorkspaceFolder | undefined;
 	workingDirectory: ModeItem | DirectoryItem | undefined;
+	/** Enables ESLint's result caching. Only effective when {@link run} is `onSave`. */
+	cache: boolean;
+	/** Path to the cache file. Defaults to `.eslintcache` in the working directory. Only used when {@link cache} is `true`. */
+	cacheLocation?: string;
+	/** Strategy for detecting changed files: `metadata` (faster) or `content`. Only used when {@link cache} is `true`. */
+	cacheStrategy?: 'metadata' | 'content';
 };
