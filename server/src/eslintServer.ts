@@ -802,7 +802,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 							start: textDocument.positionAt(diff.originalStart),
 							end: textDocument.positionAt(diff.originalStart + diff.originalLength)
 						},
-						newText: fixedContent.substr(diff.modifiedStart, diff.modifiedLength)
+						newText: fixedContent.slice(diff.modifiedStart, diff.modifiedStart + diff.modifiedLength)
 					});
 				}
 			}
