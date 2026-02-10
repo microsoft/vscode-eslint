@@ -96,6 +96,26 @@
 					"default": {},
 					"markdownDescription": "The eslint options object to provide args normally passed to eslint when executed from a command line (see https://eslint.org/docs/developer-guide/nodejs-api#eslint-class)."
 				},
+				"eslint.cache": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Enables ESLint's cache when linting on save (`eslint.run` must be `onSave`). The cache file (`.eslintcache`) can be reused by command-line ESLint and pre-commit hooks, improving their performance."
+				},
+				"eslint.cacheLocation": {
+					"scope": "resource",
+					"type": "string",
+					"markdownDescription": "Path to the ESLint cache file. If not specified, defaults to `.eslintcache` in the working directory. Only used when `eslint.cache` is enabled."
+				},
+				"eslint.cacheStrategy": {
+					"scope": "resource",
+					"type": "string",
+					"enum": [
+						"metadata",
+						"content"
+					],
+					"markdownDescription": "Strategy for the ESLint cache to detect changed files. `metadata` uses file metadata (faster) while `content` uses file content (for environments where metadata is unreliable). Only used when `eslint.cache` is enabled."
+				},
 				"eslint.trace.server": {
 					"scope": "window",
 					"anyOf": [

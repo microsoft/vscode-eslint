@@ -99,6 +99,10 @@ export type CLIOptions = {
 	cwd?: string;
 	fixTypes?: string[];
 	fix?: boolean;
+	/** Enables ESLint's result caching. Only effective when `eslint.run` is `onSave`. */
+	cache?: boolean;
+	/** Path to the cache file. Only used when {@link cache} is `true`. */
+	cacheLocation?: string;
 };
 
 export type SeverityConf = 0 | 1 | 2 | 'off' | 'warn' | 'error';
@@ -115,6 +119,12 @@ export type ESLintClassOptions = {
 	fix?: boolean;
 	overrideConfig?: ConfigData;
 	overrideConfigFile?: string | null;
+	/** Enables ESLint's result caching. Only effective when `eslint.run` is `onSave`. */
+	cache?: boolean;
+	/** Path to the cache file. Only used when {@link cache} is `true`. */
+	cacheLocation?: string;
+	/** Strategy for detecting changed files: `metadata` (default, faster) or `content`. Only used when {@link cache} is `true`. */
+	cacheStrategy?: 'metadata' | 'content';
 };
 
 export type RuleMetaData = {
@@ -252,6 +262,8 @@ export namespace SuggestionsProblem {
 interface ESLintClass extends Object {
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintlinttextcode-options
 	lintText(content: string, options: {filePath?: string; warnIgnored?: boolean}): Promise<ESLintDocumentReport[]>;
+	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintlintfilespatterns
+	lintFiles(patterns: string | string[]): Promise<ESLintDocumentReport[]>;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintispathignoredfilepath
 	isPathIgnored(path: string): Promise<boolean>;
 	// https://eslint.org/docs/developer-guide/nodejs-api#-eslintgetrulesmetaforresultsresults
@@ -333,6 +345,7 @@ namespace RuleData {
 
 interface CLIEngine {
 	executeOnText(content: string, file?: string, warn?: boolean): ESLintReport;
+	executeOnFiles(patterns: string[]): ESLintReport;
 	isPathIgnored(path: string): boolean;
 	// This is only available from v4.15.0 forward
 	getRules?(): Map<string, RuleData>;
@@ -360,6 +373,9 @@ class ESLintClassEmulator implements ESLintClass {
 	}
 	async lintText(content: string, options: { filePath?: string | undefined; warnIgnored?: boolean | undefined }): Promise<ESLintDocumentReport[]> {
 		return this.cli.executeOnText(content, options.filePath, options.warnIgnored).results;
+	}
+	async lintFiles(patterns: string | string[]): Promise<ESLintDocumentReport[]> {
+		return this.cli.executeOnFiles(Array.isArray(patterns) ? patterns : [patterns]).results;
 	}
 	async isPathIgnored(path: string): Promise<boolean> {
 		return this.cli.isPathIgnored(path);
@@ -1138,10 +1154,26 @@ export namespace ESLint {
 		return new library.ESLint(newOptions);
 	}
 
+	/** Applies cache-related settings to ESLint options. Cache properties are only set when `settings.cache` is `true`. */
+	function applyCacheOptions(options: ESLintClassOptions, settings: TextDocumentSettings): void {
+		if (!settings.cache) {
+			return;
+		}
+		options.cache = true;
+		if (settings.cacheLocation) {
+			options.cacheLocation = settings.cacheLocation;
+		}
+		if (settings.cacheStrategy) {
+			options.cacheStrategy = settings.cacheStrategy;
+		}
+	}
+
 	export async function withClass<T>(func: (eslintClass: ESLintClass) => Promise<T>, settings: TextDocumentSettings & { library: ESLintModule }, options?: ESLintClassOptions | CLIOptions): Promise<T> {
 		const newOptions: ESLintClassOptions | CLIOptions = options === undefined
 			? Object.assign(Object.create(null), settings.options)
 			: Object.assign(Object.create(null), settings.options, options);
+
+		applyCacheOptions(newOptions as ESLintClassOptions, settings);
 
 		const cwd = process.cwd();
 		try {
@@ -1196,6 +1228,16 @@ export namespace ESLint {
 	}
 
 	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
+
+	/**
+	 * Returns `true` when ESLint should lint from disk (via `lintFiles`) instead of
+	 * from the in-memory document (via `lintText`). Caching requires disk access
+	 * because ESLint's cache tracks files on disk; in-memory content would bypass it.
+	 */
+	function shouldUseLintFiles(settings: TextDocumentSettings, file: string | undefined): file is string {
+		return settings.cache && settings.run === 'onSave' && file !== undefined;
+	}
+
 	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 		let fixTypes: Set<string> | undefined = undefined;
@@ -1217,7 +1259,9 @@ export namespace ESLint {
 
 		return withClass(async (eslintClass) => {
 			CodeActions.remove(uri);
-			const reportResults: ESLintDocumentReport[] = await eslintClass.lintText(content, { filePath: file, warnIgnored: settings.onIgnoredFiles !== ESLintSeverity.off });
+			const reportResults: ESLintDocumentReport[] = shouldUseLintFiles(settings, file)
+				? await eslintClass.lintFiles(file)
+				: await eslintClass.lintText(content, { filePath: file, warnIgnored: settings.onIgnoredFiles !== ESLintSeverity.off });
 			RuleMetaData.capture(eslintClass, reportResults);
 			const diagnostics: Diagnostic[] = [];
 			if (reportResults && Array.isArray(reportResults) && reportResults.length > 0) {
