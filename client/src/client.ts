@@ -9,7 +9,7 @@ import * as path from 'path';
 import {
 	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
-	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter
+	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter, LogOutputChannel
 } from 'vscode';
 
 import {
@@ -83,6 +83,17 @@ type NoESLintState = {
 };
 
 export namespace ESLintClient {
+
+	// Create a shared output channel that persists across client restarts
+	// to prevent the Output panel from being focused when the channel is
+	// disposed and recreated.
+	let outputChannel: LogOutputChannel | undefined;
+	function getOutputChannel(): LogOutputChannel {
+		if (outputChannel === undefined) {
+			outputChannel = Window.createOutputChannel('ESLint', { log: true });
+		}
+		return outputChannel;
+	}
 
 	function migrationFailed(client: LanguageClient, error: any): void {
 		client.error(error.message ?? 'Unknown error', error);
@@ -193,7 +204,7 @@ export namespace ESLintClient {
 		}));
 
 		client.onNotification(ShowOutputChannel.type, () => {
-			client.outputChannel.show();
+			client.outputChannel.show(true);
 		});
 
 		client.onNotification(StatusNotification.type, (params) => {
@@ -434,6 +445,7 @@ export namespace ESLintClient {
 			const clientOptions: LanguageClientOptions = {
 				documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 				revealOutputChannelOn: RevealOutputChannelOn.Never,
+				outputChannel: getOutputChannel(),
 				initializationOptions: {
 				},
 				progressOnInitialization: true,
