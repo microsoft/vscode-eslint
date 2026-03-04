@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "devDependencies": {
-    "eslint": "^9.5.0",
-    "globals": "^15.0.0"
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0"
   }
 }
