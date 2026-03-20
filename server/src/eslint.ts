@@ -81,11 +81,16 @@ type ESLintProblem = {
 	suggestions?: ESLintSuggestionResult[];
 };
 
+type SuppressedESLintProblem = ESLintProblem & {
+	suppressions: Array<{ kind: string; justification: string }>;
+};
+
 type ESLintDocumentReport = {
 	filePath: string;
 	errorCount: number;
 	warningCount: number;
 	messages: ESLintProblem[];
+	suppressedMessages?: SuppressedESLintProblem[];
 	output?: string;
 };
 
@@ -115,6 +120,8 @@ export type ESLintClassOptions = {
 	fix?: boolean;
 	overrideConfig?: ConfigData;
 	overrideConfigFile?: string | null;
+	applySuppressions?: boolean;
+	suppressionsLocation?: string;
 };
 
 export type RuleMetaData = {
@@ -1195,6 +1202,15 @@ export namespace ESLint {
 		}
 	}
 
+	function bulkSeverity(severity?: 'error' | 'warn' | 'info' | 'hint'): DiagnosticSeverity {
+		switch (severity) {
+			case 'error': return DiagnosticSeverity.Error;
+			case 'warn':  return DiagnosticSeverity.Warning;
+			case 'hint':  return DiagnosticSeverity.Hint;
+			default:      return DiagnosticSeverity.Information;
+		}
+	}
+
 	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
 	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
@@ -1214,6 +1230,15 @@ export namespace ESLint {
 		const content = document.getText();
 		const uri = document.uri;
 		const file = getFilePath(document, settings);
+
+		const suppressionOptions: ESLintClassOptions = settings.bulkSuppression?.enable
+			? {
+				applySuppressions: true,
+				...(settings.bulkSuppression.suppressionsLocation
+					? { suppressionsLocation: settings.bulkSuppression.suppressionsLocation }
+					: {}),
+			}
+			: {};
 
 		return withClass(async (eslintClass) => {
 			CodeActions.remove(uri);
@@ -1244,9 +1269,22 @@ export namespace ESLint {
 						}
 					});
 				}
+				// Bulk-suppressed diagnostics intentionally bypass `quiet` mode: they are opt-in
+				// and already represent a deliberate visibility decision by the user.
+				if (settings.bulkSuppression?.enable && docReport.suppressedMessages && Array.isArray(docReport.suppressedMessages)) {
+					for (const problem of docReport.suppressedMessages) {
+						if (problem && problem.suppressions?.some(s => s.kind === 'file')) {
+							const [diagnostic, override] = Diagnostics.create(settings, problem, document);
+							if (override !== RuleSeverity.off) {
+								diagnostic.severity = bulkSeverity(settings.bulkSuppression.severity);
+								diagnostics.push(diagnostic);
+							}
+						}
+					}
+				}
 			}
 			return diagnostics;
-		}, settings);
+		}, settings, suppressionOptions);
 	}
 
 	function trace(message: string, verbose?: string): void {

@@ -176,6 +176,11 @@ export type ConfigurationSettings = {
 	codeActionOnSave: CodeActionsOnSaveSettings;
 	format: boolean;
 	quiet: boolean;
+	bulkSuppression: {
+		enable: boolean;
+		suppressionsLocation?: string;
+		severity?: 'error' | 'warn' | 'info' | 'hint';
+	};
 	onIgnoredFiles: ESLintSeverity;
 	options: ESLintOptions | undefined;
 	rulesCustomizations: RuleCustomization[];
