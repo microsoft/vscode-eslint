@@ -800,24 +800,34 @@ export namespace ESLint {
 		'javascript', 'javascriptreact'
 	]);
 
-	const projectFolderIndicators: {
-		fileName: string;
-		isRoot: boolean;
-		isFlatConfig: boolean;
-	}[] = [
-		{ fileName: 'eslint.config.js', isRoot: true, isFlatConfig: true },
-		{ fileName: 'eslint.config.cjs', isRoot: true, isFlatConfig: true },
-		{ fileName: 'eslint.config.mjs', isRoot: true, isFlatConfig: true },
-		{ fileName: 'eslint.config.ts', isRoot: true, isFlatConfig: true },
-		{ fileName: 'eslint.config.cts', isRoot: true, isFlatConfig: true },
-		{ fileName: 'eslint.config.mts', isRoot: true, isFlatConfig: true },
-		{ fileName: 'package.json', isRoot: true, isFlatConfig: false },
-		{ fileName: '.eslintignore', isRoot: true, isFlatConfig: false },
-		{ fileName: '.eslintrc', isRoot: false, isFlatConfig: false },
-		{ fileName: '.eslintrc.json', isRoot: false, isFlatConfig: false },
-		{ fileName: '.eslintrc.js', isRoot: false, isFlatConfig: false },
-		{ fileName: '.eslintrc.yaml', isRoot: false, isFlatConfig: false },
-		{ fileName: '.eslintrc.yml', isRoot: false, isFlatConfig: false }
+	const flatConfigFiles = [
+		'eslint.config.js',
+		'eslint.config.cjs', 
+		'eslint.config.mjs',
+		'eslint.config.ts',
+		'eslint.config.cts',
+		'eslint.config.mts'
+	];
+
+	const legacyConfigFiles = [
+		'.eslintrc',
+		'.eslintrc.json',
+		'.eslintrc.js',
+		'.eslintrc.yaml',
+		'.eslintrc.yml'
+	];
+
+	const lockfileAndWorkspaceFiles = [
+		'package-lock.json',
+		'yarn.lock',
+		'pnpm-lock.yaml',
+		'npm-shrinkwrap.json',
+		'bun.lockb',
+		'pnpm-workspace.yaml',
+		'.yarnrc.yml',
+		'rush.json',
+		'nx.json',
+		'lerna.json'
 	];
 
 	const path2Library: Map<string, ESLintModule> = new Map<string, ESLintModule>();
@@ -1291,6 +1301,128 @@ export namespace ESLint {
 		}
 	}
 
+	interface DirectoryIndicators {
+		directory: string;
+		flatConfigs: string[];
+		legacyConfigs: string[];
+		lockfiles: string[];
+		hasPackageJson: boolean;
+	}
+
+	function collectProjectIndicators(directory: string): DirectoryIndicators {
+		const indicators: DirectoryIndicators = {
+			directory,
+			flatConfigs: [],
+			legacyConfigs: [],
+			lockfiles: [],
+			hasPackageJson: false
+		};
+
+		let files: string[];
+		try {
+			files = fs.readdirSync(directory);
+		} catch {
+			// Directory doesn't exist or can't be read
+			return indicators;
+		}
+
+		const fileSet = new Set(files);
+
+		for (const fileName of flatConfigFiles) {
+			if (fileSet.has(fileName)) {
+				indicators.flatConfigs.push(fileName);
+			}
+		}
+
+		for (const fileName of legacyConfigFiles) {
+			if (fileSet.has(fileName)) {
+				indicators.legacyConfigs.push(fileName);
+			}
+		}
+
+		for (const fileName of lockfileAndWorkspaceFiles) {
+			if (fileSet.has(fileName)) {
+				indicators.lockfiles.push(fileName);
+			}
+		}
+
+		if (fileSet.has('package.json')) {
+			indicators.hasPackageJson = true;
+		}
+
+		return indicators;
+	}
+
+	// Safeguard: maximum 50 levels of traversal
+	// to avoid infinite loops
+	const maxTraversalIterations = 50;
+
+	function traverseUpwards(startDirectory: string, workspaceFolder: string): DirectoryIndicators[] {
+		const candidates: DirectoryIndicators[] = [];
+		let directory: string | undefined = startDirectory;
+		// Normalize workspace folder once since it comes from config
+		const normalizedWorkspace = path.normalize(workspaceFolder);
+		
+		let iterations = 0;
+
+		while (directory !== undefined && iterations < maxTraversalIterations) {
+			// Check if we're still within workspace
+			if (!directory.startsWith(normalizedWorkspace)) {
+				break;
+			}
+			
+			const indicators = collectProjectIndicators(directory);
+			candidates.push(indicators);
+
+			const parent = path.dirname(directory);
+			directory = parent !== directory ? parent : undefined;
+			iterations++;
+		}
+
+		return candidates;
+	}
+
+	function selectWorkingDirectory(candidates: DirectoryIndicators[], workspaceFolder: string): [string, boolean] {
+		const lockfileRoot = candidates.find(c => c.lockfiles.length > 0);
+		
+		const nearestFlatConfig = candidates.find(c => c.flatConfigs.length > 0);
+		
+		// Find flat config at or above lockfile root (if lockfile exists)
+		const flatConfigAtOrAboveLockfile = lockfileRoot 
+			? candidates.slice(candidates.indexOf(lockfileRoot)).find(c => c.flatConfigs.length > 0)
+			: undefined;
+		
+		const uppermostPackageJson = candidates.findLast(c => c.hasPackageJson);
+
+		// Priority 1: Flat config at or above lockfile root (best practice)
+		if (lockfileRoot && flatConfigAtOrAboveLockfile) {
+			return [flatConfigAtOrAboveLockfile.directory, true];
+		}
+
+		// Priority 2: Lockfile root with legacy config
+		if (lockfileRoot && lockfileRoot.legacyConfigs.length > 0) {
+			return [lockfileRoot.directory, false];
+		}
+
+		// Priority 3: Lockfile root (dependency boundary)
+		if (lockfileRoot) {
+			return [lockfileRoot.directory, false];
+		}
+
+		// Priority 4: Any flat config (if no lockfile structure)
+		if (nearestFlatConfig) {
+			return [nearestFlatConfig.directory, true];
+		}
+
+		// Priority 5: Uppermost package.json (fallback for non-lockfile projects)
+		if (uppermostPackageJson) {
+			return [uppermostPackageJson.directory, false];
+		}
+
+		// Priority 6: Workspace folder
+		return [workspaceFolder, false];
+	}
+
 	export function findWorkingDirectory(workspaceFolder: string, file: string | undefined): [string, boolean] {
 		if (file === undefined || isUNC(file)) {
 			return [workspaceFolder, false];
@@ -1300,25 +1432,9 @@ export namespace ESLint {
 			return [workspaceFolder, false];
 		}
 
-		let result: string = workspaceFolder;
-		let flatConfig: boolean = false;
-		let directory: string | undefined = path.dirname(file);
-		outer: while (directory !== undefined && directory.startsWith(workspaceFolder)) {
-			for (const { fileName, isRoot, isFlatConfig } of projectFolderIndicators) {
-				if (fs.existsSync(path.join(directory, fileName))) {
-					result = directory;
-					flatConfig = isFlatConfig;
-					if (isRoot) {
-						break outer;
-					} else {
-						break;
-					}
-				}
-			}
-			const parent = path.dirname(directory);
-			directory = parent !== directory ? parent : undefined;
-		}
-		return [result, flatConfig];
+		const startDirectory = path.dirname(file);
+		const candidates = traverseUpwards(startDirectory, workspaceFolder);
+		return selectWorkingDirectory(candidates, workspaceFolder);
 	}
 
 	export namespace ErrorHandlers {
