@@ -794,6 +794,7 @@ export namespace ESLint {
 		['glimmer-js', 'ember'],
 		['glimmer-ts', 'ember'],
 		['svelte', 'svelte'],
+		['graphql', '@graphql-eslint'],
 	]);
 
 	const defaultLanguageIds: Set<string> = new Set([
