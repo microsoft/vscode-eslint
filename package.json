@@ -157,6 +157,29 @@
 					"default": false,
 					"description": "Turns on quiet mode, which ignores warnings and info diagnostics."
 				},
+				"eslint.bulkSuppression": {
+					"type": "object",
+					"scope": "resource",
+					"description": "Controls whether bulk-suppressed violations (from eslint-suppressions.json) are shown as hint diagnostics.",
+					"properties": {
+						"enable": {
+							"type": "boolean",
+							"default": false,
+							"description": "Show bulk-suppressed violations as hint (grey) diagnostics."
+						},
+						"suppressionsLocation": {
+							"type": "string",
+							"description": "Path to the suppressions file relative to the workspace. Defaults to eslint-suppressions.json."
+						},
+						"severity": {
+							"type": "string",
+							"enum": ["error", "warn", "info", "hint"],
+							"default": "info",
+							"description": "Diagnostic severity for bulk-suppressed violations. Defaults to 'info' (blue underline)."
+						}
+					},
+					"default": { "enable": false, "severity": "info" }
+				},
 				"eslint.onIgnoredFiles": {
 					"scope": "resource",
 					"type": "string",
