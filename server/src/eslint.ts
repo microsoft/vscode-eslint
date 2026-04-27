@@ -1171,7 +1171,7 @@ export namespace ESLint {
 		if (result.length === 0) {
 			return result;
 		}
-		return result[result.length - 1] === path.sep
+		return result.endsWith(path.sep)
 			? result.substring(0, result.length - 1)
 			: result;
 	}
@@ -1335,8 +1335,8 @@ export namespace ESLint {
 			if (typeof err.message === 'string' || err.message instanceof String) {
 				result = <string>err.message;
 				result = result.replace(/\r?\n/g, ' ');
-				if (/^CLI: /.test(result)) {
-					result = result.substr(5);
+				if (result.startsWith('CLI: ')) {
+					result = result.slice(5);
 				}
 			} else {
 				result = `An unknown error occurred while validating document: ${document.uri}`;
