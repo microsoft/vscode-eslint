@@ -54,6 +54,29 @@ You can generate a starter config by running:
 
 `npx eslint --init`
 
+Example global starter settings.json:
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}
+```
+
+Workspace settings can vary across projects for specific validation:
+```json
+{
+ "eslint.validate": [
+    "javascript",
+    "typescript",
+    "vue"
+  ]
+}
+```
+
 Read more about [ESLint CLI](https://eslint.org/docs/latest/use/command-line-interface).
 
 For projects using older ESLint versions (< 8.57), use a legacy `.eslintrc` file (`.eslintrc.json`, `.eslintrc.js`, etc.).
