@@ -28,12 +28,15 @@ suite('ESLint diagnostics', () => {
 
 	test('does not mark unrelated diagnostics as unnecessary', () => {
 		assert.strictEqual(Diagnostics.isUnnecessary({
-			message: '\'answer\' is assigned a value but never used.',
-			ruleId: 'no-console'
-		}), true);
-		assert.strictEqual(Diagnostics.isUnnecessary({
 			message: 'Unexpected console statement.',
 			ruleId: 'no-console'
 		}), false);
+	});
+
+	test('marks message-only unused diagnostics as unnecessary', () => {
+		assert.strictEqual(Diagnostics.isUnnecessary({
+			message: '\'answer\' is assigned a value but never used.',
+			ruleId: undefined
+		}), true);
 	});
 });

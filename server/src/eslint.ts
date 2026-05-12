@@ -602,7 +602,7 @@ export namespace Diagnostics {
 		'no-unused-vars'
 	]);
 
-	export function isUnnecessary(problem: Pick<ESLintProblem, 'message' | 'ruleId'>): boolean {
+	export function isUnnecessary(problem: Pick<ESLintProblem, 'message'> & { ruleId?: string }): boolean {
 		if (problem.ruleId !== undefined) {
 			const ruleName = problem.ruleId.substring(problem.ruleId.lastIndexOf('/') + 1);
 			if (unnecessaryRuleNames.has(ruleName)) {
@@ -662,9 +662,9 @@ export namespace Diagnostics {
 					href: url
 				};
 			}
-			if (isUnnecessary(problem)) {
-				result.tags = [DiagnosticTag.Unnecessary];
-			}
+		}
+		if (isUnnecessary(problem)) {
+			result.tags = [DiagnosticTag.Unnecessary];
 		}
 
 		return [result, override];
