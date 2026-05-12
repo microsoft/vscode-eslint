@@ -594,7 +594,23 @@ export namespace RuleSeverities {
 /**
  * Creates LSP Diagnostics and captures code action information.
  */
-namespace Diagnostics {
+export namespace Diagnostics {
+
+	const unnecessaryRuleNames = new Set<string>([
+		'no-unused-imports',
+		'no-unused-private-class-members',
+		'no-unused-vars'
+	]);
+
+	export function isUnnecessary(problem: Pick<ESLintProblem, 'message' | 'ruleId'>): boolean {
+		if (problem.ruleId !== undefined) {
+			const ruleName = problem.ruleId.substring(problem.ruleId.lastIndexOf('/') + 1);
+			if (unnecessaryRuleNames.has(ruleName)) {
+				return true;
+			}
+		}
+		return /\b(?:defined|assigned)\b.+\bnever used\b/i.test(problem.message);
+	}
 
 	export function computeKey(diagnostic: Diagnostic): string {
 		const range = diagnostic.range;
@@ -646,7 +662,7 @@ namespace Diagnostics {
 					href: url
 				};
 			}
-			if (problem.ruleId === 'no-unused-vars') {
+			if (isUnnecessary(problem)) {
 				result.tags = [DiagnosticTag.Unnecessary];
 			}
 		}
