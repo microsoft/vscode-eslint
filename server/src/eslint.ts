@@ -602,13 +602,15 @@ export namespace Diagnostics {
 		'no-unused-vars'
 	]);
 
+	function getRuleName(ruleId: string): string {
+		return ruleId.substring(ruleId.lastIndexOf('/') + 1);
+	}
+
 	export function isUnnecessary(problem: Pick<ESLintProblem, 'message'> & { ruleId?: string }): boolean {
-		if (problem.ruleId !== undefined) {
-			const ruleName = problem.ruleId.substring(problem.ruleId.lastIndexOf('/') + 1);
-			if (unnecessaryRuleNames.has(ruleName)) {
-				return true;
-			}
+		if (problem.ruleId !== undefined && unnecessaryRuleNames.has(getRuleName(problem.ruleId))) {
+			return true;
 		}
+		// Some unused-code reports come from plugin rules or diagnostics without a stable rule ID.
 		return /\b(?:defined|assigned)\b.+\bnever used\b/i.test(problem.message);
 	}
 
