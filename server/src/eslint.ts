@@ -81,11 +81,16 @@ type ESLintProblem = {
 	suggestions?: ESLintSuggestionResult[];
 };
 
+type SuppressedESLintProblem = ESLintProblem & {
+	suppressions: Array<{ kind: string; justification: string }>;
+};
+
 type ESLintDocumentReport = {
 	filePath: string;
 	errorCount: number;
 	warningCount: number;
 	messages: ESLintProblem[];
+	suppressedMessages?: SuppressedESLintProblem[];
 	output?: string;
 };
 
@@ -115,6 +120,8 @@ export type ESLintClassOptions = {
 	fix?: boolean;
 	overrideConfig?: ConfigData;
 	overrideConfigFile?: string | null;
+	applySuppressions?: boolean;
+	suppressionsLocation?: string;
 };
 
 export type RuleMetaData = {
@@ -999,6 +1006,9 @@ export namespace ESLint {
 							} else if (semverGte(esLintVersion, '10.0.0') && (settings.experimental?.useFlatConfig === false || settings.useFlatConfig === false)) {
 								connection.console.info(`ESLint version ${library.ESLint.version} only supports flat configs. Setting is ignored.`);
 							}
+							if (settings.bulkSuppression?.enable && !semverGte(esLintVersion, '10.1.0')) {
+								connection.console.warn(`ESLint version ${library.ESLint.version} does not support bulk suppressions via the Node.js API. Upgrade to ESLint >= 10.1 or disable 'eslint.bulkSuppression.enable'.`);
+							}
 						}
 					}
 				} else {
@@ -1214,6 +1224,15 @@ export namespace ESLint {
 		}
 	}
 
+	function bulkSeverity(severity?: 'error' | 'warn' | 'info' | 'hint'): DiagnosticSeverity {
+		switch (severity) {
+			case 'error': return DiagnosticSeverity.Error;
+			case 'warn':  return DiagnosticSeverity.Warning;
+			case 'hint':  return DiagnosticSeverity.Hint;
+			default:      return DiagnosticSeverity.Information;
+		}
+	}
+
 	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
 	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
@@ -1233,6 +1252,15 @@ export namespace ESLint {
 		const content = document.getText();
 		const uri = document.uri;
 		const file = getFilePath(document, settings);
+
+		const suppressionOptions: ESLintClassOptions = settings.bulkSuppression?.enable
+			? {
+				applySuppressions: true,
+				...(settings.bulkSuppression.location
+					? { suppressionsLocation: settings.bulkSuppression.location }
+					: {}),
+			}
+			: {};
 
 		return withClass(async (eslintClass) => {
 			CodeActions.remove(uri);
@@ -1263,9 +1291,22 @@ export namespace ESLint {
 						}
 					});
 				}
+				// Bulk-suppressed diagnostics intentionally bypass `quiet` mode: they are opt-in
+				// and already represent a deliberate visibility decision by the user.
+				if (settings.bulkSuppression?.enable && docReport.suppressedMessages && Array.isArray(docReport.suppressedMessages)) {
+					for (const problem of docReport.suppressedMessages) {
+						if (problem && problem.suppressions?.some(s => s.kind === 'file')) {
+							const [diagnostic, override] = Diagnostics.create(settings, problem, document);
+							if (override !== RuleSeverity.off) {
+								diagnostic.severity = bulkSeverity(settings.bulkSuppression.severity);
+								diagnostics.push(diagnostic);
+							}
+						}
+					}
+				}
 			}
 			return diagnostics;
-		}, settings);
+		}, settings, suppressionOptions);
 	}
 
 	function trace(message: string, verbose?: string): void {

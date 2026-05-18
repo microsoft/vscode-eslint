@@ -703,6 +703,11 @@ export namespace ESLintClient {
 					},
 					format: false,
 					quiet: config.get<boolean>('quiet', false),
+					bulkSuppression: {
+						enable: config.get<boolean>('bulkSuppression.enable', false),
+						location: config.get<string | undefined>('bulkSuppression.location', undefined),
+						severity: config.get<string>('bulkSuppression.severity', 'info') as ConfigurationSettings['bulkSuppression']['severity'],
+					},
 					onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 					options: config.get<ESLintOptions>('options', {}),
 					rulesCustomizations: getRuleCustomizations(config, resource),
