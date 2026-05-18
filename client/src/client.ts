@@ -689,14 +689,20 @@ export namespace ESLintClient {
 					}
 				});
 				const useFlatConfig = config.get<boolean | null>('useFlatConfig', null);
+				const useExperimentalFlatConfig = config.get<boolean | null>('experimental.useFlatConfig', null);
 				const settings: ConfigurationSettings = {
 					validate: Validate.off,
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
 					useESLintClass: config.get<boolean>('useESLintClass', false),
 					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
 					useRealpaths: config.get<boolean>('useRealpaths', false),
-					experimental: {
-						useFlatConfig: config.get<boolean>('experimental.useFlatConfig', false),
+					...{useExperimentalFlatConfig !== null
+						? {
+							experimental: {
+								useFlatConfig: useExperimentalFlatConfig,
+							}
+						}
+						: {}
 					},
 					codeActionOnSave: {
 						mode: CodeActionsOnSaveMode.all
