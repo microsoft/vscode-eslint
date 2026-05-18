@@ -432,6 +432,7 @@ This extension contributes the following variables to the [settings](https://cod
     - Prefix the name with a `"!"` to target all rules that _don't_ match the name: `{ "rule": "!no-*", "severity": "info" }`
   - `"severity"`: Sets a new severity for matched rule(s), `"downgrade"`s them to a lower severity, `"upgrade"`s them to a higher severity, or `"default"`s them to their original severity
   - `"fixable"`: Select only autofixable rules: `{ "rule": "no-*", "fixable": true, "severity": "info" }`
+  - `"unsavedOnly"`: When `true`, only applies the customization while the file has unsaved changes (is dirty): `{ "rule": "...", "severity": "off", "unsavedOnly": true }`
 
   In this example, all rules are overridden to warnings:
 
@@ -456,6 +457,14 @@ This extension contributes the following variables to the [settings](https://cod
   ```json
   "eslint.rules.customizations": [
     { "rule": "*", "fixable": true, "severity": "info" }
+  ]
+  ```
+
+  In this example, `foo` is silenced while editing but shown once the file is saved:
+
+  ```json
+  "eslint.rules.customizations": [
+    { "rule": "foo", "severity": "off", "unsavedOnly": true }
   ]
   ```
 
