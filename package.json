@@ -504,6 +504,13 @@
 							},
 							"rule": {
 								"type": "string"
+							},
+							"fixable": {
+								"type": "boolean"
+							},
+							"unsavedOnly": {
+								"type": "boolean",
+								"description": "Only apply this customization when the file has unsaved changes."
 							}
 						},
 						"type": "object"
@@ -529,6 +536,13 @@
 								},
 								"rule": {
 									"type": "string"
+								},
+								"fixable": {
+									"type": "boolean"
+								},
+								"unsavedOnly": {
+									"type": "boolean",
+									"description": "Only apply this customization when the file has unsaved changes."
 								}
 							},
 							"type": "object"

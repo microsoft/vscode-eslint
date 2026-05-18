@@ -152,9 +152,35 @@ function inferFilePath(documentOrUri: string | TextDocument | URI | undefined, u
 ESLint.initialize(connection, documents, inferFilePath, loadNodeModule);
 SaveRuleConfigs.inferFilePath = inferFilePath;
 
+// Track the document version at the time it was last opened or saved.
+// A document is considered dirty when its current version exceeds the saved version.
+// Using versions avoids the false-dirty state caused by onDidChangeContent firing
+// on document open (it fires for both open and change notifications).
+const savedDocumentVersions = new Map<string, number>();
+
+documents.onDidOpen((event) => {
+	savedDocumentVersions.set(event.document.uri, event.document.version);
+});
+
+documents.onDidSave((event) => {
+	savedDocumentVersions.set(event.document.uri, event.document.version);
+	// Force a diagnostics re-pull so that unsavedOnly customizations are re-evaluated
+	// now that the document is no longer dirty. Without this, the pull diagnostic model
+	// won't re-request diagnostics after a save when the in-memory content is unchanged.
+	connection.languages.diagnostics.refresh().catch(() => {
+		connection.console.error('Failed to refresh diagnostics after save');
+	});
+});
+
+function isDocumentDirty(document: { uri: string; version: number }): boolean {
+	const savedVersion = savedDocumentVersions.get(document.uri);
+	return savedVersion !== undefined && document.version > savedVersion;
+}
+
 documents.onDidClose(async (event) => {
 	const document = event.document;
 	const uri = document.uri;
+	savedDocumentVersions.delete(uri);
 	ESLint.removeSettings(uri);
 	SaveRuleConfigs.remove(uri);
 	CodeActions.remove(uri);
@@ -260,7 +286,8 @@ connection.languages.diagnostics.on(async (params) => {
 	}
 	try {
 		const start = Date.now();
-		const diagnostics = await ESLint.validate(document, settings);
+		const isDirty = isDocumentDirty(document);
+		const diagnostics = await ESLint.validate(document, settings, isDirty);
 		const timeTaken = Date.now() - start;
 		void connection.sendNotification(StatusNotification.type, { uri: document.uri, state: Status.ok, validationTime: timeTaken });
 		return {

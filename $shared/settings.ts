@@ -121,6 +121,8 @@ export type RuleCustomization = {
 	severity: RuleSeverity;
 	/** Only apply to autofixable rules */
 	fixable?: boolean;
+	/** Only apply when the file has unsaved changes */
+	unsavedOnly?: boolean;
 };
 
 export type RunValues = 'onType' | 'onSave';
