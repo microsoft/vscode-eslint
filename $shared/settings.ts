@@ -178,7 +178,7 @@ export type ConfigurationSettings = {
 	quiet: boolean;
 	bulkSuppression: {
 		enable: boolean;
-		suppressionsLocation?: string;
+		location?: string;
 		severity?: 'error' | 'warn' | 'info' | 'hint';
 	};
 	onIgnoredFiles: ESLintSeverity;

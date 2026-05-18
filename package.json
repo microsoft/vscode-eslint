@@ -157,28 +157,23 @@
 					"default": false,
 					"description": "Turns on quiet mode, which ignores warnings and info diagnostics."
 				},
-				"eslint.bulkSuppression": {
-					"type": "object",
+				"eslint.bulkSuppression.enable": {
+					"type": "boolean",
 					"scope": "resource",
-					"description": "Controls whether bulk-suppressed violations (from eslint-suppressions.json) are shown as hint diagnostics.",
-					"properties": {
-						"enable": {
-							"type": "boolean",
-							"default": false,
-							"description": "Show bulk-suppressed violations as hint (grey) diagnostics."
-						},
-						"suppressionsLocation": {
-							"type": "string",
-							"description": "Path to the suppressions file relative to the workspace. Defaults to eslint-suppressions.json."
-						},
-						"severity": {
-							"type": "string",
-							"enum": ["error", "warn", "info", "hint"],
-							"default": "info",
-							"description": "Diagnostic severity for bulk-suppressed violations. Defaults to 'info' (blue underline)."
-						}
-					},
-					"default": { "enable": false, "severity": "info" }
+					"default": false,
+					"description": "Show bulk-suppressed violations (from eslint-suppressions.json) as diagnostics. Requires ESLint >= 10.1."
+				},
+				"eslint.bulkSuppression.location": {
+					"type": "string",
+					"scope": "resource",
+					"description": "Path to the suppressions file relative to the workspace. Defaults to eslint-suppressions.json."
+				},
+				"eslint.bulkSuppression.severity": {
+					"type": "string",
+					"scope": "resource",
+					"enum": ["error", "warn", "info", "hint"],
+					"default": "info",
+					"description": "Diagnostic severity for bulk-suppressed violations."
 				},
 				"eslint.onIgnoredFiles": {
 					"scope": "resource",

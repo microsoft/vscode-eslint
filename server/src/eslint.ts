@@ -987,6 +987,9 @@ export namespace ESLint {
 							} else if (semverGte(esLintVersion, '10.0.0') && (settings.experimental?.useFlatConfig === false || settings.useFlatConfig === false)) {
 								connection.console.info(`ESLint version ${library.ESLint.version} only supports flat configs. Setting is ignored.`);
 							}
+							if (settings.bulkSuppression?.enable && !semverGte(esLintVersion, '10.1.0')) {
+								connection.console.warn(`ESLint version ${library.ESLint.version} does not support bulk suppressions via the Node.js API. Upgrade to ESLint >= 10.1 or disable 'eslint.bulkSuppression.enable'.`);
+							}
 						}
 					}
 				} else {
@@ -1234,8 +1237,8 @@ export namespace ESLint {
 		const suppressionOptions: ESLintClassOptions = settings.bulkSuppression?.enable
 			? {
 				applySuppressions: true,
-				...(settings.bulkSuppression.suppressionsLocation
-					? { suppressionsLocation: settings.bulkSuppression.suppressionsLocation }
+				...(settings.bulkSuppression.location
+					? { suppressionsLocation: settings.bulkSuppression.location }
 					: {}),
 			}
 			: {};
