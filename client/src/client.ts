@@ -823,18 +823,17 @@ export namespace ESLintClient {
 
 			return rawConfig.map(rawValue => {
 				if (typeof rawValue.severity === 'string' && typeof rawValue.rule === 'string') {
+					const customization: RuleCustomization = {
+						severity: rawValue.severity,
+						rule: rawValue.rule,
+					};
 					if (typeof rawValue.fixable === 'boolean') {
-						return {
-							severity: rawValue.severity,
-							rule: rawValue.rule,
-							fixable: rawValue.fixable
-						};
-					} else {
-						return {
-							severity: rawValue.severity,
-							rule: rawValue.rule,
-						};
+						customization.fixable = rawValue.fixable;
 					}
+					if (typeof rawValue.unsavedOnly === 'boolean') {
+						customization.unsavedOnly = rawValue.unsavedOnly;
+					}
+					return customization;
 				}
 
 				return undefined;

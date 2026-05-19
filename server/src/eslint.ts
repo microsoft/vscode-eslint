@@ -552,8 +552,9 @@ export namespace RuleSeverities {
 
 	const ruleSeverityCache = new LRUCache<string, RuleSeverity | null>(1024);
 
-	export function getOverride(ruleId: string, customizations: RuleCustomization[], isFixable?: boolean): RuleSeverity | undefined {
-		let result: RuleSeverity | undefined | null = ruleSeverityCache.get(ruleId);
+	export function getOverride(ruleId: string, customizations: RuleCustomization[], isFixable?: boolean, isDirty?: boolean): RuleSeverity | undefined {
+		const cacheKey = `${ruleId}:${isDirty ? '1' : '0'}`;
+		let result: RuleSeverity | undefined | null = ruleSeverityCache.get(cacheKey);
 		if (result === null) {
 			return undefined;
 		}
@@ -565,17 +566,19 @@ export namespace RuleSeverities {
 				// Rule name should match
 				asteriskMatches(customization.rule, ruleId) &&
 				// Fixable flag should match the fixability of the rule if it's defined
-				(customization.fixable === undefined || customization.fixable === isFixable)
+				(customization.fixable === undefined || customization.fixable === isFixable) &&
+				// unsavedOnly customizations only apply when the document has unsaved changes
+				(customization.unsavedOnly !== true || isDirty === true)
 			) {
 				result = customization.severity;
 			}
 		}
 		if (result === undefined) {
-			ruleSeverityCache.set(ruleId, null);
+			ruleSeverityCache.set(cacheKey, null);
 			return undefined;
 		}
 
-		ruleSeverityCache.set(ruleId, result);
+		ruleSeverityCache.set(cacheKey, result);
 		return result;
 	}
 
@@ -625,7 +628,7 @@ export namespace Diagnostics {
 		return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}-${message ?? ''}`;
 	}
 
-	export function create(settings: TextDocumentSettings, problem: ESLintProblem, document: TextDocument): [Diagnostic, RuleSeverity | undefined] {
+	export function create(settings: TextDocumentSettings, problem: ESLintProblem, document: TextDocument, isDirty?: boolean): [Diagnostic, RuleSeverity | undefined] {
 		const message = problem.message;
 		const startLine = typeof problem.line !== 'number' || Number.isNaN(problem.line) ? 0 : Math.max(0, problem.line - 1);
 		const startChar = typeof problem.column !== 'number' || Number.isNaN(problem.column) ? 0 : Math.max(0, problem.column - 1);
@@ -646,7 +649,7 @@ export namespace Diagnostics {
 			endChar = startLineText.length;
 		}
 
-		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations, problem.fix !== undefined);
+		const override = RuleSeverities.getOverride(problem.ruleId, settings.rulesCustomizations, problem.fix !== undefined, isDirty);
 		const result: Diagnostic = {
 			message: message,
 			severity: convertSeverityToDiagnosticWithOverride(problem.severity, override),
@@ -1215,7 +1218,7 @@ export namespace ESLint {
 	}
 
 	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
-	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
+	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }, isDirty?: boolean): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 		let fixTypes: Set<string> | undefined = undefined;
 		if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
@@ -1244,7 +1247,7 @@ export namespace ESLint {
 				if (docReport.messages && Array.isArray(docReport.messages)) {
 					docReport.messages.forEach((problem) => {
 						if (problem) {
-							const [diagnostic, override] = Diagnostics.create(settings, problem, document);
+							const [diagnostic, override] = Diagnostics.create(settings, problem, document, isDirty);
 							if (!(override === RuleSeverity.off || (settings.quiet && (diagnostic.severity === DiagnosticSeverity.Warning || diagnostic.severity === DiagnosticSeverity.Information)))) {
 								diagnostics.push(diagnostic);
 							}
