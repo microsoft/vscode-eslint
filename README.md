@@ -108,7 +108,7 @@ From version 2.2.3 on forward odd minor or patch version numbers indicate an ins
 ### Version 3.0.21 - pre-release
 
 - move to latest LSP libraries
-- `eslint.quite` blocks info messages as well.
+- `eslint.quiet` blocks info messages as well.
 
 ### Version 3.0.20 - release
 
