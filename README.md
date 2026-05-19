@@ -54,6 +54,27 @@ You can generate a starter config by running:
 
 `npx eslint --init`
 
+Example global starter settings.json:
+
+```json
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}
+```
+
+Workspace settings can vary across projects for specific validation:
+```json
+{
+ "eslint.validate": [
+    "javascript",
+    "typescript",
+    "vue"
+  ]
+}
+```
+
 Read more about [ESLint CLI](https://eslint.org/docs/latest/use/command-line-interface).
 
 For projects using older ESLint versions (< 8.57), use a legacy `.eslintrc` file (`.eslintrc.json`, `.eslintrc.js`, etc.).
@@ -87,7 +108,7 @@ From version 2.2.3 on forward odd minor or patch version numbers indicate an ins
 ### Version 3.0.21 - pre-release
 
 - move to latest LSP libraries
-- `eslint.quite` blocks info messages as well.
+- `eslint.quiet` blocks info messages as well.
 
 ### Version 3.0.20 - release
 
