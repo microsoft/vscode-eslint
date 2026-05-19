@@ -10,10 +10,10 @@
 	"files.trimTrailingWhitespace": true,
 	"editor.insertSpaces": false,
 	"editor.tabSize": 4,
-	"typescript.tsdk": "./node_modules/typescript/lib",
-	"typescript.tsc.autoDetect": "off",
+	"js/ts.tsdk.path": "./node_modules/typescript/lib",
+	"js/ts.tsc.autoDetect": "off",
+	"js/ts.tsserver.log": "off",
 	"typescript.tsserver.trace": "off",
-	"typescript.tsserver.log": "off",
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": "explicit"
 	},

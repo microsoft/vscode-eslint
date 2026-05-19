@@ -1001,7 +1001,7 @@ export namespace ESLint {
 					if (library !== undefined && ESLintModule.hasESLintClass(library) && typeof library.ESLint.version === 'string') {
 						const esLintVersion = semverParse(library.ESLint.version);
 						if (esLintVersion !== null) {
-							if (semverGte(esLintVersion, '10.0.0') && (typeof settings.experimental?.useFlatConfig !== "undefined" || typeof settings.useFlatConfig !== "undefined")) {
+							if (semverGte(esLintVersion, '10.0.0') && (typeof settings.experimental?.useFlatConfig !== 'undefined' || typeof settings.useFlatConfig !== 'undefined')) {
 								connection.console.info(`ESLint version ${library.ESLint.version} only supports flat configs. The useFlatConfig setting is ignored.`);
 							} else if (semverGte(esLintVersion, '8.57.0') && settings.experimental?.useFlatConfig === true) {
 								connection.console.info(`ESLint version ${library.ESLint.version} supports flat config without experimental opt-in. The 'eslint.experimental.useFlatConfig' setting can be removed.`);

@@ -689,7 +689,7 @@ export namespace ESLintClient {
 					}
 				});
 				const useFlatConfig = config.get<boolean | null>('useFlatConfig', null);
-				const useExperimentalFlatConfig = config.get<boolean | null>('experimental.useFlatConfig', null)
+				const useExperimentalFlatConfig = config.get<boolean | null>('experimental.useFlatConfig', null);
 				const settings: ConfigurationSettings = {
 					validate: Validate.off,
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),

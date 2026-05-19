@@ -97,9 +97,20 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
 
+### Version 3.0.26 - release
+
+- add support for bulk suppression (see new settings eslint.bulkSuppression.*)
+- move to latest LSP libraries
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.26.0)
+- [PRs](https://github.com/microsoft/vscode-eslint/pulls?q=is%3Apr+milestone%3A3.26.0+is%3Aclosed)
+
+### Version 3.0.25 - pre-release
+
+- move to latest LSP libraries
+
 ### Version 3.0.24 - release
 
-- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.20.0)
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.24.0)
 
 ### Version 3.0.22 - release
 
@@ -480,6 +491,7 @@ This extension contributes the following variables to the [settings](https://cod
   ]
   ```
 
+- `eslint.bulkSuppression.enable` (@since 3.0.26) - enables ESlint bulk suppression. See also `eslint.bulkSuppression.location` and `eslint.bulkSuppression.severity` for additional configuration options.
 - `eslint.format.enable` (@since 2.0.0) - uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
 - `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warnings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
 - `editor.codeActionsOnSave` (@since 2.0.0): this setting now supports an entry `source.fixAll.eslint`. If set to true all auto-fixable ESLint errors from all plugins will be fixed on save. You can also selectively enable and disabled specific languages using VS Code's language scoped settings. To disable `codeActionsOnSave` for HTML files use the following setting:
