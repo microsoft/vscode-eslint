@@ -78,7 +78,8 @@ function loadNodeModule<T>(moduleName: string): T | undefined {
 const nodeExit = process.exit;
 process.exit = ((code?: number): void => {
 	const stack = new Error('stack');
-	void connection.sendNotification(ExitCalled.type, [code ? code : 0, stack.stack]);
+	const param: [number, string] = [code ? code : 0, stack.stack ? stack.stack : ''];
+	void connection.sendNotification(ExitCalled.type, param);
 	setTimeout(() => {
 		nodeExit(code);
 	}, 1000);
