@@ -1,3 +1,11 @@
+### Version 3.0.25 - pre-release
+
+- add support for bulk suppression (see new settings eslint.bulkSuppression.*)
+- move to latest LSP libraries
+- move to latest LSP libraries
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.0.25)
+- [PRs](https://github.com/microsoft/vscode-eslint/pulls?q=is%3Apr+milestone%3A3.0.25+is%3Aclosed)
+
 ### Version 3.0.24 - release
 
 - [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.20.0)
@@ -42,11 +50,11 @@
 ### Version 3.0.11 - pre-release
 
 - Enforcement of the validate setting. If the `eslint.validate` setting is specified only files in that list will be validated. For example, a setting of the form
-  ```
+```
   "eslint.validate": [
  	  "javascript"
   ]
-  ```
+```
   will only validate JavaScript files. This is comparable to providing extensions on the command line.
 
 ### Version 3.0.10 - Release
