@@ -692,7 +692,7 @@
 		"@typescript-eslint/eslint-plugin": "^8.59.4",
 		"@typescript-eslint/parser": "^8.59.4",
 		"merge-options": "^3.0.4",
-		"mocha": "^11.7.6",
+		"mocha": "^11.7.5",
 		"rimraf": "^6.1.3",
 		"ts-loader": "^9.5.7",
 		"typescript": "^6.0.3",
