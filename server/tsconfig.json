@@ -8,7 +8,7 @@
 		"outDir": "out",
 		"rootDir": "src",
 		"lib": [ "ES2023" ],
-		"types": [ "node", "mocha"],
+		"types": [ "node"],
 		"tsBuildInfoFile": "out/compile.tsbuildinfo",
         "incremental": true,
         "composite": true

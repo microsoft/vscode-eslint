@@ -23,7 +23,7 @@
 		"vscode-languageclient": "10.0.0-next.21"
 	},
 	"scripts": {
-		"test": "node ../node_modules/mocha/bin/_mocha",
+		"test": "node --test \"out/tests/**/*.test.js\"",
 		"lint": "node ../node_modules/eslint/bin/eslint.js --ext ts src"
 	}
 }

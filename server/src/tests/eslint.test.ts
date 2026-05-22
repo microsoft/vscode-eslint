@@ -3,19 +3,20 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import * as assert from 'assert';
+import * as assert from 'node:assert';
+import { describe, it } from 'node:test';
 
 import { Diagnostics } from '../eslint';
 
-suite('ESLint diagnostics', () => {
-	test('marks no-unused-vars diagnostics as unnecessary', () => {
+void describe('ESLint diagnostics', () => {
+	void it('marks no-unused-vars diagnostics as unnecessary', () => {
 		assert.strictEqual(Diagnostics.isUnnecessary({
 			message: '\'unused\' is defined but never used.',
 			ruleId: 'no-unused-vars'
 		}), true);
 	});
 
-	test('marks plugin unused diagnostics as unnecessary', () => {
+	void it('marks plugin unused diagnostics as unnecessary', () => {
 		assert.strictEqual(Diagnostics.isUnnecessary({
 			message: '\'unusedImport\' is defined but never used.',
 			ruleId: '@typescript-eslint/no-unused-vars'
@@ -26,14 +27,14 @@ suite('ESLint diagnostics', () => {
 		}), true);
 	});
 
-	test('does not mark unrelated diagnostics as unnecessary', () => {
+	void it('does not mark unrelated diagnostics as unnecessary', () => {
 		assert.strictEqual(Diagnostics.isUnnecessary({
 			message: 'Unexpected console statement.',
 			ruleId: 'no-console'
 		}), false);
 	});
 
-	test('marks message-only unused diagnostics as unnecessary', () => {
+	void it('marks message-only unused diagnostics as unnecessary', () => {
 		assert.strictEqual(Diagnostics.isUnnecessary({
 			message: '\'answer\' is assigned a value but never used.',
 			ruleId: undefined
