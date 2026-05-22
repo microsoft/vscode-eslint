@@ -27,7 +27,7 @@
 		"webpack": "npm run clean && webpack --mode production --config ./webpack.config.js",
 		"webpack:dev": "npm run clean && webpack --mode none --config ./webpack.config.js",
 		"clean": "rimraf ./out",
-		"test": "node ../node_modules/mocha/bin/_mocha",
+		"test": "node --test \"out/tests/**/*.test.js\"",
 		"lint": "node ../node_modules/eslint/bin/eslint.js --ext ts src"
 	}
 }

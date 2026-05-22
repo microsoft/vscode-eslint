@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import * as assert from 'assert';
+import * as assert from 'node:assert';
+import { describe, it } from 'node:test';
 import { convert2RegExp } from '../node-utils';
 
 function isDefined<T>(value: T | undefined | null): asserts value is Exclude<T, undefined | null> {
@@ -19,8 +20,8 @@ function toOSPath(path: string): string {
 	return path.replace(/\//g, '\\');
 }
 
-suite('Glob', () => {
-	test('Simple', () => {
+void describe('Glob', () => {
+	void it('Simple', () => {
 		const regExp = convert2RegExp('/test/*/');
 		isDefined(regExp);
 		const matches = regExp.exec(toOSPath('/test/foo/bar/file.txt'));
