@@ -10,8 +10,8 @@
 		"lib": [ "ES2023" ],
 		"types": [ "node"],
 		"tsBuildInfoFile": "out/compile.tsbuildinfo",
-        "incremental": true,
-        "composite": true
+		"incremental": true,
+		"composite": true
 	},
 	"include": [
 		"src"
