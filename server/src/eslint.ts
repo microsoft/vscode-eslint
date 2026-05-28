@@ -13,7 +13,8 @@ import semverGte = require('semver/functions/gte');
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
 	Diagnostic, DiagnosticSeverity, DiagnosticTag, ProposedFeatures, Range, TextEdit, Files, DocumentFilter, DocumentFormattingRegistrationOptions,
-	Disposable, DocumentFormattingRequest, TextDocuments, uinteger
+	Disposable, DocumentFormattingRequest, TextDocuments, uinteger,
+	MarkupContent
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 
@@ -626,10 +627,20 @@ export namespace Diagnostics {
 		let message: string | undefined;
 		if (diagnostic.message) {
 			const hash  = crypto.createHash('sha256');
-			hash.update(diagnostic.message);
+			hash.update(getMessageString(diagnostic));
 			message = hash.digest('base64');
 		}
 		return `[${range.start.line},${range.start.character},${range.end.line},${range.end.character}]-${diagnostic.code}-${message ?? ''}`;
+	}
+
+	export function getMessageString(diagnostic: Diagnostic): string {
+		if (Is.string(diagnostic.message)) {
+			return diagnostic.message;
+		} else if (MarkupContent.is(diagnostic.message)) {
+			return diagnostic.message.value;
+		} else {
+			throw new Error(`Unknown message type ${diagnostic.message}`);
+		}
 	}
 
 	export function create(settings: TextDocumentSettings, problem: ESLintProblem, document: TextDocument): [Diagnostic, RuleSeverity | undefined] {
