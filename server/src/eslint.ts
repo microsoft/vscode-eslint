@@ -615,7 +615,7 @@ export namespace Diagnostics {
 	}
 
 	export function isUnnecessary(problem: Pick<ESLintProblem, 'message'> & { ruleId?: string }): boolean {
-		if (problem.ruleId !== undefined && unnecessaryRuleNames.has(getRuleName(problem.ruleId))) {
+		if (typeof problem.ruleId === 'string' && unnecessaryRuleNames.has(getRuleName(problem.ruleId))) {
 			return true;
 		}
 		// Some unused-code reports come from plugin rules or diagnostics without a stable rule ID.

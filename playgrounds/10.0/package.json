@@ -1,0 +1,9 @@
+{
+  "name": "eslint10_flat_config",
+  "private": true,
+  "version": "1.0.0",
+  "devDependencies": {
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0"
+  }
+}

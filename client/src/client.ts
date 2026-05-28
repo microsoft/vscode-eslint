@@ -696,9 +696,9 @@ export namespace ESLintClient {
 					useESLintClass: config.get<boolean>('useESLintClass', false),
 					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
 					useRealpaths: config.get<boolean>('useRealpaths', false),
-					experimental: useExperimentalFlatConfig === null ? undefined : {
+					experimental: (useExperimentalFlatConfig === true) ? {
 						useFlatConfig: useExperimentalFlatConfig,
-					},
+					} : undefined,
 					codeActionOnSave: {
 						mode: CodeActionsOnSaveMode.all
 					},
