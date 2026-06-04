@@ -1,3 +1,11 @@
+### Version 3.0.29 - pre-release
+
+- move to latest LSP libraries
+
+### Version 3.0.27 - pre-release
+
+- move to latest LSP libraries
+
 ### Version 3.0.25 - pre-release
 
 - add support for bulk suppression (see new settings eslint.bulkSuppression.*)

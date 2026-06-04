@@ -19,7 +19,6 @@
 	},
 	"eslint.enable": true,
 	"eslint.useESLintClass": true,
-	"eslint.useFlatConfig": true,
 	"eslint.codeActionsOnSave.rules": [
 		"@typescript-eslint/semi",
 		"@typescript-eslint/indent",
