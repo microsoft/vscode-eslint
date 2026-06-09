@@ -19,7 +19,7 @@ import {
 import { URI } from 'vscode-uri';
 
 import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification } from './shared/customMessages';
-import { ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
+import { CodeActionsOnSaveMode, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
 import { LRUCache } from './linkedMap';
@@ -861,6 +861,44 @@ export namespace ESLint {
 	const document2Settings: Map<string, Promise<TextDocumentSettings>> = new Map<string, Promise<TextDocumentSettings>>();
 	const formatterRegistrations: Map<string, Promise<Disposable>> = new Map();
 
+	function createDefaultConfigurationSettings(): ConfigurationSettings {
+		return {
+			validate: Validate.off,
+			packageManager: 'npm',
+			useESLintClass: false,
+			useRealpaths: false,
+			codeAction: {
+				disableRuleComment: {
+					enable: true,
+					location: 'separateLine',
+					commentStyle: 'line'
+				},
+				showDocumentation: {
+					enable: true
+				}
+			},
+			codeActionOnSave: {
+				mode: CodeActionsOnSaveMode.all
+			},
+			format: false,
+			quiet: false,
+			bulkSuppression: {
+				enable: false,
+				severity: 'info'
+			},
+			onIgnoredFiles: ESLintSeverity.off,
+			options: {},
+			rulesCustomizations: [],
+			run: 'onType',
+			problems: {
+				shortenToSingleLine: false
+			},
+			nodePath: null,
+			workspaceFolder: undefined,
+			workingDirectory: undefined
+		};
+	}
+
 	export function initialize($connection: ProposedFeatures.Connection, $documents: TextDocuments<TextDocument>, $inferFilePath: (documentOrUri: string | TextDocument | URI | undefined, useRealpaths: boolean) => string | undefined, $loadNodeModule: <T>(moduleName: string) => T | undefined) {
 		connection = $connection;
 		documents = $documents;
@@ -897,10 +935,11 @@ export namespace ESLint {
 		if (resultPromise) {
 			return resultPromise;
 		}
-		resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((configuration: ConfigurationSettings) => {
+		resultPromise = connection.workspace.getConfiguration({ scopeUri: uri, section: '' }).then((configuration: ConfigurationSettings | null | undefined) => {
+			const resolvedConfiguration = Object.assign(createDefaultConfigurationSettings(), configuration ?? {});
 			const settings: TextDocumentSettings = Object.assign(
 				{},
-				configuration,
+				resolvedConfiguration,
 				{ silent: false, library: undefined, resolvedGlobalPackageManagerPath: undefined },
 				{ workingDirectory: undefined}
 			);
@@ -911,8 +950,8 @@ export namespace ESLint {
 			const filePath = inferFilePath(document, settings.useRealpaths);
 			const workspaceFolderPath = settings.workspaceFolder !== undefined ? inferFilePath(settings.workspaceFolder.uri, settings.useRealpaths) : undefined;
 			let assumeFlatConfig:boolean = false;
-			const hasUserDefinedWorkingDirectories: boolean = configuration.workingDirectory !== undefined;
-			const workingDirectoryConfig = configuration.workingDirectory ?? { mode: ModeEnum.location };
+			const hasUserDefinedWorkingDirectories: boolean = resolvedConfiguration.workingDirectory !== undefined;
+			const workingDirectoryConfig = resolvedConfiguration.workingDirectory ?? { mode: ModeEnum.location };
 			if (ModeItem.is(workingDirectoryConfig)) {
 				let candidate: string | undefined;
 				if (workingDirectoryConfig.mode === ModeEnum.location) {
