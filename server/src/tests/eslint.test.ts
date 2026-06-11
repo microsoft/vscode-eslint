@@ -6,7 +6,10 @@
 import * as assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { Diagnostics } from '../eslint';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { Diagnostics, ESLint } from '../eslint';
+import { Validate } from '../shared/settings';
 
 void describe('ESLint diagnostics', () => {
 	void it('marks no-unused-vars diagnostics as unnecessary', () => {
@@ -39,5 +42,29 @@ void describe('ESLint diagnostics', () => {
 			message: '\'answer\' is assigned a value but never used.',
 			ruleId: undefined
 		}), true);
+	});
+});
+
+void describe('ESLint settings', () => {
+	void it('uses default settings when the client returns null configuration', async () => {
+		let configurationRequested = false;
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const answer = 42;\n');
+
+		ESLint.clearSettings();
+		ESLint.initialize({
+			workspace: {
+				getConfiguration: async () => {
+					configurationRequested = true;
+					return null;
+				}
+			}
+		} as any, {} as any, () => undefined, () => undefined);
+
+		const settings = await ESLint.resolveSettings(document);
+
+		assert.strictEqual(configurationRequested, true);
+		assert.strictEqual(settings.validate, Validate.off);
+		assert.strictEqual(settings.packageManager, 'npm');
+		assert.strictEqual(settings.workingDirectory, undefined);
 	});
 });
