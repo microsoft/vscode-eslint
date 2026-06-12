@@ -195,6 +195,92 @@ export namespace RuleMetaData {
 	}
 }
 
+/**
+ * Parses `eslint-disable` / `eslint-enable` directive comments so that the
+ * server can offer hovers that link to the documentation of the referenced
+ * rules. See https://eslint.org/docs/latest/use/configure/rules#disabling-rules
+ */
+export namespace DirectiveComments {
+
+	export type RuleReference = {
+		ruleId: string;
+		// Character offsets of the rule id inside the parsed line.
+		start: number;
+		end: number;
+	};
+
+	export type Directive = {
+		keyword: string;
+		// Character offsets of the directive keyword inside the parsed line.
+		keywordStart: number;
+		keywordEnd: number;
+		rules: RuleReference[];
+	};
+
+	// Order matters: the longer keywords must be listed first so that they are
+	// preferred over their prefixes (e.g. `eslint-disable-line` over `eslint-disable`).
+	const directiveRegExp = /eslint-disable-next-line|eslint-disable-line|eslint-disable|eslint-enable/;
+	// A rule id starts with a letter, digit or `@` (scoped plugins) and may contain
+	// slashes, dots and dashes. It must end with an alphanumeric character or `_` so
+	// that trailing comment punctuation (e.g. `*/`) is not captured.
+	const ruleIdRegExp = /[A-Za-z0-9@](?:[A-Za-z0-9_./-]*[A-Za-z0-9_])?/g;
+	// ESLint separates an optional description from the rule list using ` -- `.
+	const descriptionRegExp = /\s-{2,}(\s|$)/;
+
+	export function parse(line: string): Directive | undefined {
+		const match = directiveRegExp.exec(line);
+		if (match === null) {
+			return undefined;
+		}
+		const keyword = match[0];
+		const keywordStart = match.index;
+		const keywordEnd = keywordStart + keyword.length;
+
+		// The rule list starts right after the directive keyword and ends either at
+		// the description marker (` -- `) or at the end of the line. Comment closing
+		// markers (e.g. `*/`, `-->`) are not part of a rule id and are therefore not
+		// captured by the rule id regular expression.
+		let ruleRegion = line.substring(keywordEnd);
+		const descriptionMatch = descriptionRegExp.exec(ruleRegion);
+		if (descriptionMatch !== null) {
+			ruleRegion = ruleRegion.substring(0, descriptionMatch.index);
+		}
+
+		const rules: RuleReference[] = [];
+		ruleIdRegExp.lastIndex = 0;
+		let ruleMatch: RegExpExecArray | null;
+		while ((ruleMatch = ruleIdRegExp.exec(ruleRegion)) !== null) {
+			const start = keywordEnd + ruleMatch.index;
+			rules.push({ ruleId: ruleMatch[0], start, end: start + ruleMatch[0].length });
+		}
+
+		return { keyword, keywordStart, keywordEnd, rules };
+	}
+
+	/**
+	 * Returns the rule reference at the given character offset, if any.
+	 */
+	export function findRuleAt(directive: Directive, character: number): RuleReference | undefined {
+		for (const rule of directive.rules) {
+			if (character >= rule.start && character < rule.end) {
+				return rule;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Whether the given character offset is within the directive keyword or its
+	 * rule list.
+	 */
+	export function contains(directive: Directive, character: number): boolean {
+		const end = directive.rules.length > 0
+			? directive.rules[directive.rules.length - 1].end
+			: directive.keywordEnd;
+		return character >= directive.keywordStart && character <= end;
+	}
+}
+
 type ParserOptions = {
 	parser?: string;
 };
