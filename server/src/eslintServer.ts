@@ -8,7 +8,8 @@ import { EOL } from 'os';
 import {
 	createConnection, Diagnostic, Range, TextDocuments, TextDocumentSyncKind, TextEdit, Command, WorkspaceChange, VersionedTextDocumentIdentifier,
 	DidChangeConfigurationNotification,  CodeAction, CodeActionKind, Position, TextDocumentEdit, Message as LMessage, ResponseMessage as LResponseMessage,
-	uinteger, ServerCapabilities, NotebookDocuments, ProposedFeatures, ClientCapabilities, type FullDocumentDiagnosticReport, DocumentDiagnosticReportKind
+	uinteger, ServerCapabilities, NotebookDocuments, ProposedFeatures, ClientCapabilities, type FullDocumentDiagnosticReport, DocumentDiagnosticReportKind,
+	Hover, MarkupKind
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -21,7 +22,7 @@ import {
 import { Validate, CodeActionsOnSaveMode } from './shared/settings';
 
 import {
-	CodeActions, ESLint, ESLintClassOptions, FixableProblem, Fixes, Problem, RuleMetaData, RuleSeverities,
+	CodeActions, DirectiveComments, ESLint, ESLintClassOptions, FixableProblem, Fixes, Problem, RuleMetaData, RuleSeverities,
 	SaveRuleConfigs, SuggestionsProblem, TextDocumentSettings,
 } from './eslint';
 
@@ -216,7 +217,8 @@ connection.onInitialize((params, _cancel, progress) => {
 			identifier: 'eslint',
 			interFileDependencies: false,
 			workspaceDiagnostics: false
-		}
+		},
+		hoverProvider: true
 	};
 
 	if (clientCapabilities.textDocument?.codeAction?.codeActionLiteralSupport?.codeActionKind.valueSet !== undefined) {
@@ -737,6 +739,59 @@ connection.onCodeAction(async (params) => {
 		));
 	}
 	return result.all();
+});
+
+connection.onHover(async (params): Promise<Hover | null> => {
+	const document = documents.get(params.textDocument.uri);
+	if (document === undefined) {
+		return null;
+	}
+
+	const settings = await ESLint.resolveSettings(document);
+	if (settings.validate !== Validate.on || !TextDocumentSettings.hasLibrary(settings)) {
+		return null;
+	}
+
+	const position = params.position;
+	const line = document.getText(Range.create(Position.create(position.line, 0), Position.create(position.line, uinteger.MAX_VALUE)));
+	const directive = DirectiveComments.parse(line);
+	if (directive === undefined || !DirectiveComments.contains(directive, position.character)) {
+		return null;
+	}
+
+	// Only offer hovers when the directive actually lives inside a comment.
+	const prefix = line.substring(0, directive.keywordStart);
+	const lineComment = LanguageDefaults.getLineComment(document.languageId);
+	const blockComment = LanguageDefaults.getBlockComment(document.languageId);
+	if (!prefix.includes(lineComment) && !prefix.includes(blockComment[0])) {
+		return null;
+	}
+
+	// When hovering directly over a rule id only show that rule, otherwise show all
+	// rules referenced by the directive.
+	const hoveredRule = DirectiveComments.findRuleAt(directive, position.character);
+	const rules = hoveredRule !== undefined ? [hoveredRule] : directive.rules;
+
+	const links: string[] = [];
+	for (const rule of rules) {
+		const url = RuleMetaData.getUrl(rule.ruleId);
+		if (url !== undefined) {
+			links.push(`[${rule.ruleId}](${url})`);
+		}
+	}
+	if (links.length === 0) {
+		return null;
+	}
+
+	const value = links.length === 1 ? links[0] : links.map(link => `- ${link}`).join('\n');
+	const range = hoveredRule !== undefined
+		? Range.create(Position.create(position.line, hoveredRule.start), Position.create(position.line, hoveredRule.end))
+		: Range.create(Position.create(position.line, directive.keywordStart), Position.create(position.line, directive.rules[directive.rules.length - 1].end));
+
+	return {
+		contents: { kind: MarkupKind.Markdown, value },
+		range
+	};
 });
 
 enum AllFixesMode {

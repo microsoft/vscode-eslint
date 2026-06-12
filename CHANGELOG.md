@@ -1,5 +1,6 @@
 ### Version 3.0.25 - pre-release
 
+- hovering an `eslint-disable` / `eslint-enable` directive comment now links to the documentation of the referenced rules
 - add support for bulk suppression (see new settings eslint.bulkSuppression.*)
 - move to latest LSP libraries
 - move to latest LSP libraries
