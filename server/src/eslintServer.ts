@@ -784,9 +784,10 @@ connection.onHover(async (params): Promise<Hover | null> => {
 	}
 
 	const value = links.length === 1 ? links[0] : links.map(link => `- ${link}`).join('\n');
+	const rangeEnd = directive.rules.length > 0 ? directive.rules[directive.rules.length - 1].end : directive.keywordEnd;
 	const range = hoveredRule !== undefined
 		? Range.create(Position.create(position.line, hoveredRule.start), Position.create(position.line, hoveredRule.end))
-		: Range.create(Position.create(position.line, directive.keywordStart), Position.create(position.line, directive.rules[directive.rules.length - 1].end));
+		: Range.create(Position.create(position.line, directive.keywordStart), Position.create(position.line, rangeEnd));
 
 	return {
 		contents: { kind: MarkupKind.Markdown, value },

@@ -262,7 +262,7 @@ export namespace DirectiveComments {
 	 */
 	export function findRuleAt(directive: Directive, character: number): RuleReference | undefined {
 		for (const rule of directive.rules) {
-			if (character >= rule.start && character <= rule.end) {
+			if (character >= rule.start && character < rule.end) {
 				return rule;
 			}
 		}
