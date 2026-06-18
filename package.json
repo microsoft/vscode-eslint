@@ -30,8 +30,7 @@
 	"extensionKind": [
 		"workspace"
 	],
-	"enabledApiProposals": [
-	],
+	"enabledApiProposals": [],
 	"main": "./client/out/extension",
 	"capabilities": {
 		"virtualWorkspaces": {
@@ -171,7 +170,12 @@
 				"eslint.bulkSuppression.severity": {
 					"type": "string",
 					"scope": "resource",
-					"enum": ["error", "warn", "info", "hint"],
+					"enum": [
+						"error",
+						"warn",
+						"info",
+						"hint"
+					],
 					"default": "info",
 					"description": "Diagnostic severity for bulk-suppressed violations."
 				},
@@ -203,7 +207,10 @@
 				},
 				"eslint.useFlatConfig": {
 					"scope": "resource",
-					"type": ["boolean", "null"],
+					"type": [
+						"boolean",
+						"null"
+					],
 					"default": null,
 					"markdownDescription": "Controls whether flat config should be used or not. This setting requires ESLint version 8.57 or later and is interpreted according to the [ESLint Flat Config rollout plan](https://eslint.org/blog/2023/10/flat-config-rollout-plans/). This means:\n\n - *8.57.0 <= ESLint version < 9.x*: setting is honored and defaults to false\n- *9.0.0 <= ESLint version < 10.x*: settings is honored and defaults to true\n- *10.0.0 <= ESLint version*: setting is ignored. Flat configs are the default and can't be turned off."
 				},
@@ -299,7 +306,10 @@
 				},
 				"eslint.validate": {
 					"scope": "resource",
-					"type": ["array", "null"],
+					"type": [
+						"array",
+						"null"
+					],
 					"items": {
 						"anyOf": [
 							{
@@ -399,7 +409,8 @@
 							"items": {
 								"type": "string"
 							}
-						}, {
+						},
+						{
 							"type": "null"
 						}
 					],
@@ -486,7 +497,8 @@
 							"items": {
 								"type": "string"
 							}
-						}, {
+						},
+						{
 							"type": "null"
 						}
 					],
@@ -531,29 +543,29 @@
 					"description": "Override the severity of one or more rules reported by this extension, regardless of the project's ESLint config. Use globs to apply default severities for multiple rules."
 				},
 				"eslint.notebooks.rules.customizations": {
-						"items": {
-							"properties": {
-								"severity": {
-									"enum": [
-										"downgrade",
-										"error",
-										"info",
-										"default",
-										"upgrade",
-										"warn",
-										"off"
-									],
-									"type": "string"
-								},
-								"rule": {
-									"type": "string"
-								}
+					"items": {
+						"properties": {
+							"severity": {
+								"enum": [
+									"downgrade",
+									"error",
+									"info",
+									"default",
+									"upgrade",
+									"warn",
+									"off"
+								],
+								"type": "string"
 							},
-							"type": "object"
+							"rule": {
+								"type": "string"
+							}
 						},
-						"scope": "resource",
-						"type": "array",
-						"description": "A special rules customization section for text cells in notebook documents."
+						"type": "object"
+					},
+					"scope": "resource",
+					"type": "array",
+					"description": "A special rules customization section for text cells in notebook documents."
 				},
 				"eslint.timeBudget.onValidation": {
 					"scope": "resource",
@@ -698,5 +710,8 @@
 		"webpack-cli": "^7.0.2",
 		"shelljs": "^0.10.0",
 		"esbuild": "^0.28.0"
+	},
+	"allowScripts": {
+		"esbuild@0.28.1": true
 	}
 }
