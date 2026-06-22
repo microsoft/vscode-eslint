@@ -1,0 +1,15 @@
+// Settings to reproduce microsoft/vscode-eslint#2135.
+//
+// With `eslint.experimental.useFlatConfig` enabled the server tries to import
+// the `FlatESLint` class from `eslint/use-at-your-own-risk`. ESLint 10 no longer
+// exports that class, so the server logs:
+//   "The eslint library loaded from .../eslint/lib/unsupported-api.js doesn't export a FlatESLint class."
+// and no diagnostics are shown for the opened file.
+{
+	"eslint.enable": true,
+	"eslint.experimental.useFlatConfig": true,
+	"eslint.trace.server": {
+		"verbosity": "messages",
+		"format": "text"
+	}
+}
