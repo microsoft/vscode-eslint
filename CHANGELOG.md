@@ -1,3 +1,7 @@
+### Version 3.0.33 - pre-release
+
+- move to latest LSP libraries
+
 ### Version 3.0.31 - pre-release
 
 - move to latest LSP libraries

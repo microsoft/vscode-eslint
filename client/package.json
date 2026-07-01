@@ -2,7 +2,7 @@
 	"name": "client",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "3.0.24",
+	"version": "3.0.33",
 	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
@@ -20,7 +20,7 @@
 		"@types/vscode": "1.91.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "10.0.0"
+		"vscode-languageclient": "10.1.0"
 	},
 	"scripts": {
 		"test": "node --test \"out/tests/**/*.test.js\"",
