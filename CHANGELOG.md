@@ -1,3 +1,10 @@
+### Version 3.0.34 - release
+
+- add support for bulk suppression (see new settings eslint.bulkSuppression.*)
+- move to latest LSP libraries
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.0.34)
+- [PRs](https://github.com/microsoft/vscode-eslint/pulls?q=is%3Apr+milestone%3A3.0.34+is%3Aclosed)
+
 ### Version 3.0.33 - pre-release
 
 - move to latest LSP libraries
