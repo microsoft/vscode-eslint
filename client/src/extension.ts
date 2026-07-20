@@ -66,6 +66,13 @@ let acknowledgePerformanceStatus: () => void;
 const taskProvider: TaskProvider = new TaskProvider();
 const validator: Validator = new Validator();
 
+function showOutputOnRestart(): void {
+	if (Workspace.getConfiguration('eslint').get<boolean>('showOutputOnRestart', false)) {
+		client.outputChannel.show();
+	}
+}
+
+
 export function activate(context: ExtensionContext) {
 
 	function didOpenTextDocument(textDocument: TextDocument) {
@@ -148,6 +155,7 @@ function realActivate(context: ExtensionContext): void {
 				[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
 				return client.start().then(() => {
 					client.info('ESLint server restarted.');
+					showOutputOnRestart();
 				}).catch((error) => {
 					client.error(`Starting the server failed.`, error, 'force');
 					const message = typeof error === 'string' ? error : typeof error.message === 'string' ? error.message : undefined;
@@ -158,6 +166,7 @@ function realActivate(context: ExtensionContext): void {
 			} else {
 				return client.restart().then(() => {
 					client.info('ESLint server restarted.');
+					showOutputOnRestart();
 				}).catch((error) => client.error(`Restarting client failed`, error, 'force'));
 			}
 		}),
