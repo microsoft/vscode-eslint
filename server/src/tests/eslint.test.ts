@@ -8,6 +8,7 @@ import { describe, it } from 'node:test';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import { hasEslintDebugNamespace, isEslintDebugOutput } from '../debugLog';
 import { Diagnostics, ESLint } from '../eslint';
 import { Validate } from '../shared/settings';
 
@@ -66,5 +67,22 @@ void describe('ESLint settings', () => {
 		assert.strictEqual(settings.validate, Validate.off);
 		assert.strictEqual(settings.packageManager, 'npm');
 		assert.strictEqual(settings.workingDirectory, undefined);
+	});
+});
+
+void describe('ESLint debug logging', () => {
+	void it('detects eslint debug namespaces', () => {
+		assert.strictEqual(hasEslintDebugNamespace('eslint:*,-eslint:code-path,eslintrc:*'), true);
+		assert.strictEqual(hasEslintDebugNamespace('eslint:config-loader'), true);
+		assert.strictEqual(hasEslintDebugNamespace('eslintrc:config-array-factory'), true);
+		assert.strictEqual(hasEslintDebugNamespace('typescript:*'), false);
+		assert.strictEqual(hasEslintDebugNamespace(undefined), false);
+	});
+
+	void it('detects eslint debug output written by the debug package', () => {
+		assert.strictEqual(isEslintDebugOutput('eslint:config-loader Loading config file\n'), true);
+		assert.strictEqual(isEslintDebugOutput('2025-08-16T13:48:56.483Z eslint:config-loader Loading config file\n'), true);
+		assert.strictEqual(isEslintDebugOutput('\u001b[36;1meslint:config-loader \u001b[0mLoading config file\n'), true);
+		assert.strictEqual(isEslintDebugOutput('Uncaught exception received.\n'), false);
 	});
 });

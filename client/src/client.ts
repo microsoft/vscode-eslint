@@ -407,6 +407,8 @@ export namespace ESLintClient {
 			if (debug) {
 				env = env || {};
 				env.DEBUG = 'eslint:*,-eslint:code-path,eslintrc:*';
+				env.DEBUG_HIDE_DATE = 'true';
+				env.DEBUG_COLORS = 'false';
 			}
 			if (nodeEnv !== undefined) {
 				env = env || {};
