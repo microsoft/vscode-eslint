@@ -25,6 +25,7 @@ import * as Is from './is';
 import { LRUCache } from './linkedMap';
 import { isUNC, normalizeDriveLetter, normalizePath } from './paths';
 import LanguageDefaults from './languageDefaults';
+import { installEslintDebugLogBridge } from './debugLog';
 
 
 /**
@@ -901,6 +902,7 @@ export namespace ESLint {
 
 	export function initialize($connection: ProposedFeatures.Connection, $documents: TextDocuments<TextDocument>, $inferFilePath: (documentOrUri: string | TextDocument | URI | undefined, useRealpaths: boolean) => string | undefined, $loadNodeModule: <T>(moduleName: string) => T | undefined) {
 		connection = $connection;
+		installEslintDebugLogBridge(connection);
 		documents = $documents;
 		inferFilePath = $inferFilePath;
 		loadNodeModule = $loadNodeModule;
