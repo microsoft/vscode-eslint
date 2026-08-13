@@ -1,0 +1,20 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "Node16",
+		"moduleResolution": "Node16",
+		"target": "ES2022",
+		"sourceMap": true,
+		"outDir": "out",
+		"rootDir": "src",
+		"lib": [ "ES2023", "WebWorker" ],
+		"tsBuildInfoFile": "out/browser.tsbuildinfo",
+		"incremental": true
+	},
+	"include": [
+		"src/browserServer.ts"
+	],
+	"exclude": [
+		"node_modules"
+	]
+}

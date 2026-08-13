@@ -1,0 +1,20 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "Node16",
+		"target": "ES2022",
+		"outDir": "out",
+		"rootDir": "src",
+		"lib": [ "ES2023", "DOM", "DOM.Iterable" ],
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"tsBuildInfoFile": "out/browser.tsbuildinfo",
+		"incremental": true
+	},
+	"include": [
+		"src/browserExtension.ts"
+	],
+	"exclude": [
+		"node_modules"
+	]
+}
