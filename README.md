@@ -371,6 +371,7 @@ This extension contributes the following variables to the [settings](https://cod
 
 - `eslint.enable`: enable/disable ESLint for the workspace folder. Is enabled by default.
 - `eslint.debug`: enables ESLint's debug mode (same as --debug  command line option). Please see the ESLint output channel for the debug output. This options is very helpful to track down configuration and installation problems with ESLint since it provides verbose information about how ESLint is validating a file.
+- `eslint.showOutputOnRestart`: shows the ESLint output channel after manually restarting the ESLint server. Disabled by default.
 - `eslint.lintTask.enable`: whether the extension contributes a lint task to lint a whole workspace folder.
 - `eslint.lintTask.options`: Command line options applied when running the task for linting the whole workspace (https://eslint.org/docs/user-guide/command-line-interface).
   An example to point to a custom `.eslintrc.json` file and a custom `.eslintignore` is:

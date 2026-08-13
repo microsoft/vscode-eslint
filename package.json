@@ -423,6 +423,12 @@
 					"default": false,
 					"markdownDescription": "Enables ESLint debug mode (same as `--debug` on the command line)"
 				},
+				"eslint.showOutputOnRestart": {
+					"scope": "window",
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Shows the ESLint output channel after manually restarting the ESLint server."
+				},
 				"eslint.codeAction.disableRuleComment": {
 					"scope": "resource",
 					"type": "object",
