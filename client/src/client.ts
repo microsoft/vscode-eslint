@@ -203,7 +203,7 @@ export namespace ESLintClient {
 		client.onNotification(ExitCalled.type, (params) => {
 			serverCalledProcessExit = true;
 			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
-			void Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+			void Window.showErrorMessage(`ESLint server shut itself down. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
 				if (value !== undefined && value.id === 1) {
 					client.outputChannel.show();
 				}
