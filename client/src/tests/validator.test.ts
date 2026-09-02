@@ -8,7 +8,7 @@ import { describe, it } from 'node:test';
 import type { TextDocument, Uri } from 'vscode';
 
 import { Validate } from '../shared/settings';
-import { Validator, ValidatorWorkspace } from '../validator';
+import { ValidateWorkspace, Validator } from '../validator';
 
 function createDocument(scheme: string, value: string): TextDocument {
 	return {
@@ -21,13 +21,13 @@ function createDocument(scheme: string, value: string): TextDocument {
 }
 
 function createValidator(settings: Record<string, unknown>, workspaceFolderCount: number, isInWorkspace: boolean): Validator {
-	const workspace: ValidatorWorkspace = {
+	const workspace = {
 		workspaceFolders: Array.from({ length: workspaceFolderCount }),
 		getConfiguration: () => ({
 			get: <T>(section: string, defaultValue: T): T => (settings[section] ?? defaultValue) as T
 		}),
 		getWorkspaceFolder: () => isInWorkspace ? {} : undefined
-	};
+	} as unknown as ValidateWorkspace;
 	return new Validator(workspace);
 }
 
@@ -52,12 +52,22 @@ void describe('Validator workspace boundaries', () => {
 		assert.strictEqual(validator.check(createDocument('file', 'file:///workspace/source.js')), Validate.probe);
 	});
 
+	void it('ignores remote files outside the workspace', () => {
+		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 1, false);
+		assert.strictEqual(validator.check(createDocument('vscode-remote', 'vscode-remote://ssh-remote+host/outside.js')), Validate.off);
+	});
+
+	void it('still validates remote files in a workspace folder', () => {
+		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 1, true);
+		assert.strictEqual(validator.check(createDocument('vscode-remote', 'vscode-remote://ssh-remote+host/workspace/source.js')), Validate.probe);
+	});
+
 	void it('keeps single-file mode working when no folder is open', () => {
 		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 0, false);
 		assert.strictEqual(validator.check(createDocument('file', 'file:///single-file.js')), Validate.probe);
 	});
 
-	void it('does not classify virtual documents as external files', () => {
+	void it('leaves untitled documents to the ignoreUntitled setting', () => {
 		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 1, false);
 		assert.strictEqual(validator.check(createDocument('untitled', 'untitled:Untitled-1')), Validate.probe);
 	});

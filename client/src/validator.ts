@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import type { TextDocument, Uri } from 'vscode';
+import { workspace as Workspace, type TextDocument, type Uri } from 'vscode';
 
 import { Validate } from './shared/settings';
 import { Is } from './node-utils';
@@ -16,21 +16,13 @@ function isValidateItem(item: unknown): item is ValidateItem {
 	return typeof item === 'object' && item !== null && 'language' in item && Is.string(item.language);
 }
 
-export interface ValidatorConfiguration {
-	get<T>(section: string, defaultValue: T): T;
-}
-
-export interface ValidatorWorkspace {
-	readonly workspaceFolders: readonly unknown[] | undefined;
-	getConfiguration(section: string, scope: Uri): ValidatorConfiguration;
-	getWorkspaceFolder(uri: Uri): unknown;
-}
+export type ValidateWorkspace = Pick<typeof Workspace, 'workspaceFolders' | 'getConfiguration' | 'getWorkspaceFolder'>;
 
 export class Validator {
 
 	private readonly probeFailed: Set<string> = new Set();
 
-	public constructor(private readonly workspace: ValidatorWorkspace) {
+	public constructor(private readonly workspace: ValidateWorkspace) {
 	}
 
 	public clear(): void {
@@ -53,7 +45,7 @@ export class Validator {
 		}
 
 		if (
-			textDocument.uri.scheme === 'file' &&
+			textDocument.uri.scheme !== 'untitled' &&
 			config.get<boolean>('ignoreOutsideWorkspace', false) &&
 			(this.workspace.workspaceFolders?.length ?? 0) > 0 &&
 			this.workspace.getWorkspaceFolder(textDocument.uri) === undefined
