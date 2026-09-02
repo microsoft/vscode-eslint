@@ -6,7 +6,6 @@
 import * as readline from 'readline';
 import type { Readable } from 'stream';
 
-import type { LogOutputChannel } from 'vscode';
 import type { StdioOptions } from 'vscode-languageclient/node';
 
 const ansiPattern = /\x1b\[[0-?]*[ -/]*[@-~]/g;
