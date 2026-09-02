@@ -4,11 +4,13 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as assert from 'node:assert';
+import { PassThrough } from 'node:stream';
 import { describe, it } from 'node:test';
 
 import type { LogOutputChannel } from 'vscode';
+import type { StdioOptions } from 'vscode-languageclient/node';
 
-import { isEslintDebugLogMessage, sanitizeLogMessage, sanitizeLogOutputChannel } from '../logOutput';
+import { createEslintStdioOptions, isEslintDebugLogMessage, sanitizeLogMessage } from '../logOutput';
 
 type TestOutputChannel = LogOutputChannel & {
 	log(message: string): void;
@@ -27,13 +29,14 @@ void describe('Log output', () => {
 		assert.strictEqual(isEslintDebugLogMessage('2025-08-16T13:48:56.483Z Uncaught exception received.'), false);
 	});
 
-	void it('routes ESLint debug messages written as errors to info', () => {
+	void it('routes ESLint debug stderr lines to info', async () => {
 		const calls: string[] = [];
 		const outputChannel = createOutputChannel(calls);
 
-		sanitizeLogOutputChannel(outputChannel);
-		outputChannel.error('2025-08-16T13:48:56.483Z eslint:config-loader Loading config file');
-		outputChannel.error('2025-08-16T13:48:56.483Z Uncaught exception received.');
+		await pipeOutput(createEslintStdioOptions().stderr, outputChannel, [
+			'2025-08-16T13:48:56.483Z eslint:config-loader Loading config file',
+			'2025-08-16T13:48:56.483Z Uncaught exception received.'
+		].join('\n'));
 
 		assert.deepStrictEqual(calls, [
 			'info:eslint:config-loader Loading config file',
@@ -41,22 +44,28 @@ void describe('Log output', () => {
 		]);
 	});
 
-	void it('strips leading dates from client log methods', () => {
+	void it('routes sanitized stdout lines to info', async () => {
 		const calls: string[] = [];
 		const outputChannel = createOutputChannel(calls);
 
-		sanitizeLogOutputChannel(outputChannel);
-		outputChannel.info('2025-08-16T13:48:56.483Z Info message');
-		outputChannel.warn('2025-08-16T13:48:56.483Z Warning message');
-		outputChannel.log('2025-08-16T13:48:56.483Z Log message');
+		await pipeOutput(createEslintStdioOptions().stdout, outputChannel, [
+			'2025-08-16T13:48:56.483Z Info message',
+			'\u001b[36;1mPlain message\u001b[0m'
+		].join('\n'));
 
 		assert.deepStrictEqual(calls, [
 			'info:Info message',
-			'warn:Warning message',
-			'log:Log message'
+			'info:Plain message'
 		]);
 	});
 });
+
+function pipeOutput(handler: Required<StdioOptions>['stdout'], outputChannel: LogOutputChannel, content: string): Promise<void> {
+	const input = new PassThrough();
+	handler(input, outputChannel);
+	input.end(content);
+	return new Promise((resolve) => setImmediate(resolve));
+}
 
 function createOutputChannel(calls: string[]): TestOutputChannel {
 	return {
