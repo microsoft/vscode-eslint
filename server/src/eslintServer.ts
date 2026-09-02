@@ -465,21 +465,21 @@ connection.onCodeAction(async (params) => {
 	}
 
 	function getDisableRuleEditInsertionIndex(line: string, commentTags: string | [string, string]): number {
-		let charIndex = line.indexOf('--');
+		// Line comments have no closing tag, so additional rules are appended at the end of the line.
+		if (typeof commentTags === 'string') {
+			return line.length;
+		}
 
+		// commentTags is an array containing the block comment opening and closing tags.
+		// Insert right before the closing tag; searching for the closing tag itself instead
+		// of `--` avoids matching inside an opening `<!--`. Languages with an empty closing
+		// tag (e.g. yaml) append at the end of the line as well.
+		let charIndex = commentTags[1].length > 0 ? line.lastIndexOf(commentTags[1]) : -1;
 		if (charIndex < 0) {
-			if (typeof commentTags === 'string') {
-				return line.length;
-			} else { // commentTags is an array containing the block comment closing and opening tags
-				charIndex = line.indexOf(commentTags[1]);
-				while (charIndex > 0 && line[charIndex - 1] === ' ') {
-					charIndex--;
-				}
-			}
-		} else {
-			while (charIndex > 1 && line[charIndex - 1] === ' ') {
-				charIndex--;
-			}
+			return line.length;
+		}
+		while (charIndex > 0 && line[charIndex - 1] === ' ') {
+			charIndex--;
 		}
 
 		return charIndex;
@@ -537,8 +537,8 @@ connection.onCodeAction(async (params) => {
 
 		// Check if there's already a disabling comment. If so, we ignore the settings here
 		// and use the comment style from that specific line.
-		const matchedBlockDisable = new RegExp(`${blockComment[0]} eslint-disable-line`).test(currentLine);
-		if (lineComment !== undefined && new RegExp(`${lineComment} eslint-disable-line`).test(currentLine)) {
+		const matchedBlockDisable = new RegExp(`${escapeStringRegexp(blockComment[0])} eslint-disable-line`).test(currentLine);
+		if (lineComment !== undefined && new RegExp(`${escapeStringRegexp(lineComment)} eslint-disable-line`).test(currentLine)) {
 			disableRuleContent = `, ${editInfo.ruleId}`;
 			insertionIndex = getDisableRuleEditInsertionIndex(currentLine, lineComment);
 		} else if (matchedBlockDisable) {
