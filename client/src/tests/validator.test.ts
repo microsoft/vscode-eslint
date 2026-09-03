@@ -52,9 +52,9 @@ void describe('Validator workspace boundaries', () => {
 		assert.strictEqual(validator.check(createDocument('file', 'file:///workspace/source.js')), Validate.probe);
 	});
 
-	void it('ignores remote files outside the workspace', () => {
+	void it('keeps remote documents unchanged outside the workspace', () => {
 		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 1, false);
-		assert.strictEqual(validator.check(createDocument('vscode-remote', 'vscode-remote://ssh-remote+host/outside.js')), Validate.off);
+		assert.strictEqual(validator.check(createDocument('vscode-remote', 'vscode-remote://ssh-remote+host/outside.js')), Validate.probe);
 	});
 
 	void it('still validates remote files in a workspace folder', () => {
@@ -70,5 +70,10 @@ void describe('Validator workspace boundaries', () => {
 	void it('leaves untitled documents to the ignoreUntitled setting', () => {
 		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 1, false);
 		assert.strictEqual(validator.check(createDocument('untitled', 'untitled:Untitled-1')), Validate.probe);
+	});
+
+	void it('keeps notebook cell documents unchanged', () => {
+		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 1, false);
+		assert.strictEqual(validator.check(createDocument('vscode-notebook-cell', 'vscode-notebook-cell:///workspace/notebook.ipynb#cell-1')), Validate.probe);
 	});
 });
