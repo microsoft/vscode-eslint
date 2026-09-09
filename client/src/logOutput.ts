@@ -16,7 +16,7 @@ export function sanitizeLogMessage(message: string): string {
 }
 
 export function isEslintDebugLogMessage(message: string): boolean {
-	return /^(?:eslint|eslintrc):/.test(sanitizeLogMessage(message).trimStart());
+	return hasEslintDebugNamespace(sanitizeLogMessage(message));
 }
 
 export function createEslintStdioOptions(): Required<StdioOptions> {
@@ -27,7 +27,7 @@ export function createEslintStdioOptions(): Required<StdioOptions> {
 		stderr: (input, outputChannel) => {
 			pipeLines(input, line => {
 				const message = sanitizeLogMessage(line);
-				if (isEslintDebugLogMessage(message)) {
+				if (hasEslintDebugNamespace(message)) {
 					outputChannel.info(message);
 				} else {
 					outputChannel.error(message);
@@ -35,6 +35,10 @@ export function createEslintStdioOptions(): Required<StdioOptions> {
 			});
 		}
 	};
+}
+
+function hasEslintDebugNamespace(message: string): boolean {
+	return /^(?:eslint|eslintrc):/.test(message.trimStart());
 }
 
 function pipeLines(input: Readable, handler: (line: string) => void): void {

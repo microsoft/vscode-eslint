@@ -16,6 +16,8 @@ type TestOutputChannel = LogOutputChannel & {
 	log(message: string): void;
 };
 
+type TestStdioHandler = Required<StdioOptions>['stdout'] | Required<StdioOptions>['stderr'];
+
 void describe('Log output', () => {
 	void it('strips leading dates and ANSI sequences from log messages', () => {
 		assert.strictEqual(sanitizeLogMessage('2025-08-16T13:48:56.483Z eslint:config-loader Loading config file'), 'eslint:config-loader Loading config file');
@@ -60,7 +62,7 @@ void describe('Log output', () => {
 	});
 });
 
-function pipeOutput(handler: Required<StdioOptions>['stdout'], outputChannel: LogOutputChannel, content: string): Promise<void> {
+function pipeOutput(handler: TestStdioHandler, outputChannel: LogOutputChannel, content: string): Promise<void> {
 	const input = new PassThrough();
 	handler(input, outputChannel);
 	input.end(content);
