@@ -18,64 +18,12 @@ import {
 	ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType, DiagnosticPullMode, DocumentDiagnosticRequest
 } from 'vscode-languageclient/node';
 
-import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
+import { LegacyDirectoryItem, Migration, PatternItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
-
-export class Validator {
-
-	private readonly probeFailed: Set<string> = new Set();
-
-	public clear(): void {
-		this.probeFailed.clear();
-	}
-
-	public add(uri: Uri): void {
-		this.probeFailed.add(uri.toString());
-	}
-
-	public check(textDocument: TextDocument): Validate {
-		const config = Workspace.getConfiguration('eslint', textDocument.uri);
-
-		if (!config.get<boolean>('enable', true)) {
-			return Validate.off;
-		}
-
-		if (textDocument.uri.scheme === 'untitled' && config.get<boolean>('ignoreUntitled', false)) {
-			return Validate.off;
-		}
-
-		const languageId = textDocument.languageId;
-		const validate = config.get<((ValidateItem | string)[]) | null>('validate', null);
-		if (Array.isArray(validate)) {
-			for (const item of validate) {
-				if (Is.string(item) && item === languageId) {
-					return Validate.on;
-				} else if (ValidateItem.is(item) && item.language === languageId) {
-					return Validate.on;
-				}
-			}
-			return Validate.off;
-		}
-
-		if (this.probeFailed.has(textDocument.uri.toString())) {
-			return Validate.off;
-		}
-
-		const probe: string[] | undefined = config.get<string[]>('probe');
-		if (Array.isArray(probe)) {
-			for (const item of probe) {
-				if (item === languageId) {
-					return Validate.probe;
-				}
-			}
-		}
-
-		return Validate.off;
-	}
-}
+import { Validator } from './validator';
 
 type NoESLintState = {
 	global?: boolean;
@@ -176,7 +124,7 @@ export namespace ESLintClient {
 
 		// If the workspace configuration changes we need to update the synced documents since the
 		// list of probe language type can change.
-		context.subscriptions.push(Workspace.onDidChangeConfiguration(() => {
+		const refreshSyncedDocuments = () => {
 			validator.clear();
 			for (const textDocument of syncedDocuments.values()) {
 				if (validator.check(textDocument) === Validate.off) {
@@ -190,7 +138,11 @@ export namespace ESLintClient {
 					provider?.send(textDocument).catch((error) => client.error(`Sending open notification failed.`, error));
 				}
 			}
-		}));
+		};
+		context.subscriptions.push(
+			Workspace.onDidChangeConfiguration(refreshSyncedDocuments),
+			Workspace.onDidChangeWorkspaceFolders(refreshSyncedDocuments)
+		);
 
 		client.onNotification(ShowOutputChannel.type, () => {
 			client.outputChannel.show();
@@ -696,6 +648,7 @@ export namespace ESLintClient {
 					useESLintClass: config.get<boolean>('useESLintClass', false),
 					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
 					useRealpaths: config.get<boolean>('useRealpaths', false),
+					ignoreOutsideWorkspace: config.get<boolean>('ignoreOutsideWorkspace', false),
 					experimental: (useExperimentalFlatConfig === true) ? {
 						useFlatConfig: useExperimentalFlatConfig,
 					} : undefined,
