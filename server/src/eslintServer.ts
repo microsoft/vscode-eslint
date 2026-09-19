@@ -465,21 +465,21 @@ connection.onCodeAction(async (params) => {
 	}
 
 	function getDisableRuleEditInsertionIndex(line: string, commentTags: string | [string, string]): number {
-		let charIndex = line.indexOf('--');
+		// Line comments have no closing tag, so additional rules are appended at the end of the line.
+		if (typeof commentTags === 'string') {
+			return line.length;
+		}
 
+		// commentTags is an array containing the block comment opening and closing tags.
+		// Insert right before the closing tag; searching for the closing tag itself instead
+		// of `--` avoids matching inside an opening `<!--`. Languages with an empty closing
+		// tag (e.g. yaml) append at the end of the line as well.
+		let charIndex = commentTags[1].length > 0 ? line.lastIndexOf(commentTags[1]) : -1;
 		if (charIndex < 0) {
-			if (typeof commentTags === 'string') {
-				return line.length;
-			} else { // commentTags is an array containing the block comment closing and opening tags
-				charIndex = line.indexOf(commentTags[1]);
-				while (charIndex > 0 && line[charIndex - 1] === ' ') {
-					charIndex--;
-				}
-			}
-		} else {
-			while (charIndex > 1 && line[charIndex - 1] === ' ') {
-				charIndex--;
-			}
+			return line.length;
+		}
+		while (charIndex > 0 && line[charIndex - 1] === ' ') {
+			charIndex--;
 		}
 
 		return charIndex;
@@ -504,8 +504,7 @@ connection.onCodeAction(async (params) => {
 
 			// For consistency, we ignore the settings here and use the comment style from that
 			// specific line.
-			const matchedLineDisable = new RegExp(`${escapeStringRegexp(lineComment)} eslint-disable-next-line`).test(prevLine);
-			if (matchedLineDisable) {
+			if (lineComment !== undefined && new RegExp(`${escapeStringRegexp(lineComment)} eslint-disable-next-line`).test(prevLine)) {
 				const insertionIndex = getDisableRuleEditInsertionIndex(prevLine, lineComment);
 				return TextEdit.insert(Position.create(editInfo.line - 2, insertionIndex), `, ${editInfo.ruleId}`);
 			}
@@ -517,10 +516,10 @@ connection.onCodeAction(async (params) => {
 			}
 		}
 
-		// We're creating a new disabling comment. Use the comment style given in settings.
-		const commentStyle = settings.codeAction.disableRuleComment.commentStyle;
+		// We're creating a new disabling comment. Use the comment style given in settings,
+		// falling back to a block comment for languages without a line comment (e.g. markdown).
 		let disableRuleContent: string;
-		if (commentStyle === 'block') {
+		if (lineComment === undefined || settings.codeAction.disableRuleComment.commentStyle === 'block') {
 			disableRuleContent = `${indentationText}${blockComment[0]} eslint-disable-next-line ${editInfo.ruleId} ${blockComment[1]}${EOL}`;
 		} else { // commentStyle === 'line'
 			disableRuleContent = `${indentationText}${lineComment} eslint-disable-next-line ${editInfo.ruleId}${EOL}`;
@@ -538,18 +537,18 @@ connection.onCodeAction(async (params) => {
 
 		// Check if there's already a disabling comment. If so, we ignore the settings here
 		// and use the comment style from that specific line.
-		const matchedLineDisable = new RegExp(`${lineComment} eslint-disable-line`).test(currentLine);
-		const matchedBlockDisable = new RegExp(`${blockComment[0]} eslint-disable-line`).test(currentLine);
-		if (matchedLineDisable) {
+		const matchedBlockDisable = new RegExp(`${escapeStringRegexp(blockComment[0])} eslint-disable-line`).test(currentLine);
+		if (lineComment !== undefined && new RegExp(`${escapeStringRegexp(lineComment)} eslint-disable-line`).test(currentLine)) {
 			disableRuleContent = `, ${editInfo.ruleId}`;
 			insertionIndex = getDisableRuleEditInsertionIndex(currentLine, lineComment);
 		} else if (matchedBlockDisable) {
 			disableRuleContent = `, ${editInfo.ruleId}`;
 			insertionIndex = getDisableRuleEditInsertionIndex(currentLine, blockComment);
 		} else {
-			// We're creating a new disabling comment.
-			const commentStyle = settings.codeAction.disableRuleComment.commentStyle;
-			disableRuleContent = commentStyle === 'line' ? ` ${lineComment} eslint-disable-line ${editInfo.ruleId}` : ` ${blockComment[0]} eslint-disable-line ${editInfo.ruleId} ${blockComment[1]}`;
+			// We're creating a new disabling comment. Use the comment style given in settings,
+			// falling back to a block comment for languages without a line comment (e.g. markdown).
+			const useLineComment = lineComment !== undefined && settings.codeAction.disableRuleComment.commentStyle === 'line';
+			disableRuleContent = useLineComment ? ` ${lineComment} eslint-disable-line ${editInfo.ruleId}` : ` ${blockComment[0]} eslint-disable-line ${editInfo.ruleId} ${blockComment[1]}`;
 			insertionIndex = uinteger.MAX_VALUE;
 		}
 
