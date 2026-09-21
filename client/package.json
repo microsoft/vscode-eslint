@@ -20,7 +20,7 @@
 		"@types/vscode": "1.91.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "10.1.0"
+		"vscode-languageclient": "10.1.1"
 	},
 	"scripts": {
 		"test": "node --test \"out/tests/**/*.test.js\"",

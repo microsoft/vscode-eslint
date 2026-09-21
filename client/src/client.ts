@@ -24,6 +24,7 @@ import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, Co
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
 import { Validator } from './validator';
+import { createEslintStdioOptions } from './logOutput';
 
 type NoESLintState = {
 	global?: boolean;
@@ -386,6 +387,7 @@ export namespace ESLintClient {
 			const clientOptions: LanguageClientOptions = {
 				documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 				revealOutputChannelOn: RevealOutputChannelOn.Never,
+				stdioOptions: createEslintStdioOptions(),
 				initializationOptions: {
 				},
 				progressOnInitialization: true,
