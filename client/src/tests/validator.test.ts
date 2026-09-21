@@ -31,6 +31,28 @@ function createValidator(settings: Record<string, unknown>, workspaceFolderCount
 	return new Validator(workspace);
 }
 
+void describe('Validator legacy validation settings', () => {
+	for (const autoFix of [undefined, true, false]) {
+		void it(`accepts a legacy entry with autoFix ${String(autoFix)}`, () => {
+			const item = autoFix === undefined ? { language: 'javascript' } : { language: 'javascript', autoFix };
+			const validator = createValidator({ validate: [item] }, 1, true);
+			assert.strictEqual(validator.check(createDocument('file', 'file:///workspace/source.js')), Validate.on);
+		});
+	}
+
+	for (const autoFix of ['false', 'true', null, 0, 1, {}, []]) {
+		void it(`rejects a legacy entry with malformed autoFix ${JSON.stringify(autoFix)}`, () => {
+			const validator = createValidator({ validate: [{ language: 'javascript', autoFix }], probe: ['javascript'] }, 1, true);
+			assert.strictEqual(validator.check(createDocument('file', 'file:///workspace/source.js')), Validate.off);
+		});
+	}
+
+	void it('continues to a valid entry after a malformed legacy entry', () => {
+		const validator = createValidator({ validate: [{ language: 'javascript', autoFix: 'false' }, 'javascript'] }, 1, true);
+		assert.strictEqual(validator.check(createDocument('file', 'file:///workspace/source.js')), Validate.on);
+	});
+});
+
 void describe('Validator workspace boundaries', () => {
 	void it('keeps the existing behavior by default', () => {
 		const validator = createValidator({ probe: ['javascript'] }, 1, false);

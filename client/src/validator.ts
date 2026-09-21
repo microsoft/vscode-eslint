@@ -10,10 +10,12 @@ import { Is } from './node-utils';
 
 type ValidateItem = {
 	language: string;
+	autoFix?: boolean;
 };
 
 function isValidateItem(item: unknown): item is ValidateItem {
-	return typeof item === 'object' && item !== null && 'language' in item && Is.string(item.language);
+	return typeof item === 'object' && item !== null && 'language' in item && Is.string(item.language)
+		&& (!('autoFix' in item) || Is.boolean(item.autoFix) || item.autoFix === undefined);
 }
 
 export type ValidateWorkspace = Pick<typeof Workspace, 'workspaceFolders' | 'getConfiguration' | 'getWorkspaceFolder'>;
