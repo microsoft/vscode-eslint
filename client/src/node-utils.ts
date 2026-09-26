@@ -158,6 +158,9 @@ class PatternParser {
 		const start = this.index;
 		let ch: string | undefined;
 		while((ch = this.value[this.index]) !== this.stopChar) {
+			if (start < this.index && (ch === '?' || ch === '*' || ch === '[')) {
+				return this.makeTextNode(start);
+			}
 			switch (ch) {
 				case '/':
 					if (start < this.index) {
