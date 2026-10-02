@@ -123,7 +123,7 @@ type BracketNode = {
 type BraceAlternative = TextNode | QuestionMarkNode | StarNode | BracketNode | BraceNode;
 type BraceNode = {
 	type: NodeType.brace;
-	alternatives: BraceAlternative[];
+	alternatives: BraceAlternative[][];
 };
 
 type Node = TextNode | SeparatorNode | QuestionMarkNode | StarNode | GlobStarNode | BracketNode | BraceNode;
@@ -185,25 +185,25 @@ class PatternParser {
 						return this.makeTextNode(start);
 					} else {
 						const bracketParser = new PatternParser(this.value.substring(this.index + 1), 'brace');
-						const alternatives: BraceAlternative[] = [];
-						let node: Node | undefined;
-						while ((node = bracketParser.next()) !== undefined) {
-							if (node.type === NodeType.globStar || node.type === NodeType.separator) {
-								throw new Error(`Invalid glob pattern ${this.index}. Stopped at ${this.index}`);
+						const alternatives: BraceAlternative[][] = [];
+						do {
+							const alternative: BraceAlternative[] = [];
+							let node: Node | undefined;
+							while ((node = bracketParser.next()) !== undefined) {
+								if (node.type === NodeType.globStar || node.type === NodeType.separator) {
+									throw new Error(`Invalid glob pattern ${this.index}. Stopped at ${this.index}`);
+								}
+								alternative.push(node);
 							}
-							alternatives.push(node);
-						}
-						this.index= this.index + bracketParser.index + 2;
+							alternatives.push(alternative);
+						} while (bracketParser.value[bracketParser.index++] === ',');
+						this.index= this.index + bracketParser.index + 1;
 						return { type: NodeType.brace, alternatives: alternatives };
 					}
 					break;
 				case ',':
 					if (this.mode === 'brace') {
-						if (start < this.index) {
-							const result = this.makeTextNode(start);
-							this.index++;
-							return result;
-						}
+						return start < this.index ? this.makeTextNode(start) : undefined;
 					}
 					this.index++;
 					break;
@@ -276,8 +276,8 @@ export function convert2RegExp(pattern: string): RegExp | undefined {
 				return `[${node.value}]`;
 			case NodeType.brace: {
 				const buffer: string[] = [];
-				for (const child of node.alternatives) {
-					buffer.push(convertNode(child));
+				for (const alternative of node.alternatives) {
+					buffer.push(alternative.map(child => convertNode(child)).join(''));
 				}
 				return `(?:${buffer.join('|')})`;
 			}
