@@ -28,6 +28,7 @@ import {
 import { getFileSystemPath, getUri, isUNC } from './paths';
 import { stringDiff } from './diff';
 import LanguageDefaults from './languageDefaults';
+import { ESLintSourceFixAll, getCodeActionKindFilter } from './codeAction';
 
 // The connection to use. Code action requests get removed from the queue if
 // canceled.
@@ -440,7 +441,6 @@ namespace CommandParams {
 }
 
 const changes = new Changes();
-const ESLintSourceFixAll: string = `${CodeActionKind.SourceFixAll}.eslint`;
 
 connection.onCodeAction(async (params) => {
 	const result: CodeActionResult = new CodeActionResult();
@@ -585,28 +585,27 @@ connection.onCodeAction(async (params) => {
 		return result.all();
 	}
 
-	const only: string | undefined = params.context.only !== undefined && params.context.only.length > 0 ? params.context.only[0] : undefined;
-	const isSource = only === CodeActionKind.Source;
-	const isSourceFixAll = (only === ESLintSourceFixAll || only === CodeActionKind.SourceFixAll);
-	if (isSourceFixAll || isSource) {
-		if (isSourceFixAll) {
-			const textDocumentIdentifier: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
-			const edits = await computeAllFixes(textDocumentIdentifier, AllFixesMode.onSave);
-			if (edits !== undefined) {
-				result.fixAll.push(CodeAction.create(
-					`Fix all fixable ESLint issues`,
-					{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifier, edits )]},
-					ESLintSourceFixAll
-				));
-			}
-		} else if (isSource) {
-			result.fixAll.push(createCodeAction(
+	const only = getCodeActionKindFilter(params.context.only);
+	if (only.sourceFixAll) {
+		const textDocumentIdentifier: VersionedTextDocumentIdentifier = { uri: textDocument.uri, version: textDocument.version };
+		const edits = await computeAllFixes(textDocumentIdentifier, AllFixesMode.onSave);
+		if (edits !== undefined) {
+			result.fixAll.push(CodeAction.create(
 				`Fix all fixable ESLint issues`,
-				CodeActionKind.Source,
-				CommandIds.applyAllFixes,
-				CommandParams.create(textDocument)
+				{ documentChanges: [ TextDocumentEdit.create(textDocumentIdentifier, edits )]},
+				ESLintSourceFixAll
 			));
 		}
+	} else if (only.source) {
+		result.fixAll.push(createCodeAction(
+			`Fix all fixable ESLint issues`,
+			CodeActionKind.Source,
+			CommandIds.applyAllFixes,
+			CommandParams.create(textDocument)
+		));
+	}
+
+	if (!only.quickFix) {
 		return result.all();
 	}
 
@@ -621,7 +620,7 @@ connection.onCodeAction(async (params) => {
 
 	let documentVersion: number = -1;
 	const allFixableRuleIds: string[] = [];
-	const kind: CodeActionKind = only ?? CodeActionKind.QuickFix;
+	const kind: CodeActionKind = only.kind;
 
 	for (const editInfo of fixes.getScoped(params.context.diagnostics)) {
 		documentVersion = editInfo.documentVersion;
