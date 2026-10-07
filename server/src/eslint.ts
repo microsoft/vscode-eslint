@@ -867,6 +867,7 @@ export namespace ESLint {
 			packageManager: 'npm',
 			useESLintClass: false,
 			useRealpaths: false,
+			ignoreOutsideWorkspace: false,
 			codeAction: {
 				disableRuleComment: {
 					enable: true,
