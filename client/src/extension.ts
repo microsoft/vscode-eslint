@@ -66,6 +66,24 @@ let acknowledgePerformanceStatus: () => void;
 const taskProvider: TaskProvider = new TaskProvider();
 const validator: Validator = new Validator();
 
+function isOutputChannelVisible(outputChannelName: string): boolean {
+	const normalizedOutputChannelName = outputChannelName.toLowerCase();
+	return Window.visibleTextEditors.some(editor => {
+		if (editor.document.uri.scheme !== 'output') {
+			return false;
+		}
+		const outputUri = editor.document.uri.toString().toLowerCase();
+		const fileName = editor.document.fileName.toLowerCase();
+		return outputUri.includes(normalizedOutputChannelName) || fileName.includes(normalizedOutputChannelName);
+	});
+}
+
+function showOutputChannelIfVisible(wasVisible: boolean): void {
+	if (wasVisible) {
+		client.outputChannel.show(true);
+	}
+}
+
 export function activate(context: ExtensionContext) {
 
 	function didOpenTextDocument(textDocument: TextDocument) {
@@ -141,6 +159,7 @@ function realActivate(context: ExtensionContext): void {
 			void ESLintClient.migrateSettings(client);
 		}),
 		Commands.registerCommand('eslint.restart', async () => {
+			const outputChannelVisible = isOutputChannelVisible(client.outputChannel.name);
 			// If the previous start failed, we need to create a new client to pick up
 			// a potentially updated environment (e.g., PATH changes from direnv).
 			if (client.state === State.StartFailed) {
@@ -148,6 +167,7 @@ function realActivate(context: ExtensionContext): void {
 				[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
 				return client.start().then(() => {
 					client.info('ESLint server restarted.');
+					showOutputChannelIfVisible(outputChannelVisible);
 				}).catch((error) => {
 					client.error(`Starting the server failed.`, error, 'force');
 					const message = typeof error === 'string' ? error : typeof error.message === 'string' ? error.message : undefined;
@@ -158,6 +178,7 @@ function realActivate(context: ExtensionContext): void {
 			} else {
 				return client.restart().then(() => {
 					client.info('ESLint server restarted.');
+					showOutputChannelIfVisible(outputChannelVisible);
 				}).catch((error) => client.error(`Restarting client failed`, error, 'force'));
 			}
 		}),
