@@ -9,7 +9,7 @@ import * as path from 'path';
 import {
 	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
-	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter
+	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter, OutputChannel
 } from 'vscode';
 
 import {
@@ -19,7 +19,7 @@ import {
 } from 'vscode-languageclient/node';
 
 import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
-import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
+import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, StatsNotification, StatsParams, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
@@ -82,6 +82,43 @@ type NoESLintState = {
 	global?: boolean;
 	workspaces?: { [key: string]: boolean };
 };
+
+let statsOutputChannel: OutputChannel | undefined;
+
+function getStatsOutputChannel(): OutputChannel {
+	if (statsOutputChannel === undefined) {
+		statsOutputChannel = Window.createOutputChannel('ESLint Stats');
+	}
+	return statsOutputChannel;
+}
+
+export function showStatsOutputChannel(): void {
+	getStatsOutputChannel().show();
+}
+
+function formatMilliseconds(value: number): string {
+	return `${value.toFixed(2)}ms`;
+}
+
+function writeStatsReport(channel: OutputChannel, params: StatsParams): void {
+	const { filePath, parseTime, fixTime, totalTime, rules } = params;
+	channel.clear();
+	channel.appendLine(`ESLint rule performance: ${filePath}`);
+	channel.appendLine(`Total: ${formatMilliseconds(totalTime)} (parse: ${formatMilliseconds(parseTime)}, fix: ${formatMilliseconds(fixTime)})`);
+	channel.appendLine('');
+	if (rules.length === 0) {
+		channel.appendLine('No rule timing data collected.');
+		return;
+	}
+	const ruleColumnWidth = Math.max('Rule'.length, ...rules.map(rule => rule.ruleId.length));
+	const header = `${'Rule'.padEnd(ruleColumnWidth)}  ${'Time'.padStart(10)}  ${'% of total'.padStart(10)}`;
+	channel.appendLine(header);
+	channel.appendLine('-'.repeat(header.length));
+	for (const rule of rules) {
+		const percent = totalTime > 0 ? (rule.total / totalTime) * 100 : 0;
+		channel.appendLine(`${rule.ruleId.padEnd(ruleColumnWidth)}  ${formatMilliseconds(rule.total).padStart(10)}  ${percent.toFixed(1).padStart(9)}%`);
+	}
+}
 
 export namespace ESLintClient {
 
@@ -199,6 +236,10 @@ export namespace ESLintClient {
 
 		client.onNotification(StatusNotification.type, (params) => {
 			updateDocumentStatus(params);
+		});
+
+		client.onNotification(StatsNotification.type, (params) => {
+			writeStatsReport(getStatsOutputChannel(), params);
 		});
 
 		client.onNotification(ExitCalled.type, (params) => {
