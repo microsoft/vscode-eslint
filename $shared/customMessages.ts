@@ -111,3 +111,29 @@ export namespace ExitCalled {
 	export const method: 'eslint/exitCalled' = 'eslint/exitCalled';
 	export const type = new NotificationType<[number, string]>(method);
 }
+
+export type RuleTimeStat = {
+	ruleId: string;
+	total: number;
+};
+
+export type StatsParams = {
+	uri: string;
+	filePath: string;
+	parseTime: number;
+	fixTime: number;
+	totalTime: number;
+	rules: RuleTimeStat[];
+};
+
+/**
+ * The eslint/stats notification is sent from the server to the client
+ * to report ESLint rule performance statistics collected with the
+ * `stats: true` ESLint option (see https://github.com/microsoft/vscode-eslint/issues/2057).
+ * It is only sent when the `stats` option is enabled and the used
+ * ESLint version reports timing data.
+ */
+export namespace StatsNotification {
+	export const method: 'eslint/stats' = 'eslint/stats';
+	export const type = new NotificationType<StatsParams>(method);
+}
