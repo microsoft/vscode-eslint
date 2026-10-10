@@ -20,7 +20,7 @@ import { Validate } from './shared/settings';
 import { findEslint } from './node-utils';
 import { pickFolder } from './vscode-utils';
 import { TaskProvider } from './tasks';
-import { ESLintClient, Validator } from './client';
+import { ESLintClient, Validator, showStatsOutputChannel } from './client';
 
 function createDefaultConfiguration(): void {
 	const folders = Workspace.workspaceFolders;
@@ -110,6 +110,7 @@ export function activate(context: ExtensionContext) {
 	onActivateCommands = [
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
 		Commands.registerCommand('eslint.showOutputChannel', notValidating),
+		Commands.registerCommand('eslint.showStatsOutputChannel', notValidating),
 		Commands.registerCommand('eslint.migrateSettings', notValidating),
 		Commands.registerCommand('eslint.restart', notValidating),
 		Commands.registerCommand('eslint.revalidate', notValidating)
@@ -136,6 +137,9 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			client.outputChannel.show();
 			acknowledgePerformanceStatus();
+		}),
+		Commands.registerCommand('eslint.showStatsOutputChannel', () => {
+			showStatsOutputChannel();
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			void ESLintClient.migrateSettings(client);

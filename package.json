@@ -632,6 +632,11 @@
 				"command": "eslint.showOutputChannel"
 			},
 			{
+				"title": "Show Stats Output Channel",
+				"category": "ESLint",
+				"command": "eslint.showStatsOutputChannel"
+			},
+			{
 				"title": "Migrate Settings",
 				"category": "ESLint",
 				"command": "eslint.migrateSettings"
