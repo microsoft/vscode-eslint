@@ -6,7 +6,7 @@
     "@typescript-eslint/parser": "^5.32.0",
     "eslint": "^8.21.0",
     "eslint-plugin-html": "^7.1.0",
-    "eslint-plugin-vue": "^9.3.0",
+    "eslint-plugin-vue": "^10.11.1",
     "vue-eslint-parser": "^9.0.3"
   }
 }
