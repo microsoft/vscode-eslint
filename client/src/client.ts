@@ -83,44 +83,44 @@ type NoESLintState = {
 	workspaces?: { [key: string]: boolean };
 };
 
-let statsOutputChannel: OutputChannel | undefined;
-
-function getStatsOutputChannel(): OutputChannel {
-	if (statsOutputChannel === undefined) {
-		statsOutputChannel = Window.createOutputChannel('ESLint Stats');
-	}
-	return statsOutputChannel;
-}
-
-export function showStatsOutputChannel(): void {
-	getStatsOutputChannel().show();
-}
-
-function formatMilliseconds(value: number): string {
-	return `${value.toFixed(2)}ms`;
-}
-
-function writeStatsReport(channel: OutputChannel, params: StatsParams): void {
-	const { filePath, parseTime, fixTime, totalTime, rules } = params;
-	channel.clear();
-	channel.appendLine(`ESLint rule performance: ${filePath}`);
-	channel.appendLine(`Total: ${formatMilliseconds(totalTime)} (parse: ${formatMilliseconds(parseTime)}, fix: ${formatMilliseconds(fixTime)})`);
-	channel.appendLine('');
-	if (rules.length === 0) {
-		channel.appendLine('No rule timing data collected.');
-		return;
-	}
-	const ruleColumnWidth = Math.max('Rule'.length, ...rules.map(rule => rule.ruleId.length));
-	const header = `${'Rule'.padEnd(ruleColumnWidth)}  ${'Time'.padStart(10)}  ${'% of total'.padStart(10)}`;
-	channel.appendLine(header);
-	channel.appendLine('-'.repeat(header.length));
-	for (const rule of rules) {
-		const percent = totalTime > 0 ? (rule.total / totalTime) * 100 : 0;
-		channel.appendLine(`${rule.ruleId.padEnd(ruleColumnWidth)}  ${formatMilliseconds(rule.total).padStart(10)}  ${percent.toFixed(1).padStart(9)}%`);
-	}
-}
-
 export namespace ESLintClient {
+	let statsOutputChannel: OutputChannel | undefined;
+
+	function getStatsOutputChannel(): OutputChannel {
+		if (statsOutputChannel === undefined) {
+			statsOutputChannel = Window.createOutputChannel('ESLint Stats');
+		}
+		return statsOutputChannel;
+	}
+
+	export function showStatsOutputChannel(): void {
+		getStatsOutputChannel().show();
+	}
+
+	function formatMilliseconds(value: number): string {
+		return `${value.toFixed(2)}ms`;
+	}
+
+	function writeStatsReport(channel: OutputChannel, params: StatsParams): void {
+		const { filePath, parseTime, fixTime, totalTime, rules } = params;
+		channel.clear();
+		channel.appendLine(`ESLint rule performance: ${filePath}`);
+		channel.appendLine(`Total: ${formatMilliseconds(totalTime)} (parse: ${formatMilliseconds(parseTime)}, fix: ${formatMilliseconds(fixTime)})`);
+		channel.appendLine('');
+		if (rules.length === 0) {
+			channel.appendLine('No rule timing data collected.');
+			return;
+		}
+		const ruleColumnWidth = Math.max('Rule'.length, ...rules.map(rule => rule.ruleId.length));
+		const header = `${'Rule'.padEnd(ruleColumnWidth)}  ${'Time'.padStart(10)}  ${'% of total'.padStart(10)}`;
+		channel.appendLine(header);
+		channel.appendLine('-'.repeat(header.length));
+		for (const rule of rules) {
+			const percent = totalTime > 0 ? (rule.total / totalTime) * 100 : 0;
+			channel.appendLine(`${rule.ruleId.padEnd(ruleColumnWidth)}  ${formatMilliseconds(rule.total).padStart(10)}  ${percent.toFixed(1).padStart(9)}%`);
+		}
+	}
+
 
 	function migrationFailed(client: LanguageClient, error: any): void {
 		client.error(error.message ?? 'Unknown error', error);
