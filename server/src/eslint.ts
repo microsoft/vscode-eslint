@@ -1446,7 +1446,7 @@ export namespace ESLint {
 				result = <string>err.message;
 				result = result.replace(/\r?\n/g, ' ');
 				if (result.startsWith('CLI: ')) {
-					result = result.slice(5);
+					result = result.substring(5);
 				}
 			} else {
 				result = `An unknown error occurred while validating document: ${document.uri}`;
