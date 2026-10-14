@@ -54,6 +54,27 @@ You can generate a starter config by running:
 
 `npx eslint --init`
 
+Example global starter settings.json:
+
+```json
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}
+```
+
+Workspace settings can vary across projects for specific validation:
+```json
+{
+ "eslint.validate": [
+    "javascript",
+    "typescript",
+    "vue"
+  ]
+}
+```
+
 Read more about [ESLint CLI](https://eslint.org/docs/latest/use/command-line-interface).
 
 For projects using older ESLint versions (< 8.57), use a legacy `.eslintrc` file (`.eslintrc.json`, `.eslintrc.js`, etc.).
@@ -76,10 +97,48 @@ This section describes major releases and their improvements. For a detailed lis
 
 From version 2.2.3 on forward odd minor or patch version numbers indicate an insider or pre-release. So versions `2.2.3`, `2.2.5` and `2.3.1` will all be pre-release versions. `2.2.10`, `2.4.10` and `3.0.0` will all be regular release versions.
 
-### Version 3.0.20 - pre-release
+### Version 3.0.34 - release
+
+- add support for bulk suppression (see new settings eslint.bulkSuppression.*)
+- move to latest LSP libraries
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.0.34)
+- [PRs](https://github.com/microsoft/vscode-eslint/pulls?q=is%3Apr+milestone%3A3.0.34+is%3Aclosed)
+
+### Version 3.0.33 - pre-release
 
 - move to latest LSP libraries
-- `eslint.quite` blocks info messages as well.
+
+### Version 3.0.31 - pre-release
+
+- move to latest LSP libraries
+
+### Version 3.0.29 - pre-release
+
+- move to latest LSP libraries
+
+### Version 3.0.27 - pre-release
+
+- move to latest LSP libraries
+
+### Version 3.0.25 - pre-release
+
+- add support for bulk suppression (see new settings eslint.bulkSuppression.*)
+- move to latest LSP libraries
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.0.25)
+- [PRs](https://github.com/microsoft/vscode-eslint/pulls?q=is%3Apr+milestone%3A3.0.25+is%3Aclosed)
+
+### Version 3.0.24 - release
+
+- [Bug fixes](https://github.com/microsoft/vscode-eslint/issues?q=is%3Aissue%20state%3Aclosed%20milestone%3A3.24.0)
+
+### Version 3.0.22 - release
+
+- Release number skipped
+
+### Version 3.0.21 - pre-release
+
+- move to latest LSP libraries
+- `eslint.quiet` blocks info messages as well.
 
 ### Version 3.0.20 - release
 
@@ -328,6 +387,8 @@ This extension contributes the following variables to the [settings](https://cod
     "eslint.options": { "overrideConfigFile": "C:/mydirectory/.eslintrc.json" }
   }
   ```
+  Please note that if you override the config file location and use a relative path you might need to specify a working directory as well to ensure the config file is resolved relative to that directory.
+
   An example to point to a custom `.eslintrc.json` file using the old CLIEngine API is:
   ```json
   {
@@ -338,6 +399,7 @@ This extension contributes the following variables to the [settings](https://cod
 - `eslint.run` - run the linter `onSave` or `onType`, default is `onType`.
 - `eslint.quiet` - ignore warnings, default is `false`.
 - `eslint.runtime` - use this setting to set the path of the node runtime to run ESLint under. [Use `"node"`](https://github.com/microsoft/vscode-eslint/issues/1233#issuecomment-815521280) if you want to use your default system version of node.
+    - _NOTE_ If the error `Unable to resolve your shell environment in a reasonable time.` appears, consider increasing timeout in [`application.shellEnvironmentResolutionTimeout`](https://code.visualstudio.com/updates/v1_75#_setting-to-configure-shell-environment-resolution-timeout)
     - _NOTE_ If you are using remote connections (e.g., WSL, Remote SSH, DevContainer, etc.) and don’t want to modify workspace-wide settings, you need to run the "Preferences: Open Remote Settings (JSON)" command via the Command Palette. Set the desired options there, and then reload the editor to ensure the linter server applies the changes.
 - `eslint.execArgv` - use this setting to pass additional arguments to the node runtime like `--max-old-space-size=4096`
     - _NOTE_ If you are using remote connections (e.g., WSL, Remote SSH, DevContainer, etc.) and don’t want to modify workspace-wide settings, you need to run the "Preferences: Open Remote Settings (JSON)" command via the Command Palette. Set the desired options there, and then reload the editor to ensure the linter server applies the changes.
@@ -448,6 +510,7 @@ This extension contributes the following variables to the [settings](https://cod
   ]
   ```
 
+- `eslint.bulkSuppression.enable` (@since 3.0.26) - enables ESlint bulk suppression. See also `eslint.bulkSuppression.location` and `eslint.bulkSuppression.severity` for additional configuration options.
 - `eslint.format.enable` (@since 2.0.0) - uses ESlint as a formatter for files that are validated by ESLint. If enabled please ensure to disable other formatters if you want to make this the default. A good way to do so is to add the following setting `"[javascript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }` for JavaScript. For TypeScript you need to add `"[typescript]": { "editor.defaultFormatter": "dbaeumer.vscode-eslint" }`.
 - `eslint.onIgnoredFiles` (@since 2.0.10): used to control whether warnings should be generated when trying to lint ignored files. Default is `off`. Can be set to `warn`.
 - `editor.codeActionsOnSave` (@since 2.0.0): this setting now supports an entry `source.fixAll.eslint`. If set to true all auto-fixable ESLint errors from all plugins will be fixed on save. You can also selectively enable and disabled specific languages using VS Code's language scoped settings. To disable `codeActionsOnSave` for HTML files use the following setting:

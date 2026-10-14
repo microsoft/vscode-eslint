@@ -2,7 +2,7 @@
 	"name": "client",
 	"displayName": "ESLint",
 	"description": "Integrates ESLint into VS Code.",
-	"version": "3.0.21",
+	"version": "3.0.34",
 	"private": true,
 	"author": "Microsoft Corporation",
 	"license": "MIT",
@@ -20,10 +20,10 @@
 		"@types/vscode": "1.91.0"
 	},
 	"dependencies": {
-		"vscode-languageclient": "10.0.0-next.18"
+		"vscode-languageclient": "10.1.1"
 	},
 	"scripts": {
-		"test": "node ../node_modules/mocha/bin/_mocha",
+		"test": "node --test \"out/tests/**/*.test.js\"",
 		"lint": "node ../node_modules/eslint/bin/eslint.js --ext ts src"
 	}
 }

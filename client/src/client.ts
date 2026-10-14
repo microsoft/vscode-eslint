@@ -23,6 +23,7 @@ import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocReque
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
+import { createEslintStdioOptions } from './logOutput';
 
 export class Validator {
 
@@ -203,7 +204,7 @@ export namespace ESLintClient {
 		client.onNotification(ExitCalled.type, (params) => {
 			serverCalledProcessExit = true;
 			client.error(`Server process exited with code ${params[0]}. This usually indicates a misconfigured ESLint setup.`, params[1]);
-			void Window.showErrorMessage(`ESLint server shut down itself. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
+			void Window.showErrorMessage(`ESLint server shut itself down. See 'ESLint' output channel for details.`, { title: 'Open Output', id: 1}).then((value) => {
 				if (value !== undefined && value.id === 1) {
 					client.outputChannel.show();
 				}
@@ -434,6 +435,7 @@ export namespace ESLintClient {
 			const clientOptions: LanguageClientOptions = {
 				documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 				revealOutputChannelOn: RevealOutputChannelOn.Never,
+				stdioOptions: createEslintStdioOptions(),
 				initializationOptions: {
 				},
 				progressOnInitialization: true,
@@ -689,20 +691,26 @@ export namespace ESLintClient {
 					}
 				});
 				const useFlatConfig = config.get<boolean | null>('useFlatConfig', null);
+				const useExperimentalFlatConfig = config.get<boolean | null>('experimental.useFlatConfig', null);
 				const settings: ConfigurationSettings = {
 					validate: Validate.off,
 					packageManager: config.get<PackageManagers>('packageManager', 'npm'),
 					useESLintClass: config.get<boolean>('useESLintClass', false),
 					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
 					useRealpaths: config.get<boolean>('useRealpaths', false),
-					experimental: {
-						useFlatConfig: config.get<boolean>('experimental.useFlatConfig', false),
-					},
+					experimental: (useExperimentalFlatConfig === true) ? {
+						useFlatConfig: useExperimentalFlatConfig,
+					} : undefined,
 					codeActionOnSave: {
 						mode: CodeActionsOnSaveMode.all
 					},
 					format: false,
 					quiet: config.get<boolean>('quiet', false),
+					bulkSuppression: {
+						enable: config.get<boolean>('bulkSuppression.enable', false),
+						location: config.get<string | undefined>('bulkSuppression.location', undefined),
+						severity: config.get<string>('bulkSuppression.severity', 'info') as ConfigurationSettings['bulkSuppression']['severity'],
+					},
 					onIgnoredFiles: ESLintSeverity.from(config.get<string>('onIgnoredFiles', ESLintSeverity.off)),
 					options: config.get<ESLintOptions>('options', {}),
 					rulesCustomizations: getRuleCustomizations(config, resource),

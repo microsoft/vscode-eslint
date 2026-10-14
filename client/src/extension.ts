@@ -146,7 +146,9 @@ function realActivate(context: ExtensionContext): void {
 			if (client.state === State.StartFailed) {
 				await client.dispose();
 				[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
-				return client.start().catch((error) => {
+				return client.start().then(() => {
+					client.info('ESLint server restarted.');
+				}).catch((error) => {
 					client.error(`Starting the server failed.`, error, 'force');
 					const message = typeof error === 'string' ? error : typeof error.message === 'string' ? error.message : undefined;
 					if (message !== undefined && message.indexOf('ENOENT') !== -1) {
@@ -154,7 +156,9 @@ function realActivate(context: ExtensionContext): void {
 					}
 				});
 			} else {
-				return client.restart().catch((error) => client.error(`Restarting client failed`, error, 'force'));
+				return client.restart().then(() => {
+					client.info('ESLint server restarted.');
+				}).catch((error) => client.error(`Restarting client failed`, error, 'force'));
 			}
 		}),
 		Commands.registerCommand('eslint.revalidate', () => {
