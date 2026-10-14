@@ -23,6 +23,7 @@ import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocReque
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
+import { createEslintStdioOptions } from './logOutput';
 
 export class Validator {
 
@@ -434,6 +435,7 @@ export namespace ESLintClient {
 			const clientOptions: LanguageClientOptions = {
 				documentSelector: [{ scheme: 'file' }, { scheme: 'untitled' }],
 				revealOutputChannelOn: RevealOutputChannelOn.Never,
+				stdioOptions: createEslintStdioOptions(),
 				initializationOptions: {
 				},
 				progressOnInitialization: true,
