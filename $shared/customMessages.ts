@@ -119,7 +119,6 @@ export type RuleTimeStat = {
 
 export type StatsParams = {
 	uri: string;
-	filePath: string;
 	parseTime: number;
 	fixTime: number;
 	totalTime: number;

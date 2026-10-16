@@ -102,9 +102,11 @@ export namespace ESLintClient {
 	}
 
 	function writeStatsReport(channel: OutputChannel, params: StatsParams): void {
-		const { filePath, parseTime, fixTime, totalTime, rules } = params;
+		const { parseTime, fixTime, totalTime, rules } = params;
+		const document = Uri.parse(params.uri);
+		const location = document.scheme === 'file' ? document.fsPath : document.toString();
 		channel.clear();
-		channel.appendLine(`ESLint rule performance: ${filePath}`);
+		channel.appendLine(`ESLint rule performance: ${location}`);
 		channel.appendLine(`Total: ${formatMilliseconds(totalTime)} (parse: ${formatMilliseconds(parseTime)}, fix: ${formatMilliseconds(fixTime)})`);
 		channel.appendLine('');
 		if (rules.length === 0) {

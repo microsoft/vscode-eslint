@@ -1396,7 +1396,7 @@ export namespace ESLint {
 				// Report rule performance timings when the `stats: true` ESLint option is used (#2057).
 				const aggregated = StatsReporter.aggregate(reportResults[0].stats);
 				if (aggregated !== undefined) {
-					void connection.sendNotification(StatsNotification.type, { uri, filePath: file ?? uri, ...aggregated });
+					void connection.sendNotification(StatsNotification.type, { uri, ...aggregated });
 				}
 			}
 			const diagnostics: Diagnostic[] = [];
