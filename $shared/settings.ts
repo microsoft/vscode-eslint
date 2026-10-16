@@ -169,6 +169,7 @@ export type ConfigurationSettings = {
 	useESLintClass: boolean;
 	useFlatConfig?: boolean | undefined;
 	useRealpaths: boolean;
+	ignoreOutsideWorkspace: boolean;
 	experimental?: {
 		useFlatConfig: boolean;
 	};

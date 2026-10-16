@@ -340,6 +340,12 @@
 					"default": false,
 					"description": "If true, untitled files won't be validated by ESLint."
 				},
+				"eslint.ignoreOutsideWorkspace": {
+					"scope": "resource",
+					"type": "boolean",
+					"default": false,
+					"description": "If true, local file documents outside all open workspace folders won't be validated by ESLint. Untitled, remote, and other virtual documents are unchanged. This has no effect when no workspace folder is open."
+				},
 				"eslint.probe": {
 					"scope": "resource",
 					"type": "array",
