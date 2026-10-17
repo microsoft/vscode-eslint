@@ -52,6 +52,7 @@ export class Validator {
 
 		if (
 			textDocument.uri.scheme === 'file' &&
+			this.environment.remoteName === undefined &&
 			config.get<boolean>('ignoreOutsideWorkspace', false) &&
 			(this.workspace.workspaceFolders?.length ?? 0) > 0 &&
 			this.workspace.getWorkspaceFolder(textDocument.uri) === undefined
