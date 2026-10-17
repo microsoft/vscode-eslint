@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import {
-	workspace as Workspace, window as Window, commands as Commands, Disposable, ExtensionContext, TextDocument
+	workspace as Workspace, window as Window, commands as Commands, Disposable, ExtensionContext, TextDocument, env as Env
 } from 'vscode';
 
 import {
