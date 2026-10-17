@@ -65,7 +65,7 @@ let onActivateCommands: Disposable[] | undefined;
 let client: LanguageClient;
 let acknowledgePerformanceStatus: () => void;
 const taskProvider: TaskProvider = new TaskProvider();
-const validator: Validator = new Validator(Workspace);
+const validator: Validator = new Validator(Workspace, { remoteName: Env.remoteName });
 
 export function activate(context: ExtensionContext) {
 
