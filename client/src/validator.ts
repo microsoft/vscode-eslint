@@ -20,6 +20,10 @@ function isValidateItem(item: unknown): item is ValidateItem {
 
 export type ValidateWorkspace = Pick<typeof Workspace, 'workspaceFolders' | 'getConfiguration' | 'getWorkspaceFolder'>;
 
+export type ValidateEnvironment = {
+	remoteName: string | undefined;
+};
+
 export class Validator {
 
 	private readonly probeFailed: Set<string> = new Set();
