@@ -139,6 +139,7 @@ export type ESLintClassOptions = {
 	cwd?: string;
 	fixTypes?: string[];
 	fix?: boolean;
+	stats?: boolean;
 	overrideConfig?: ConfigData;
 	overrideConfigFile?: string | null;
 	applySuppressions?: boolean;
