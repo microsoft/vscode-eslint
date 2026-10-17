@@ -791,6 +791,11 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 			// See https://github.com/microsoft/vscode-eslint/issues/1745
 			const result: TextEdit[] = [];
 			const reportResults = await eslintClass.lintText(originalContent, { filePath });
+			// Fix-on-save, Fix All, and formatting use this separate lint run. Publish its
+			// timings even when ESLint produces no edits.
+			if (reportResults.length > 0) {
+				ESLint.reportStats(uri, reportResults[0].stats);
+			}
 			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
 			if (Array.isArray(reportResults) && reportResults.length === 1 && reportResults[0].output !== undefined) {
 				const fixedContent = reportResults[0].output;

@@ -114,6 +114,7 @@ export function activate(context: ExtensionContext) {
 	onActivateCommands = [
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
 		Commands.registerCommand('eslint.showOutputChannel', notValidating),
+		Commands.registerCommand('eslint.showStatsOutputChannel', notValidating),
 		Commands.registerCommand('eslint.migrateSettings', notValidating),
 		Commands.registerCommand('eslint.restart', notValidating),
 		Commands.registerCommand('eslint.revalidate', notValidating)
@@ -143,6 +144,9 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			client.outputChannel.show();
 			acknowledgePerformanceStatus();
+		}),
+		Commands.registerCommand('eslint.showStatsOutputChannel', () => {
+			ESLintClient.showStatsOutputChannel();
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			void ESLintClient.migrateSettings(client);
