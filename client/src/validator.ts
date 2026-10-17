@@ -24,7 +24,7 @@ export class Validator {
 
 	private readonly probeFailed: Set<string> = new Set();
 
-	public constructor(private readonly workspace: ValidateWorkspace) {
+	public constructor(private readonly workspace: ValidateWorkspace, private readonly environment: ValidateEnvironment) {
 	}
 
 	public clear(): void {
