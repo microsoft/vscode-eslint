@@ -794,7 +794,7 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 			// Fix-on-save, Fix All, and formatting use this separate lint run. Publish its
 			// timings even when ESLint produces no edits.
 			if (reportResults.length > 0) {
-				ESLint.reportStats(commandParams.uri, reportResults[0].stats);
+				ESLint.reportStats(uri, reportResults[0].stats);
 			}
 			connection.tracer.log(`Computing all fixes took: ${Date.now() - start} ms.`);
 			if (Array.isArray(reportResults) && reportResults.length === 1 && reportResults[0].output !== undefined) {
