@@ -1361,7 +1361,17 @@ export namespace ESLint {
 	}
 
 	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
-	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
+		/**
+	 * Publishes ESLint rule performance timings for any lint run, including fix and format runs.
+	 */
+	export function reportStats(uri: string, stats: ESLintStats | undefined): void {
+		const aggregated = StatsReporter.aggregate(stats);
+		if (aggregated !== undefined) {
+			void connection.sendNotification(StatsNotification.type, { uri, ...aggregated });
+		}
+	}
+
+export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 		let fixTypes: Set<string> | undefined = undefined;
 		if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
@@ -1395,11 +1405,7 @@ export namespace ESLint {
 			RuleMetaData.capture(eslintClass, reportResults);
 			if (reportResults.length > 0) {
 				// Report rule performance timings when the `stats: true` ESLint option is used (#2057).
-				const aggregated = StatsReporter.aggregate(reportResults[0].stats);
-				if (aggregated !== undefined) {
-					void connection.sendNotification(StatsNotification.type, { uri, ...aggregated });
-				}
-			}
+				reportStats(uri, reportResults[0].stats);
 			const diagnostics: Diagnostic[] = [];
 			if (reportResults && Array.isArray(reportResults) && reportResults.length > 0) {
 				const docReport = reportResults[0];
