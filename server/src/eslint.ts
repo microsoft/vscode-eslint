@@ -1361,7 +1361,7 @@ export namespace ESLint {
 	}
 
 	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
-		/**
+	/**
 	 * Publishes ESLint rule performance timings for any lint run, including fix and format runs.
 	 */
 	export function reportStats(uri: string, stats: ESLintStats | undefined): void {
@@ -1371,7 +1371,7 @@ export namespace ESLint {
 		}
 	}
 
-export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
+	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 		let fixTypes: Set<string> | undefined = undefined;
 		if (Array.isArray(newOptions.fixTypes) && newOptions.fixTypes.length > 0) {
@@ -1406,6 +1406,7 @@ export async function validate(document: TextDocument, settings: TextDocumentSet
 			if (reportResults.length > 0) {
 				// Report rule performance timings when the `stats: true` ESLint option is used (#2057).
 				reportStats(uri, reportResults[0].stats);
+			}
 			const diagnostics: Diagnostic[] = [];
 			if (reportResults && Array.isArray(reportResults) && reportResults.length > 0) {
 				const docReport = reportResults[0];
