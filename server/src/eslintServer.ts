@@ -774,6 +774,10 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 		const offRules = saveConfig?.offRules;
 		const overrideOptions = saveConfig?.options;
 		let eslintOptions: ESLintClassOptions = { fix: true };
+		// ESLint only collects rule timings when the stats option is enabled.
+		if ((settings.options as { stats?: boolean } | undefined)?.stats === true) {
+			(eslintOptions as ESLintClassOptions & { stats?: boolean }).stats = true;
+		}
 		if (offRules !== undefined || overrideOptions !== undefined) {
 			if (overrideOptions !== undefined) {
 				eslintOptions = { ...eslintOptions, ...overrideOptions };
