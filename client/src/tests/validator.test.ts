@@ -8,7 +8,7 @@ import { describe, it } from 'node:test';
 import type { TextDocument, Uri } from 'vscode';
 
 import { Validate } from '../shared/settings';
-import { ValidateEnvironment, ValidateWorkspace, Validator } from '../validator';
+import { ValidateWorkspace, Validator } from '../validator';
 
 function createDocument(scheme: string, value: string): TextDocument {
 	return {
@@ -20,7 +20,7 @@ function createDocument(scheme: string, value: string): TextDocument {
 	} as TextDocument;
 }
 
-function createValidator(settings: Record<string, unknown>, workspaceFolderCount: number, isInWorkspace: boolean, remoteName: string | undefined = undefined): Validator {
+function createValidator(settings: Record<string, unknown>, workspaceFolderCount: number, isInWorkspace: boolean): Validator {
 	const workspace = {
 		workspaceFolders: Array.from({ length: workspaceFolderCount }),
 		getConfiguration: () => ({
@@ -28,7 +28,7 @@ function createValidator(settings: Record<string, unknown>, workspaceFolderCount
 		}),
 		getWorkspaceFolder: () => isInWorkspace ? {} : undefined
 	} as unknown as ValidateWorkspace;
-	return new Validator(workspace, { remoteName } satisfies ValidateEnvironment);
+	return new Validator(workspace);
 }
 
 void describe('Validator legacy validation settings', () => {
@@ -57,11 +57,6 @@ void describe('Validator workspace boundaries', () => {
 	void it('keeps the existing behavior by default', () => {
 		const validator = createValidator({ probe: ['javascript'] }, 1, false);
 		assert.strictEqual(validator.check(createDocument('file', 'file:///outside.js')), Validate.probe);
-	});
-
-	void it('does not ignore outside workspace files on a remote host even when they use file URIs', () => {
-		const validator = createValidator({ ignoreOutsideWorkspace: true, probe: ['javascript'] }, 1, false, 'ssh-remote');
-		assert.strictEqual(validator.check(createDocument('file', 'file:///remote-host/outside.js')), Validate.probe);
 	});
 
 	void it('ignores external files when requested', () => {

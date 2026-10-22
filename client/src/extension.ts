@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import {
-	workspace as Workspace, window as Window, commands as Commands, Disposable, ExtensionContext, TextDocument, env as Env
+	workspace as Workspace, window as Window, commands as Commands, Disposable, ExtensionContext, TextDocument
 } from 'vscode';
 
 import {
@@ -65,7 +65,7 @@ let onActivateCommands: Disposable[] | undefined;
 let client: LanguageClient;
 let acknowledgePerformanceStatus: () => void;
 const taskProvider: TaskProvider = new TaskProvider();
-const validator: Validator = new Validator(Workspace, { remoteName: Env.remoteName });
+const validator: Validator = new Validator(Workspace);
 
 export function activate(context: ExtensionContext) {
 

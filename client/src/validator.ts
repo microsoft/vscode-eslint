@@ -20,15 +20,11 @@ function isValidateItem(item: unknown): item is ValidateItem {
 
 export type ValidateWorkspace = Pick<typeof Workspace, 'workspaceFolders' | 'getConfiguration' | 'getWorkspaceFolder'>;
 
-export type ValidateEnvironment = {
-	remoteName: string | undefined;
-};
-
 export class Validator {
 
 	private readonly probeFailed: Set<string> = new Set();
 
-	public constructor(private readonly workspace: ValidateWorkspace, private readonly environment: ValidateEnvironment) {
+	public constructor(private readonly workspace: ValidateWorkspace) {
 	}
 
 	public clear(): void {
@@ -52,7 +48,6 @@ export class Validator {
 
 		if (
 			textDocument.uri.scheme === 'file' &&
-			this.environment.remoteName === undefined &&
 			config.get<boolean>('ignoreOutsideWorkspace', false) &&
 			(this.workspace.workspaceFolders?.length ?? 0) > 0 &&
 			this.workspace.getWorkspaceFolder(textDocument.uri) === undefined
