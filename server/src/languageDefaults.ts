@@ -7,7 +7,7 @@
 
 type LanguageConfig = {
 	ext: string;
-	lineComment: string;
+	lineComment?: string;
 	blockComment: [string, string];
 };
 
@@ -18,14 +18,16 @@ const languageId2Config: Map<string, LanguageConfig> = new Map([
 	['typescriptreact', { ext: 'tsx', lineComment: '//', blockComment: ['/*', '*/'] } ],
 	['html', { ext: 'html', lineComment: '//', blockComment: ['<!--', '-->'] }],
 	['vue', { ext: 'vue', lineComment: '//', blockComment: ['<!--', '-->'] }],
+	['markdown', { ext: 'md', blockComment: ['<!--', '-->'] }],
 	['coffeescript', { ext: 'coffee', lineComment: '#', blockComment: ['###', '###'] }],
 	['yaml', { ext: 'yaml', lineComment: '#', blockComment: ['#', ''] }],
 	['graphql', { ext: 'graphql', lineComment: '#', blockComment: ['#', ''] }]
 ]);
 
 namespace LanguageDefaults {
-	export function getLineComment(languageId: string): string {
-		return languageId2Config.get(languageId)?.lineComment ?? '//';
+	export function getLineComment(languageId: string): string | undefined {
+		const config = languageId2Config.get(languageId);
+		return config !== undefined ? config.lineComment : '//';
 	}
 
 	export function getBlockComment(languageId: string): [string, string] {
