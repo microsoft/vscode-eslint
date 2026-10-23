@@ -34,10 +34,49 @@ const serverOptions = {
 	format: 'cjs',
 };
 
+const path = require('path');
+
+/** @type {Record<string, string>} */
+const browserNodePolyfills = {
+	'node:path': path.resolve('./browser-stubs/path.js'),
+	'node:util': path.resolve('./browser-stubs/util.js'),
+	'path': path.resolve('./browser-stubs/path.js'),
+	'util': path.resolve('./browser-stubs/util.js'),
+};
+
+/** @type BuildOptions */
+const browserClientOptions = {
+	bundle: true,
+	external: ['vscode'],
+	target: 'ES2022',
+	platform: 'browser',
+	sourcemap: false,
+	entryPoints: ['client/src/browserExtension.ts'],
+	outfile: 'client/out/browserExtension.js',
+	preserveSymlinks: true,
+	format: 'cjs',
+	alias: browserNodePolyfills,
+};
+
+/** @type BuildOptions */
+const browserServerOptions = {
+	bundle: true,
+	target: 'ES2022',
+	platform: 'browser',
+	sourcemap: false,
+	entryPoints: ['server/src/browserServer.ts'],
+	outfile: 'server/out/browserServer.js',
+	preserveSymlinks: true,
+	format: 'iife',
+	alias: browserNodePolyfills,
+};
+
 function createContexts() {
 	return Promise.all([
 		esbuild.context(clientOptions),
 		esbuild.context(serverOptions),
+		esbuild.context(browserClientOptions),
+		esbuild.context(browserServerOptions),
 	]);
 }
 
