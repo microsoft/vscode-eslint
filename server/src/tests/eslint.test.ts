@@ -8,8 +8,8 @@ import { describe, it } from 'node:test';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { Diagnostics, ESLint } from '../eslint';
-import { Validate } from '../shared/settings';
+import { Diagnostics, ESLint, RuleSeverities } from '../eslint';
+import { RuleCustomization, RuleSeverity, Validate } from '../shared/settings';
 
 void describe('ESLint diagnostics', () => {
 	void it('marks no-unused-vars diagnostics as unnecessary', () => {
@@ -66,5 +66,21 @@ void describe('ESLint settings', () => {
 		assert.strictEqual(settings.validate, Validate.off);
 		assert.strictEqual(settings.packageManager, 'npm');
 		assert.strictEqual(settings.workingDirectory, undefined);
+	});
+});
+
+void describe('Rule severity customizations', () => {
+	const customizations: RuleCustomization[] = [{ rule: '*', fixable: true, severity: RuleSeverity.off }];
+
+	void it('applies fixable customizations per problem when a fixable problem comes first', () => {
+		RuleSeverities.clear();
+		assert.strictEqual(RuleSeverities.getOverride('eqeqeq', customizations, true), RuleSeverity.off);
+		assert.strictEqual(RuleSeverities.getOverride('eqeqeq', customizations, false), undefined);
+	});
+
+	void it('applies fixable customizations per problem when a non-fixable problem comes first', () => {
+		RuleSeverities.clear();
+		assert.strictEqual(RuleSeverities.getOverride('eqeqeq', customizations, false), undefined);
+		assert.strictEqual(RuleSeverities.getOverride('eqeqeq', customizations, true), RuleSeverity.off);
 	});
 });
