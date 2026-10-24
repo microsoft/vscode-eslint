@@ -20,7 +20,8 @@ import { Validate } from './shared/settings';
 import { findEslint } from './node-utils';
 import { pickFolder } from './vscode-utils';
 import { TaskProvider } from './tasks';
-import { ESLintClient, Validator } from './client';
+import { ESLintClient } from './client';
+import { Validator } from './validator';
 
 function createDefaultConfiguration(): void {
 	const folders = Workspace.workspaceFolders;
@@ -64,7 +65,7 @@ let onActivateCommands: Disposable[] | undefined;
 let client: LanguageClient;
 let acknowledgePerformanceStatus: () => void;
 const taskProvider: TaskProvider = new TaskProvider();
-const validator: Validator = new Validator();
+const validator: Validator = new Validator(Workspace);
 
 export function activate(context: ExtensionContext) {
 
@@ -75,6 +76,7 @@ export function activate(context: ExtensionContext) {
 		if (validator.check(textDocument) !== Validate.off) {
 			openListener.dispose();
 			configurationListener.dispose();
+			workspaceFolderListener.dispose();
 			activated = true;
 			realActivate(context);
 		}
@@ -88,6 +90,7 @@ export function activate(context: ExtensionContext) {
 			if (validator.check(textDocument) !== Validate.off) {
 				openListener.dispose();
 				configurationListener.dispose();
+				workspaceFolderListener.dispose();
 				activated = true;
 				realActivate(context);
 				return;
@@ -98,6 +101,7 @@ export function activate(context: ExtensionContext) {
 	let activated: boolean = false;
 	const openListener: Disposable = Workspace.onDidOpenTextDocument(didOpenTextDocument);
 	const configurationListener: Disposable = Workspace.onDidChangeConfiguration(configurationChanged);
+	const workspaceFolderListener: Disposable = Workspace.onDidChangeWorkspaceFolders(configurationChanged);
 
 	const notValidating = () => {
 		const enabled = Workspace.getConfiguration('eslint', Window.activeTextEditor?.document).get('enable', true);
@@ -110,12 +114,16 @@ export function activate(context: ExtensionContext) {
 	onActivateCommands = [
 		Commands.registerCommand('eslint.executeAutofix', notValidating),
 		Commands.registerCommand('eslint.showOutputChannel', notValidating),
+		Commands.registerCommand('eslint.showStatsOutputChannel', notValidating),
 		Commands.registerCommand('eslint.migrateSettings', notValidating),
 		Commands.registerCommand('eslint.restart', notValidating),
 		Commands.registerCommand('eslint.revalidate', notValidating)
 	];
 
 	context.subscriptions.push(
+		openListener,
+		configurationListener,
+		workspaceFolderListener,
 		Commands.registerCommand('eslint.createConfig', createDefaultConfiguration)
 	);
 
@@ -136,6 +144,9 @@ function realActivate(context: ExtensionContext): void {
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
 			client.outputChannel.show();
 			acknowledgePerformanceStatus();
+		}),
+		Commands.registerCommand('eslint.showStatsOutputChannel', () => {
+			ESLintClient.showStatsOutputChannel();
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			void ESLintClient.migrateSettings(client);

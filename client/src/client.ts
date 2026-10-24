@@ -4,12 +4,13 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
+import { StatsNotification, StatsParams } from './shared/customMessages';
 import * as path from 'path';
 
 import {
 	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
-	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter
+	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter, OutputChannel
 } from 'vscode';
 
 import {
@@ -18,65 +19,13 @@ import {
 	ExecuteCommandRequest, ConfigurationParams, NotebookDocumentSyncRegistrationType, DiagnosticPullMode, DocumentDiagnosticRequest
 } from 'vscode-languageclient/node';
 
-import { LegacyDirectoryItem, Migration, PatternItem, ValidateItem } from './settings';
+import { LegacyDirectoryItem, Migration, PatternItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
+import { Validator } from './validator';
 import { createEslintStdioOptions } from './logOutput';
-
-export class Validator {
-
-	private readonly probeFailed: Set<string> = new Set();
-
-	public clear(): void {
-		this.probeFailed.clear();
-	}
-
-	public add(uri: Uri): void {
-		this.probeFailed.add(uri.toString());
-	}
-
-	public check(textDocument: TextDocument): Validate {
-		const config = Workspace.getConfiguration('eslint', textDocument.uri);
-
-		if (!config.get<boolean>('enable', true)) {
-			return Validate.off;
-		}
-
-		if (textDocument.uri.scheme === 'untitled' && config.get<boolean>('ignoreUntitled', false)) {
-			return Validate.off;
-		}
-
-		const languageId = textDocument.languageId;
-		const validate = config.get<((ValidateItem | string)[]) | null>('validate', null);
-		if (Array.isArray(validate)) {
-			for (const item of validate) {
-				if (Is.string(item) && item === languageId) {
-					return Validate.on;
-				} else if (ValidateItem.is(item) && item.language === languageId) {
-					return Validate.on;
-				}
-			}
-			return Validate.off;
-		}
-
-		if (this.probeFailed.has(textDocument.uri.toString())) {
-			return Validate.off;
-		}
-
-		const probe: string[] | undefined = config.get<string[]>('probe');
-		if (Array.isArray(probe)) {
-			for (const item of probe) {
-				if (item === languageId) {
-					return Validate.probe;
-				}
-			}
-		}
-
-		return Validate.off;
-	}
-}
 
 type NoESLintState = {
 	global?: boolean;
@@ -84,6 +33,45 @@ type NoESLintState = {
 };
 
 export namespace ESLintClient {
+	let statsOutputChannel: OutputChannel | undefined;
+
+	function getStatsOutputChannel(): OutputChannel {
+		if (statsOutputChannel === undefined) {
+			statsOutputChannel = Window.createOutputChannel('ESLint Stats');
+		}
+		return statsOutputChannel;
+	}
+
+	export function showStatsOutputChannel(): void {
+		getStatsOutputChannel().show();
+	}
+
+	function formatMilliseconds(value: number): string {
+		return `${value.toFixed(2)}ms`;
+	}
+
+	function writeStatsReport(channel: OutputChannel, params: StatsParams): void {
+		const { parseTime, fixTime, totalTime, rules } = params;
+		const document = Uri.parse(params.uri);
+		const location = document.scheme === 'file' ? document.fsPath : document.toString();
+		channel.clear();
+		channel.appendLine(`ESLint rule performance: ${location}`);
+		channel.appendLine(`Total: ${formatMilliseconds(totalTime)} (parse: ${formatMilliseconds(parseTime)}, fix: ${formatMilliseconds(fixTime)})`);
+		channel.appendLine('');
+		if (rules.length === 0) {
+			channel.appendLine('No rule timing data collected.');
+			return;
+		}
+		const ruleColumnWidth = Math.max('Rule'.length, ...rules.map(rule => rule.ruleId.length));
+		const header = `${'Rule'.padEnd(ruleColumnWidth)}  ${'Time'.padStart(10)}  ${'% of total'.padStart(10)}`;
+		channel.appendLine(header);
+		channel.appendLine('-'.repeat(header.length));
+		for (const rule of rules) {
+			const percent = totalTime > 0 ? (rule.total / totalTime) * 100 : 0;
+			channel.appendLine(`${rule.ruleId.padEnd(ruleColumnWidth)}  ${formatMilliseconds(rule.total).padStart(10)}  ${percent.toFixed(1).padStart(9)}%`);
+		}
+	}
+
 
 	function migrationFailed(client: LanguageClient, error: any): void {
 		client.error(error.message ?? 'Unknown error', error);
@@ -177,7 +165,7 @@ export namespace ESLintClient {
 
 		// If the workspace configuration changes we need to update the synced documents since the
 		// list of probe language type can change.
-		context.subscriptions.push(Workspace.onDidChangeConfiguration(() => {
+		const refreshSyncedDocuments = () => {
 			validator.clear();
 			for (const textDocument of syncedDocuments.values()) {
 				if (validator.check(textDocument) === Validate.off) {
@@ -191,7 +179,11 @@ export namespace ESLintClient {
 					provider?.send(textDocument).catch((error) => client.error(`Sending open notification failed.`, error));
 				}
 			}
-		}));
+		};
+		context.subscriptions.push(
+			Workspace.onDidChangeConfiguration(refreshSyncedDocuments),
+			Workspace.onDidChangeWorkspaceFolders(refreshSyncedDocuments)
+		);
 
 		client.onNotification(ShowOutputChannel.type, () => {
 			client.outputChannel.show();
@@ -199,6 +191,10 @@ export namespace ESLintClient {
 
 		client.onNotification(StatusNotification.type, (params) => {
 			updateDocumentStatus(params);
+		});
+
+		client.onNotification(StatsNotification.type, (params) => {
+			writeStatsReport(getStatsOutputChannel(), params);
 		});
 
 		client.onNotification(ExitCalled.type, (params) => {
@@ -698,6 +694,7 @@ export namespace ESLintClient {
 					useESLintClass: config.get<boolean>('useESLintClass', false),
 					useFlatConfig: useFlatConfig === null ? undefined : useFlatConfig,
 					useRealpaths: config.get<boolean>('useRealpaths', false),
+					ignoreOutsideWorkspace: config.get<boolean>('ignoreOutsideWorkspace', false),
 					experimental: (useExperimentalFlatConfig === true) ? {
 						useFlatConfig: useExperimentalFlatConfig,
 					} : undefined,
