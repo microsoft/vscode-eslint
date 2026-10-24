@@ -25,11 +25,12 @@ export function getCodeActionKindFilter(only: CodeActionKind[] | undefined): Cod
 	}
 
 	const requested = new Set<CodeActionKind>(only);
-	const quickFix = requested.has(CodeActionKind.QuickFix);
+	const all = requested.has(CodeActionKind.Empty);
+	const quickFix = all || requested.has(CodeActionKind.QuickFix);
 	return {
 		kind: quickFix ? CodeActionKind.QuickFix : only[0],
 		quickFix,
-		source: requested.has(CodeActionKind.Source),
-		sourceFixAll: requested.has(ESLintSourceFixAll) || requested.has(CodeActionKind.SourceFixAll)
+		source: all || requested.has(CodeActionKind.Source),
+		sourceFixAll: all || requested.has(ESLintSourceFixAll) || requested.has(CodeActionKind.SourceFixAll)
 	};
 }

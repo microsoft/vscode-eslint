@@ -20,6 +20,15 @@ void describe('Code action kind filter', () => {
 		assert.strictEqual(filter.sourceFixAll, false);
 	});
 
+	void it('treats an explicit empty kind as matching all supported actions', () => {
+		const filter = getCodeActionKindFilter([CodeActionKind.Empty]);
+
+		assert.strictEqual(filter.kind, CodeActionKind.QuickFix);
+		assert.strictEqual(filter.quickFix, true);
+		assert.strictEqual(filter.source, true);
+		assert.strictEqual(filter.sourceFixAll, true);
+	});
+
 	void it('honors source fix all when it is not the first only kind', () => {
 		const filter = getCodeActionKindFilter(['source.organizeImports', ESLintSourceFixAll]);
 
