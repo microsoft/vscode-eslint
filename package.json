@@ -407,6 +407,12 @@
 					"default": null,
 					"markdownDescription": "The location of the node binary to run ESLint under."
 				},
+				"eslint.useNodeFromEnvironment": {
+					"scope": "machine-overridable",
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Run ESLint under the `node` binary found on the `PATH` instead of the Node runtime that ships with VS Code. Only applies in trusted workspaces and if `#eslint.runtime#` is not set. Falls back to the shipped runtime if no `node` binary is found."
+				},
 				"eslint.execArgv": {
 					"scope": "machine-overridable",
 					"anyOf": [
