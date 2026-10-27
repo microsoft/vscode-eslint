@@ -22,7 +22,7 @@ import {
 import { LegacyDirectoryItem, Migration, PatternItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
-import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
+import { convert2RegExp, findExecutableOnPath, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
 import { Validator } from './validator';
 import { createEslintStdioOptions } from './logOutput';
@@ -132,8 +132,13 @@ export namespace ESLintClient {
 
 		// A map of documents synced to the server
 		const syncedDocuments: Map<string, TextDocument> = new Map();
+		// A warning about the server runtime to report once the client exists.
+		let serverRuntimeWarning: string | undefined;
 		// The actual ESLint client
 		const client: LanguageClient = new LanguageClient('ESLint', createServerOptions(context.extensionUri), createClientOptions());
+		if (serverRuntimeWarning !== undefined) {
+			client.warn(serverRuntimeWarning);
+		}
 
 		// The default error handler.
 		const defaultErrorHandler: ErrorHandler = client.createDefaultErrorHandler();
@@ -396,7 +401,14 @@ export namespace ESLintClient {
 			const serverModule = Uri.joinPath(extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 			const eslintConfig = Workspace.getConfiguration('eslint');
 			const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
-			const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
+			let runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
+			const useNodeFromEnvironment = sanitize(eslintConfig.get<boolean>('useNodeFromEnvironment', false) ?? false, 'boolean', false);
+			if (runtime === undefined && useNodeFromEnvironment && Workspace.isTrusted) {
+				runtime = findExecutableOnPath('node');
+				if (runtime === undefined) {
+					serverRuntimeWarning = `The setting 'eslint.useNodeFromEnvironment' is enabled but no node executable was found on the PATH. Falling back to the Node runtime that ships with VS Code.`;
+				}
+			}
 			const execArgv = sanitize(eslintConfig.get<string[] | null>('execArgv', null) ?? undefined, 'string', undefined);
 			const nodeEnv = sanitize(eslintConfig.get<string | null>('nodeEnv', null) ?? undefined, 'string', undefined);
 

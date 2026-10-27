@@ -76,6 +76,47 @@ function existFile(file: string): Promise<boolean> {
 	});
 }
 
+/**
+ * Finds an executable on the `PATH` of the given environment.
+ *
+ * Relative `PATH` entries are ignored to ensure that no binary is picked
+ * up from the current working directory. On Windows only `.exe` files are
+ * considered since batch files can't be spawned without a shell.
+ *
+ * @param name the name of the executable without extension (e.g. `node`).
+ * @param env the environment to take `PATH` from.
+ * @param platform the platform to resolve for.
+ * @returns the absolute path to the executable or `undefined` if not found.
+ */
+export function findExecutableOnPath(name: string, env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): string | undefined {
+	const pathModule = platform === 'win32' ? path.win32 : path.posix;
+	// On Windows environment variable names are case insensitive.
+	const pathKey = platform === 'win32' ? Object.keys(env).find(key => key.toUpperCase() === 'PATH') : 'PATH';
+	const pathValue = pathKey !== undefined ? env[pathKey] : undefined;
+	if (pathValue === undefined || pathValue.length === 0) {
+		return undefined;
+	}
+	const fileName = platform === 'win32' ? `${name}.exe` : name;
+	for (const directory of pathValue.split(pathModule.delimiter)) {
+		if (directory.length === 0 || !pathModule.isAbsolute(directory)) {
+			continue;
+		}
+		const candidate = pathModule.join(directory, fileName);
+		try {
+			if (!fs.statSync(candidate).isFile()) {
+				continue;
+			}
+			if (platform !== 'win32') {
+				fs.accessSync(candidate, fs.constants.X_OK);
+			}
+			return candidate;
+		} catch {
+			// Not found or not executable. Try the next directory.
+		}
+	}
+	return undefined;
+}
+
 // ----- Glob pattern parser
 
 enum NodeType {
