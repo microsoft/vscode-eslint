@@ -10,7 +10,7 @@ import * as path from 'path';
 import {
 	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
-	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter, OutputChannel
+	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter, OutputChannel, Disposable
 } from 'vscode';
 
 import {
@@ -123,7 +123,7 @@ export namespace ESLintClient {
 		export const defaultValue: PerformanceStatus = { firstReport: true, validationTime: 0, fixTime: 0, reported: 0, acknowledged: false };
 	}
 
-	export function create(context: ExtensionContext, validator: Validator): [LanguageClient, () => void] {
+	export function create(context: ExtensionContext, validator: Validator): [LanguageClient, () => void, Disposable] {
 
 		// Filters for client options
 		const packageJsonFilter: VDocumentFilter = { scheme: 'file', pattern: '**/package.json' };
@@ -150,6 +150,7 @@ export namespace ESLintClient {
 
 		// The client's status bar item.
 		const languageStatus: LanguageStatusItem = Languages.createLanguageStatusItem('eslint.languageStatusItem', []);
+		const disposables: Disposable[] = [languageStatus];
 		let serverRunning: boolean | undefined;
 
 		const starting = 'ESLint server is starting.';
@@ -180,7 +181,7 @@ export namespace ESLintClient {
 				}
 			}
 		};
-		context.subscriptions.push(
+		disposables.push(
 			Workspace.onDidChangeConfiguration(refreshSyncedDocuments),
 			Workspace.onDidChangeWorkspaceFolders(refreshSyncedDocuments)
 		);
@@ -345,7 +346,7 @@ export namespace ESLintClient {
 			updateStatusBar(undefined);
 		});
 
-		context.subscriptions.push(
+		disposables.push(
 			Window.onDidChangeActiveTextEditor(() => {
 				updateStatusBar(undefined);
 			}),
@@ -375,7 +376,9 @@ export namespace ESLintClient {
 			})
 		);
 
-		return [client, acknowledgePerformanceStatus];
+		const disposable = Disposable.from(...disposables);
+		context.subscriptions.push(disposable);
+		return [client, acknowledgePerformanceStatus, disposable];
 
 		function getCurrentServerWorkingDirectory(): string {
 			if (!Workspace.isTrusted) {
