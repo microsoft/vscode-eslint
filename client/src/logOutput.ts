@@ -42,6 +42,10 @@ function hasEslintDebugNamespace(message: string): boolean {
 }
 
 function pipeLines(input: Readable, handler: (line: string) => void): void {
+	// A failed spawn can leave invalid stdio. Let the transport report the process error.
+	if (input === null || input === undefined || typeof input.on !== 'function') {
+		return;
+	}
 	readline.createInterface({
 		input,
 		crlfDelay: Infinity,
