@@ -64,6 +64,7 @@ function createDefaultConfiguration(): void {
 let onActivateCommands: Disposable[] | undefined;
 let client: LanguageClient;
 let acknowledgePerformanceStatus: () => void;
+let clientDisposables: Disposable;
 const taskProvider: TaskProvider = new TaskProvider();
 const validator: Validator = new Validator(Workspace);
 
@@ -138,7 +139,7 @@ function realActivate(context: ExtensionContext): void {
 		onActivateCommands = undefined;
 	}
 
-	[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
+	[client, acknowledgePerformanceStatus, clientDisposables] = ESLintClient.create(context, validator);
 
 	context.subscriptions.push(
 		Commands.registerCommand('eslint.showOutputChannel', async () => {
@@ -156,7 +157,8 @@ function realActivate(context: ExtensionContext): void {
 			// a potentially updated environment (e.g., PATH changes from direnv).
 			if (client.state === State.StartFailed) {
 				await client.dispose();
-				[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
+				clientDisposables.dispose();
+				[client, acknowledgePerformanceStatus, clientDisposables] = ESLintClient.create(context, validator);
 				return client.start().then(() => {
 					client.info('ESLint server restarted.');
 				}).catch((error) => {
@@ -167,7 +169,8 @@ function realActivate(context: ExtensionContext): void {
 					}
 				});
 			} else {
-				return client.restart().then(() => {
+				const restart = client.state === State.Stopped ? client.start() : client.restart();
+				return restart.then(() => {
 					client.info('ESLint server restarted.');
 				}).catch((error) => client.error(`Restarting client failed`, error, 'force'));
 			}
