@@ -638,7 +638,9 @@ export namespace RuleSeverities {
 	const ruleSeverityCache = new LRUCache<string, RuleSeverity | null>(1024);
 
 	export function getOverride(ruleId: string, customizations: RuleCustomization[], isFixable?: boolean): RuleSeverity | undefined {
-		let result: RuleSeverity | undefined | null = ruleSeverityCache.get(ruleId);
+		// The fixable filter depends on the problem, so the cached result must too.
+		const cacheKey = `${ruleId}:${isFixable}`;
+		let result: RuleSeverity | undefined | null = ruleSeverityCache.get(cacheKey);
 		if (result === null) {
 			return undefined;
 		}
@@ -656,11 +658,11 @@ export namespace RuleSeverities {
 			}
 		}
 		if (result === undefined) {
-			ruleSeverityCache.set(ruleId, null);
+			ruleSeverityCache.set(cacheKey, null);
 			return undefined;
 		}
 
-		ruleSeverityCache.set(ruleId, result);
+		ruleSeverityCache.set(cacheKey, result);
 		return result;
 	}
 
