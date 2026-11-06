@@ -81,7 +81,11 @@ function existFile(file: string): Promise<boolean> {
  *
  * Relative `PATH` entries are ignored to ensure that no binary is picked
  * up from the current working directory. On Windows only `.exe` files are
- * considered since batch files can't be spawned without a shell.
+ * considered since batch files can't be spawned without a shell, and quotes
+ * surrounding a `PATH` entry are removed.
+ *
+ * The `PATH` is read on every call, so callers get the current state of the
+ * environment and of the file system.
  *
  * @param name the name of the executable without extension (e.g. `node`).
  * @param env the environment to take `PATH` from.
@@ -97,7 +101,11 @@ export function findExecutableOnPath(name: string, env: NodeJS.ProcessEnv = proc
 		return undefined;
 	}
 	const fileName = platform === 'win32' ? `${name}.exe` : name;
-	for (const directory of pathValue.split(pathModule.delimiter)) {
+	for (let directory of pathValue.split(pathModule.delimiter)) {
+		// On Windows PATH entries can be quoted, e.g. "C:\Program Files\nodejs".
+		if (platform === 'win32' && directory.length >= 2 && directory.startsWith('"') && directory.endsWith('"')) {
+			directory = directory.slice(1, -1);
+		}
 		if (directory.length === 0 || !pathModule.isAbsolute(directory)) {
 			continue;
 		}

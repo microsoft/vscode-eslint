@@ -132,13 +132,8 @@ export namespace ESLintClient {
 
 		// A map of documents synced to the server
 		const syncedDocuments: Map<string, TextDocument> = new Map();
-		// A warning about the server runtime to report once the client exists.
-		let serverRuntimeWarning: string | undefined;
 		// The actual ESLint client
 		const client: LanguageClient = new LanguageClient('ESLint', createServerOptions(context.extensionUri), createClientOptions());
-		if (serverRuntimeWarning !== undefined) {
-			client.warn(serverRuntimeWarning);
-		}
 
 		// The default error handler.
 		const defaultErrorHandler: ErrorHandler = client.createDefaultErrorHandler();
@@ -401,14 +396,20 @@ export namespace ESLintClient {
 			const serverModule = Uri.joinPath(extensionUri, 'server', 'out', 'eslintServer.js').fsPath;
 			const eslintConfig = Workspace.getConfiguration('eslint');
 			const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
-			let runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
+			const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
 			const useNodeFromEnvironment = sanitize(eslintConfig.get<boolean>('useNodeFromEnvironment', false) ?? false, 'boolean', false);
-			if (runtime === undefined && useNodeFromEnvironment && Workspace.isTrusted) {
-				runtime = findExecutableOnPath('node');
-				if (runtime === undefined) {
-					serverRuntimeWarning = `The setting 'eslint.useNodeFromEnvironment' is enabled but no node executable was found on the PATH. Falling back to the Node runtime that ships with VS Code.`;
+			// The language client reads the runtime each time it starts the server. Look up the
+			// node executable on every read so that a restart picks up a changed PATH.
+			const getRuntime = (): string | undefined => {
+				if (runtime !== undefined || !useNodeFromEnvironment || !Workspace.isTrusted) {
+					return runtime;
 				}
-			}
+				const result = findExecutableOnPath('node');
+				if (result === undefined) {
+					client.warn(`The setting 'eslint.useNodeFromEnvironment' is enabled but no node executable was found on the PATH. Falling back to the Node runtime that ships with VS Code.`);
+				}
+				return result;
+			};
 			const execArgv = sanitize(eslintConfig.get<string[] | null>('execArgv', null) ?? undefined, 'string', undefined);
 			const nodeEnv = sanitize(eslintConfig.get<string | null>('nodeEnv', null) ?? undefined, 'string', undefined);
 
@@ -424,8 +425,8 @@ export namespace ESLintClient {
 			const cwd = getCurrentServerWorkingDirectory();
 			const debugArgv = ['--nolazy', '--inspect=6011'];
 			const result: ServerOptions = {
-				run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd, env } },
-				debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd, env } }
+				run: { module: serverModule, transport: TransportKind.ipc, get runtime() { return getRuntime(); }, options: { execArgv, cwd, env } },
+				debug: { module: serverModule, transport: TransportKind.ipc, get runtime() { return getRuntime(); }, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd, env } }
 			};
 			return result;
 		}

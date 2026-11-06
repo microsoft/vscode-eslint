@@ -65,4 +65,29 @@ void describe('findExecutableOnPath', () => {
 		fs.writeFileSync(path.join(nonExecutable, fileName), '', { mode: 0o644 });
 		assert.strictEqual(findExecutableOnPath('node', { PATH: [nonExecutable, first].join(path.delimiter) }), path.join(first, fileName));
 	});
+
+	void it('accepts quoted PATH entries on Windows', { skip: !isWindows }, () => {
+		assert.strictEqual(findExecutableOnPath('node', { PATH: [`""`, `"${second}"`, first].join(path.delimiter) }), path.join(second, fileName));
+	});
+
+	void it('reads the current PATH on every call', () => {
+		const removed = path.join(root, 'removed');
+		fs.mkdirSync(removed);
+		fs.writeFileSync(path.join(removed, fileName), '', { mode: 0o755 });
+		const originalPath = process.env.PATH;
+		try {
+			process.env.PATH = [removed, first].join(path.delimiter);
+			assert.strictEqual(findExecutableOnPath('node'), path.join(removed, fileName));
+			fs.rmSync(path.join(removed, fileName));
+			assert.strictEqual(findExecutableOnPath('node'), path.join(first, fileName));
+			process.env.PATH = second;
+			assert.strictEqual(findExecutableOnPath('node'), path.join(second, fileName));
+		} finally {
+			if (originalPath === undefined) {
+				delete process.env.PATH;
+			} else {
+				process.env.PATH = originalPath;
+			}
+		}
+	});
 });
