@@ -22,7 +22,7 @@ import {
 import { LegacyDirectoryItem, Migration, PatternItem } from './settings';
 import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
-import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
+import { convert2RegExp, findExecutableOnPath, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
 import { Validator } from './validator';
 import { createEslintStdioOptions } from './logOutput';
@@ -397,6 +397,19 @@ export namespace ESLintClient {
 			const eslintConfig = Workspace.getConfiguration('eslint');
 			const debug = sanitize(eslintConfig.get<boolean>('debug', false) ?? false, 'boolean', false);
 			const runtime = sanitize(eslintConfig.get<string | null>('runtime', null) ?? undefined, 'string', undefined);
+			const useNodeFromEnvironment = sanitize(eslintConfig.get<boolean>('useNodeFromEnvironment', false) ?? false, 'boolean', false);
+			// The language client reads the runtime each time it starts the server. Look up the
+			// node executable on every read so that a restart picks up a changed PATH.
+			const getRuntime = (): string | undefined => {
+				if (runtime !== undefined || !useNodeFromEnvironment || !Workspace.isTrusted) {
+					return runtime;
+				}
+				const result = findExecutableOnPath('node');
+				if (result === undefined) {
+					client.warn(`The setting 'eslint.useNodeFromEnvironment' is enabled but no node executable was found on the PATH. Falling back to the Node runtime that ships with VS Code.`);
+				}
+				return result;
+			};
 			const execArgv = sanitize(eslintConfig.get<string[] | null>('execArgv', null) ?? undefined, 'string', undefined);
 			const nodeEnv = sanitize(eslintConfig.get<string | null>('nodeEnv', null) ?? undefined, 'string', undefined);
 
@@ -412,8 +425,8 @@ export namespace ESLintClient {
 			const cwd = getCurrentServerWorkingDirectory();
 			const debugArgv = ['--nolazy', '--inspect=6011'];
 			const result: ServerOptions = {
-				run: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv, cwd, env } },
-				debug: { module: serverModule, transport: TransportKind.ipc, runtime, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd, env } }
+				run: { module: serverModule, transport: TransportKind.ipc, get runtime() { return getRuntime(); }, options: { execArgv, cwd, env } },
+				debug: { module: serverModule, transport: TransportKind.ipc, get runtime() { return getRuntime(); }, options: { execArgv: execArgv !== undefined ? execArgv.concat(debugArgv) : debugArgv, cwd, env } }
 			};
 			return result;
 		}
