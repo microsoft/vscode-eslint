@@ -8,7 +8,7 @@ import { StatsNotification, StatsParams } from './shared/customMessages';
 import * as path from 'path';
 
 import {
-	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
+	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic, EndOfLine,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
 	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter, OutputChannel
 } from 'vscode';
@@ -20,7 +20,7 @@ import {
 } from 'vscode-languageclient/node';
 
 import { LegacyDirectoryItem, Migration, PatternItem } from './settings';
-import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
+import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, SetEndOfLineRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
@@ -299,6 +299,36 @@ export namespace ESLintClient {
 
 		client.onRequest(OpenESLintDocRequest.type, async (params) => {
 			await commands.executeCommand('vscode.open', Uri.parse(params.url));
+			return {};
+		});
+
+		client.onRequest(SetEndOfLineRequest.type, async (params) => {
+			const uri = client.protocol2CodeConverter.asUri(params.textDocument.uri);
+			let editor = Window.visibleTextEditors.find((editor) => editor.document.uri.toString() === uri.toString());
+			if (editor === undefined && Window.activeTextEditor?.document.uri.toString() === uri.toString()) {
+				editor = Window.activeTextEditor;
+			}
+			if (editor === undefined) {
+				// The document is open but no longer visible — for example the
+				// user switched tabs during the command round trip. There is no
+				// API to change the line endings of a hidden document, so reveal
+				// it to obtain an editor for it. preserveFocus keeps the keyboard
+				// focus where it is; the version is rechecked below before
+				// applying anything.
+				const document = Workspace.textDocuments.find((document) => document.uri.toString() === uri.toString());
+				if (document !== undefined) {
+					try {
+						editor = await Window.showTextDocument(document, { preserveFocus: true });
+					} catch {
+						// The document cannot be shown; the fix is skipped below.
+					}
+				}
+			}
+			if (editor !== undefined && editor.document.version === params.version) {
+				await editor.edit((editBuilder) => {
+					editBuilder.setEndOfLine(params.endOfLine === 'CRLF' ? EndOfLine.CRLF : EndOfLine.LF);
+				});
+			}
 			return {};
 		});
 

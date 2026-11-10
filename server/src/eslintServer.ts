@@ -15,7 +15,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 
 import {
-	ExitCalled, OpenESLintDocRequest, Status, StatusNotification
+	EndOfLine, ExitCalled, OpenESLintDocRequest, SetEndOfLineRequest, Status, StatusNotification
 } from './shared/customMessages';
 
 import { Validate, CodeActionsOnSaveMode } from './shared/settings';
@@ -174,6 +174,7 @@ function environmentChanged() {
 
 namespace CommandIds {
 	export const applySingleFix: string = 'eslint.applySingleFix';
+	export const applyLineEndingFix: string = 'eslint.applyLineEndingFix';
 	export const applySuggestion: string = 'eslint.applySuggestion';
 	export const applySameFixes: string = 'eslint.applySameFixes';
 	export const applyAllFixes: string = 'eslint.applyAllFixes';
@@ -204,6 +205,7 @@ connection.onInitialize((params, _cancel, progress) => {
 		executeCommandProvider: {
 			commands: [
 				CommandIds.applySingleFix,
+				CommandIds.applyLineEndingFix,
 				CommandIds.applySuggestion,
 				CommandIds.applySameFixes,
 				CommandIds.applyAllFixes,
@@ -428,11 +430,12 @@ interface CommandParams extends VersionedTextDocumentIdentifier {
 	version: number;
 	ruleId?: string;
 	sequence?: number;
+	endOfLine?: EndOfLine;
 }
 
 namespace CommandParams {
-	export function create(textDocument: TextDocument, ruleId?: string, sequence?: number): CommandParams {
-		return { uri: textDocument.uri, version: textDocument.version, ruleId, sequence };
+	export function create(textDocument: TextDocument, ruleId?: string, sequence?: number, endOfLine?: EndOfLine): CommandParams {
+		return { uri: textDocument.uri, version: textDocument.version, ruleId, sequence, endOfLine };
 	}
 	export function hasRuleId(value: CommandParams): value is CommandParams & { ruleId: string } {
 		return value.ruleId !== undefined;
@@ -629,18 +632,34 @@ connection.onCodeAction(async (params) => {
 		allFixableRuleIds.push(ruleId);
 
 		if (Problem.isFixable(editInfo)) {
-			const workspaceChange = new WorkspaceChange();
-			workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(FixableProblem.createTextEdit(textDocument, editInfo));
-			changes.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
-			const action = createCodeAction(
-				editInfo.label,
-				kind,
-				CommandIds.applySingleFix,
-				CommandParams.create(textDocument, ruleId),
-				editInfo.diagnostic
-			);
-			action.isPreferred = true;
-			result.get(ruleId).fixes.push(action);
+			const lineEnding = FixableProblem.getLineEnding(textDocument, editInfo);
+			if (lineEnding !== undefined) {
+				// VS Code normalizes line delimiters, so a text edit replacing
+				// a single line ending has no effect (see #707). Change the
+				// line ending of the whole document instead.
+				const action = createCodeAction(
+					editInfo.label,
+					kind,
+					CommandIds.applyLineEndingFix,
+					CommandParams.create(textDocument, ruleId, undefined, lineEnding),
+					editInfo.diagnostic
+				);
+				action.isPreferred = true;
+				result.get(ruleId).fixes.push(action);
+			} else {
+				const workspaceChange = new WorkspaceChange();
+				workspaceChange.getTextEditChange({ uri, version: documentVersion }).add(FixableProblem.createTextEdit(textDocument, editInfo));
+				changes.set(`${CommandIds.applySingleFix}:${ruleId}`, workspaceChange);
+				const action = createCodeAction(
+					editInfo.label,
+					kind,
+					CommandIds.applySingleFix,
+					CommandParams.create(textDocument, ruleId),
+					editInfo.diagnostic
+				);
+				action.isPreferred = true;
+				result.get(ruleId).fixes.push(action);
+			}
 		}
 		if (Problem.hasSuggestions(editInfo)) {
 			editInfo.suggestions.forEach((suggestion, suggestionSequence) => {
@@ -717,16 +736,29 @@ connection.onCodeAction(async (params) => {
 		}
 		sameProblems.forEach((same, ruleId) => {
 			if (same.length > 1) {
-				const sameFixes: WorkspaceChange = new WorkspaceChange();
-				const sameTextChange = sameFixes.getTextEditChange({ uri, version: documentVersion });
-				same.map(fix => FixableProblem.createTextEdit(textDocument, fix)).forEach(edit => sameTextChange.add(edit));
-				changes.set(CommandIds.applySameFixes, sameFixes);
-				result.get(ruleId).fixAll = createCodeAction(
-					`Fix all ${ruleId} problems`,
-					kind,
-					CommandIds.applySameFixes,
-					CommandParams.create(textDocument)
-				);
+				const lineEndings = same.map(fix => FixableProblem.getLineEnding(textDocument, fix));
+				const lineEnding = lineEndings[0];
+				if (lineEnding !== undefined && lineEndings.every(value => value === lineEnding)) {
+					// See the single fix above: line endings have to change
+					// for the whole document.
+					result.get(ruleId).fixAll = createCodeAction(
+						`Fix all ${ruleId} problems`,
+						kind,
+						CommandIds.applyLineEndingFix,
+						CommandParams.create(textDocument, ruleId, undefined, lineEnding)
+					);
+				} else {
+					const sameFixes: WorkspaceChange = new WorkspaceChange();
+					const sameTextChange = sameFixes.getTextEditChange({ uri, version: documentVersion });
+					same.map(fix => FixableProblem.createTextEdit(textDocument, fix)).forEach(edit => sameTextChange.add(edit));
+					changes.set(CommandIds.applySameFixes, sameFixes);
+					result.get(ruleId).fixAll = createCodeAction(
+						`Fix all ${ruleId} problems`,
+						kind,
+						CommandIds.applySameFixes,
+						CommandParams.create(textDocument)
+					);
+				}
 			}
 		});
 		result.fixAll.push(createCodeAction(
@@ -820,6 +852,17 @@ async function computeAllFixes(identifier: VersionedTextDocumentIdentifier, mode
 connection.onExecuteCommand(async (params) => {
 	let workspaceChange: WorkspaceChange | undefined;
 	const commandParams: CommandParams = params.arguments![0] as CommandParams;
+	if (params.command === CommandIds.applyLineEndingFix) {
+		if (commandParams.endOfLine !== undefined) {
+			return connection.sendRequest(SetEndOfLineRequest.type, { textDocument: { uri: commandParams.uri }, endOfLine: commandParams.endOfLine, version: commandParams.version }).then(() => {
+				return null;
+			}, () => {
+				connection.console.error(`Failed to apply command: ${params.command}`);
+				return null;
+			});
+		}
+		return null;
+	}
 	if (params.command === CommandIds.applyAllFixes) {
 		const edits = await computeAllFixes(commandParams, AllFixesMode.command);
 		if (edits !== undefined && edits.length > 0) {
