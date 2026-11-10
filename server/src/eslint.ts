@@ -333,10 +333,25 @@ export namespace FixableProblem {
 	 */
 	export function getLineEnding(document: TextDocument, editInfo: FixableProblem): EndOfLine | undefined {
 		const fix = editInfo.edit;
-		const replaced = document.getText().substring(fix.range[0], fix.range[1]);
+		// Reject fixes computed for an older document version (e.g. cached
+		// `onSave` fixes after the document changed): their ranges no longer
+		// apply to the current document. This also keeps the version stamped
+		// on the EOL command honest — it is the version the fix was computed
+		// against — so the client's version check is not vacuous. Stale fixes
+		// fall through to the ordinary text-edit path, which is version-guarded.
+		if (editInfo.documentVersion !== document.version) {
+			return undefined;
+		}
+		const text = document.getText();
+		const replaced = text.substring(fix.range[0], fix.range[1]);
+		// Reject ranges that split a CRLF pair: replacing only the CR or only
+		// the LF of a pair is not a line-ending conversion.
+		if (splitsCRLF(text, fix.range[0]) || splitsCRLF(text, fix.range[1])) {
+			return undefined;
+		}
 		// Use a character class instead of overlapping alternatives so the
 		// match stays linear on long runs of line breaks.
-		if (!/^[\r\n]+$/.test(replaced) || !/^[\r\n]+$/.test(fix.text)) {
+		if (!/^[\r\n]+$/.test(replaced)) {
 			return undefined;
 		}
 		if (replaced === fix.text) {
@@ -346,7 +361,19 @@ export namespace FixableProblem {
 		if (normalizeLineEndings(replaced) !== normalizeLineEndings(fix.text)) {
 			return undefined;
 		}
-		return fix.text.indexOf('\r') !== -1 ? 'CRLF' : 'LF';
+		// The replacement must be a single kind of line ending: all LF or all
+		// CRLF. Mixed sequences or lone CRs are not a line-ending conversion.
+		if (/^\n+$/.test(fix.text)) {
+			return 'LF';
+		}
+		if (/^(\r\n)+$/.test(fix.text)) {
+			return 'CRLF';
+		}
+		return undefined;
+	}
+
+	function splitsCRLF(text: string, boundary: number): boolean {
+		return text[boundary - 1] === '\r' && text[boundary] === '\n';
 	}
 
 	function normalizeLineEndings(value: string): string {

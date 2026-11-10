@@ -308,6 +308,22 @@ export namespace ESLintClient {
 			if (editor === undefined && Window.activeTextEditor?.document.uri.toString() === uri.toString()) {
 				editor = Window.activeTextEditor;
 			}
+			if (editor === undefined) {
+				// The document is open but no longer visible — for example the
+				// user switched tabs during the command round trip. There is no
+				// API to change the line endings of a hidden document, so reveal
+				// it to obtain an editor for it. preserveFocus keeps the keyboard
+				// focus where it is; the version is rechecked below before
+				// applying anything.
+				const document = Workspace.textDocuments.find((document) => document.uri.toString() === uri.toString());
+				if (document !== undefined) {
+					try {
+						editor = await Window.showTextDocument(document, { preserveFocus: true });
+					} catch {
+						// The document cannot be shown; the fix is skipped below.
+					}
+				}
+			}
 			if (editor !== undefined && editor.document.version === params.version) {
 				await editor.edit((editBuilder) => {
 					editBuilder.setEndOfLine(params.endOfLine === 'CRLF' ? EndOfLine.CRLF : EndOfLine.LF);

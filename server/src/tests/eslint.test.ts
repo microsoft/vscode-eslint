@@ -70,10 +70,10 @@ void describe('ESLint settings', () => {
 });
 
 void describe('FixableProblem.getLineEnding', () => {
-	function createFixableProblem(document: TextDocument, fix: { range: [number, number]; text: string }): FixableProblem {
+	function createFixableProblem(document: TextDocument, fix: { range: [number, number]; text: string }, documentVersion: number = document.version): FixableProblem {
 		return {
 			label: 'Fix this linebreak-style problem',
-			documentVersion: document.version,
+			documentVersion: documentVersion,
 			ruleId: 'linebreak-style',
 			line: 1,
 			diagnostic: {
@@ -139,5 +139,45 @@ void describe('FixableProblem.getLineEnding', () => {
 	void it('ignores a fix that covers code and a line break', () => {
 		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\n');
 		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [11, 14], text: '\n' })), undefined);
+	});
+
+	void it('ignores a fix with a mixed line ending replacement', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\n\r\nconst b = 2;\r\n');
+		// Two line breaks replaced by one LF and one CRLF: not a conversion.
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 16], text: '\n\r\n' })), undefined);
+	});
+
+	void it('ignores a fix with a lone carriage return replacement', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\nconst b = 2;\r\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 14], text: '\r' })), undefined);
+	});
+
+	void it('detects a LF to CRLF line ending fix spanning several line breaks', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\n\nconst b = 2;\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 14], text: '\r\n\r\n' })), 'CRLF');
+	});
+
+	void it('ignores a fix whose range ends inside a CRLF pair', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'a\r\nb\r\n');
+		// Replacing [1, 2] (the CR of the first CRLF pair) with LF would add a
+		// blank line; the EOL conversion must not swallow that.
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [1, 2], text: '\n' })), undefined);
+	});
+
+	void it('ignores a fix whose range starts inside a CRLF pair', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'a\r\nb\r\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [2, 3], text: '\r\n' })), undefined);
+	});
+
+	void it('detects a fix covering a whole CRLF pair at the start of a document', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'a\r\nb\r\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [1, 3], text: '\n' })), 'LF');
+	});
+
+	void it('ignores a fix computed for an older document version', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 2, 'const a = 1;\r\nconst b = 2;\r\n');
+		// The fix was recorded against version 1, but the document is at
+		// version 2: stale cached fixes must not be EOL-converted.
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 14], text: '\n' }, 1)), undefined);
 	});
 });
