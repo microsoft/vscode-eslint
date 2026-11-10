@@ -78,6 +78,29 @@ export namespace OpenESLintDocRequest {
 	export const type = new RequestType<OpenESLintDocParams, OpenESLintDocResult, void>(method);
 }
 
+export type EndOfLine = 'LF' | 'CRLF';
+
+export type SetEndOfLineParams = {
+	textDocument: TextDocumentIdentifier;
+	endOfLine: EndOfLine;
+};
+
+export type SetEndOfLineResult = {
+};
+
+/**
+ * The eslint/setEndOfLine request is sent from the server to the client to
+ * ask the client to change the end of line sequence of a document. This is
+ * needed for fixes that only change line endings (for example the
+ * `linebreak-style` rule): VS Code normalizes line delimiters, so a text
+ * edit that replaces a single line ending has no effect. See also
+ * https://github.com/microsoft/vscode-eslint/issues/707
+ */
+export namespace SetEndOfLineRequest {
+	export const method: 'eslint/setEndOfLine' = 'eslint/setEndOfLine';
+	export const type = new RequestType<SetEndOfLineParams, SetEndOfLineResult, void>(method);
+}
+
 export type ProbeFailedParams = {
 	textDocument: TextDocumentIdentifier;
 };

@@ -8,7 +8,7 @@ import { StatsNotification, StatsParams } from './shared/customMessages';
 import * as path from 'path';
 
 import {
-	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic,
+	workspace as Workspace, window as Window, languages as Languages, Uri, TextDocument, CodeActionContext, Diagnostic, EndOfLine,
 	Command, CodeAction, MessageItem, ConfigurationTarget, env as Env, CodeActionKind, WorkspaceConfiguration, NotebookCell, commands,
 	ExtensionContext, LanguageStatusItem, LanguageStatusSeverity, DocumentFilter as VDocumentFilter, OutputChannel
 } from 'vscode';
@@ -20,7 +20,7 @@ import {
 } from 'vscode-languageclient/node';
 
 import { LegacyDirectoryItem, Migration, PatternItem } from './settings';
-import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
+import { ExitCalled, NoConfigRequest, NoESLintLibraryRequest, OpenESLintDocRequest, ProbeFailedRequest, SetEndOfLineRequest, ShowOutputChannel, Status, StatusNotification, StatusParams } from './shared/customMessages';
 import { CodeActionSettings, CodeActionsOnSaveMode, CodeActionsOnSaveOptions, CodeActionsOnSaveRules, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeItem, PackageManagers, RuleCustomization, RunValues, Validate } from './shared/settings';
 import { convert2RegExp, Is, Semaphore, toOSPath, toPosixPath } from './node-utils';
 import { pickFolder } from './vscode-utils';
@@ -299,6 +299,20 @@ export namespace ESLintClient {
 
 		client.onRequest(OpenESLintDocRequest.type, async (params) => {
 			await commands.executeCommand('vscode.open', Uri.parse(params.url));
+			return {};
+		});
+
+		client.onRequest(SetEndOfLineRequest.type, async (params) => {
+			const uri = client.protocol2CodeConverter.asUri(params.textDocument.uri);
+			let editor = Window.visibleTextEditors.find((editor) => editor.document.uri.toString() === uri.toString());
+			if (editor === undefined && Window.activeTextEditor?.document.uri.toString() === uri.toString()) {
+				editor = Window.activeTextEditor;
+			}
+			if (editor !== undefined) {
+				await editor.edit((editBuilder) => {
+					editBuilder.setEndOfLine(params.endOfLine === 'CRLF' ? EndOfLine.CRLF : EndOfLine.LF);
+				});
+			}
 			return {};
 		});
 

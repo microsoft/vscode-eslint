@@ -8,7 +8,7 @@ import { describe, it } from 'node:test';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { Diagnostics, ESLint } from '../eslint';
+import { Diagnostics, ESLint, FixableProblem } from '../eslint';
 import { Validate } from '../shared/settings';
 
 void describe('ESLint diagnostics', () => {
@@ -66,5 +66,67 @@ void describe('ESLint settings', () => {
 		assert.strictEqual(settings.validate, Validate.off);
 		assert.strictEqual(settings.packageManager, 'npm');
 		assert.strictEqual(settings.workingDirectory, undefined);
+	});
+});
+
+void describe('FixableProblem.getLineEnding', () => {
+	function createFixableProblem(document: TextDocument, fix: { range: [number, number]; text: string }): FixableProblem {
+		return {
+			label: 'Fix this linebreak-style problem',
+			documentVersion: document.version,
+			ruleId: 'linebreak-style',
+			line: 1,
+			diagnostic: {
+				range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+				message: `Expected linebreaks to be 'LF' but found 'CRLF'.`
+			},
+			edit: fix
+		};
+	}
+
+	void it('detects a CRLF to LF line ending fix', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\nconst b = 2;\r\n');
+		// The fix ESLint reports for `linebreak-style: unix` on a CRLF file.
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 14], text: '\n' })), 'LF');
+	});
+
+	void it('detects a LF to CRLF line ending fix', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\nconst b = 2;\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 13], text: '\r\n' })), 'CRLF');
+	});
+
+	void it('detects a fix spanning several line breaks', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\n\r\nconst b = 2;\r\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 16], text: '\n\n' })), 'LF');
+	});
+
+	void it('detects a lone carriage return line ending fix', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\rconst b = 2;\r');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 13], text: '\n' })), 'LF');
+	});
+
+	void it('ignores a fix that does not change the line ending', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\nconst b = 2;\r\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 14], text: '\r\n' })), undefined);
+	});
+
+	void it('ignores a fix that removes code', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;;\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [11, 12], text: '' })), undefined);
+	});
+
+	void it('ignores a fix that deletes a line break', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\nconst b = 2;\r\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 14], text: '' })), undefined);
+	});
+
+	void it('ignores a fix that inserts a line break', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\nconst b = 2;\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 12], text: '\n' })), undefined);
+	});
+
+	void it('ignores a fix that covers code and a line break', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\r\n');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [11, 14], text: '\n' })), undefined);
 	});
 });

@@ -18,7 +18,7 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 
-import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification, StatsNotification } from './shared/customMessages';
+import { EndOfLine, ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification, StatsNotification } from './shared/customMessages';
 import { CodeActionsOnSaveMode, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
@@ -321,6 +321,26 @@ export type FixableProblem = Problem & {
 export namespace FixableProblem {
 	export function createTextEdit(document: TextDocument, editInfo: FixableProblem): TextEdit {
 		return TextEdit.replace(Range.create(document.positionAt(editInfo.edit.range[0]), document.positionAt(editInfo.edit.range[1])), editInfo.edit.text || '');
+	}
+
+	/**
+	 * If the fix only changes line endings, return the line ending the fix
+	 * wants the document to use. Otherwise return undefined.
+	 *
+	 * VS Code normalizes line delimiters, so a text edit that replaces a
+	 * single line ending has no effect (see #707). Such fixes have to change
+	 * the line ending of the whole document instead.
+	 */
+	export function getLineEnding(document: TextDocument, editInfo: FixableProblem): EndOfLine | undefined {
+		const fix = editInfo.edit;
+		const replaced = document.getText().substring(fix.range[0], fix.range[1]);
+		if (!/^(\r\n|\n|\r)+$/.test(replaced) || !/^(\r\n|\n)+$/.test(fix.text)) {
+			return undefined;
+		}
+		if (replaced === fix.text) {
+			return undefined;
+		}
+		return fix.text.indexOf('\r') !== -1 ? 'CRLF' : 'LF';
 	}
 }
 
