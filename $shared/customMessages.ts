@@ -83,6 +83,7 @@ export type EndOfLine = 'LF' | 'CRLF';
 export type SetEndOfLineParams = {
 	textDocument: TextDocumentIdentifier;
 	endOfLine: EndOfLine;
+	version: number;
 };
 
 export type SetEndOfLineResult = {

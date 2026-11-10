@@ -854,7 +854,7 @@ connection.onExecuteCommand(async (params) => {
 	const commandParams: CommandParams = params.arguments![0] as CommandParams;
 	if (params.command === CommandIds.applyLineEndingFix) {
 		if (commandParams.endOfLine !== undefined) {
-			return connection.sendRequest(SetEndOfLineRequest.type, { textDocument: { uri: commandParams.uri }, endOfLine: commandParams.endOfLine }).then(() => {
+			return connection.sendRequest(SetEndOfLineRequest.type, { textDocument: { uri: commandParams.uri }, endOfLine: commandParams.endOfLine, version: commandParams.version }).then(() => {
 				return null;
 			}, () => {
 				connection.console.error(`Failed to apply command: ${params.command}`);

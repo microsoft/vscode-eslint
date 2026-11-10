@@ -308,7 +308,7 @@ export namespace ESLintClient {
 			if (editor === undefined && Window.activeTextEditor?.document.uri.toString() === uri.toString()) {
 				editor = Window.activeTextEditor;
 			}
-			if (editor !== undefined) {
+			if (editor !== undefined && editor.document.version === params.version) {
 				await editor.edit((editBuilder) => {
 					editBuilder.setEndOfLine(params.endOfLine === 'CRLF' ? EndOfLine.CRLF : EndOfLine.LF);
 				});

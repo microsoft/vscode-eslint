@@ -334,13 +334,23 @@ export namespace FixableProblem {
 	export function getLineEnding(document: TextDocument, editInfo: FixableProblem): EndOfLine | undefined {
 		const fix = editInfo.edit;
 		const replaced = document.getText().substring(fix.range[0], fix.range[1]);
-		if (!/^(\r\n|\n|\r)+$/.test(replaced) || !/^(\r\n|\n)+$/.test(fix.text)) {
+		// Use a character class instead of overlapping alternatives so the
+		// match stays linear on long runs of line breaks.
+		if (!/^[\r\n]+$/.test(replaced) || !/^[\r\n]+$/.test(fix.text)) {
 			return undefined;
 		}
 		if (replaced === fix.text) {
 			return undefined;
 		}
+		// The fix must not change the number of line breaks, only their kind.
+		if (normalizeLineEndings(replaced) !== normalizeLineEndings(fix.text)) {
+			return undefined;
+		}
 		return fix.text.indexOf('\r') !== -1 ? 'CRLF' : 'LF';
+	}
+
+	function normalizeLineEndings(value: string): string {
+		return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 	}
 }
 

@@ -100,6 +100,17 @@ void describe('FixableProblem.getLineEnding', () => {
 		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 16], text: '\n\n' })), 'LF');
 	});
 
+	void it('ignores a fix that changes the number of line breaks', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\n\nconst b = 2;\n');
+		// Removing a blank line is not a line ending conversion.
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 14], text: '\n' })), undefined);
+	});
+
+	void it('rejects a long run of line breaks followed by other text', () => {
+		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;' + '\r\n'.repeat(24) + ' const b = 2;');
+		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 61], text: '\n' })), undefined);
+	});
+
 	void it('detects a lone carriage return line ending fix', () => {
 		const document = TextDocument.create('file:///workspace/test.js', 'javascript', 1, 'const a = 1;\rconst b = 2;\r');
 		assert.strictEqual(FixableProblem.getLineEnding(document, createFixableProblem(document, { range: [12, 13], text: '\n' })), 'LF');
