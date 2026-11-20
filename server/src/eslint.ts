@@ -18,7 +18,7 @@ import {
 } from 'vscode-languageserver/node';
 import { URI } from 'vscode-uri';
 
-import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification } from './shared/customMessages';
+import { ProbeFailedParams, ProbeFailedRequest, NoESLintLibraryRequest, Status, NoConfigRequest, StatusNotification, StatsNotification } from './shared/customMessages';
 import { CodeActionsOnSaveMode, ConfigurationSettings, DirectoryItem, ESLintOptions, ESLintSeverity, ModeEnum, ModeItem, PackageManagers, RuleCustomization, RuleSeverity, Validate } from './shared/settings';
 
 import * as Is from './is';
@@ -93,6 +93,26 @@ type ESLintDocumentReport = {
 	messages: ESLintProblem[];
 	suppressedMessages?: SuppressedESLintProblem[];
 	output?: string;
+	/**
+	 * Performance statistics collected when the `stats: true` ESLint option
+	 * is used (see https://github.com/microsoft/vscode-eslint/issues/2057).
+	 * Only present if the used ESLint version reports timing data.
+	 */
+	stats?: ESLintStats;
+};
+
+type ESLintTimePass = {
+	parse?: { total?: number };
+	rules?: Record<string, { total?: number }>;
+	fix?: { total?: number };
+	total?: number;
+};
+
+export type ESLintStats = {
+	fixPasses?: number;
+	times?: {
+		passes?: ESLintTimePass[];
+	};
 };
 
 type ESLintReport = {
@@ -119,6 +139,7 @@ export type ESLintClassOptions = {
 	cwd?: string;
 	fixTypes?: string[];
 	fix?: boolean;
+	stats?: boolean;
 	overrideConfig?: ConfigData;
 	overrideConfigFile?: string | null;
 	applySuppressions?: boolean;
@@ -192,6 +213,62 @@ export namespace RuleMetaData {
 
 	export function isUnusedDisableDirectiveProblem(problem: ESLintProblem): boolean {
 		return problem.ruleId === null && problem.message.startsWith('Unused eslint-disable directive');
+	}
+}
+
+export namespace StatsReporter {
+
+	function isNumber(value: unknown): value is number {
+		return typeof value === 'number' && Number.isFinite(value);
+	}
+
+	export type AggregatedStats = {
+		parseTime: number;
+		fixTime: number;
+		totalTime: number;
+		rules: { ruleId: string; total: number }[];
+	};
+
+	/**
+	 * Aggregates the `stats` timing data of a lint report into per-rule totals.
+	 * Returns undefined when the report carries no stats (the `stats` option is
+	 * not enabled or the used ESLint version does not report timing data).
+	 */
+	export function aggregate(stats: ESLintStats | undefined): AggregatedStats | undefined {
+		const passes = stats?.times?.passes;
+		if (!Array.isArray(passes) || passes.length === 0) {
+			return undefined;
+		}
+		const ruleTotals = new Map<string, number>();
+		let parseTime = 0;
+		let fixTime = 0;
+		let totalTime = 0;
+		for (const pass of passes) {
+			if (pass === undefined || pass === null || typeof pass !== 'object') {
+				continue;
+			}
+			if (isNumber(pass.parse?.total)) {
+				parseTime += pass.parse.total;
+			}
+			if (isNumber(pass.fix?.total)) {
+				fixTime += pass.fix.total;
+			}
+			if (isNumber(pass.total)) {
+				totalTime += pass.total;
+			}
+			const rules = pass.rules;
+			if (rules !== undefined && rules !== null && typeof rules === 'object') {
+				for (const ruleId of Object.keys(rules)) {
+					const total = rules[ruleId]?.total;
+					if (isNumber(total)) {
+						ruleTotals.set(ruleId, (ruleTotals.get(ruleId) ?? 0) + total);
+					}
+				}
+			}
+		}
+		const ruleStats = Array.from(ruleTotals, ([ruleId, total]) => ({ ruleId, total }));
+		ruleStats.sort((a, b) => b.total - a.total);
+		return { parseTime, fixTime, totalTime, rules: ruleStats };
 	}
 }
 
@@ -867,6 +944,7 @@ export namespace ESLint {
 			packageManager: 'npm',
 			useESLintClass: false,
 			useRealpaths: false,
+			ignoreOutsideWorkspace: false,
 			codeAction: {
 				disableRuleComment: {
 					enable: true,
@@ -1250,7 +1328,7 @@ export namespace ESLint {
 		if (result.length === 0) {
 			return result;
 		}
-		return result[result.length - 1] === path.sep
+		return result.endsWith(path.sep)
 			? result.substring(0, result.length - 1)
 			: result;
 	}
@@ -1284,6 +1362,16 @@ export namespace ESLint {
 	}
 
 	const validFixTypes = new Set<string>(['problem', 'suggestion', 'layout', 'directive']);
+	/**
+	 * Publishes ESLint rule performance timings for any lint run, including fix and format runs.
+	 */
+	export function reportStats(uri: string, stats: ESLintStats | undefined): void {
+		const aggregated = StatsReporter.aggregate(stats);
+		if (aggregated !== undefined) {
+			void connection.sendNotification(StatsNotification.type, { uri, ...aggregated });
+		}
+	}
+
 	export async function validate(document: TextDocument, settings: TextDocumentSettings & { library: ESLintModule }): Promise<Diagnostic[]> {
 		const newOptions: CLIOptions = Object.assign(Object.create(null), settings.options);
 		let fixTypes: Set<string> | undefined = undefined;
@@ -1316,6 +1404,10 @@ export namespace ESLint {
 			CodeActions.remove(uri);
 			const reportResults: ESLintDocumentReport[] = await eslintClass.lintText(content, { filePath: file, warnIgnored: settings.onIgnoredFiles !== ESLintSeverity.off });
 			RuleMetaData.capture(eslintClass, reportResults);
+			if (reportResults.length > 0) {
+				// Report rule performance timings when the `stats: true` ESLint option is used (#2057).
+				reportStats(uri, reportResults[0].stats);
+			}
 			const diagnostics: Diagnostic[] = [];
 			if (reportResults && Array.isArray(reportResults) && reportResults.length > 0) {
 				const docReport = reportResults[0];
@@ -1445,8 +1537,8 @@ export namespace ESLint {
 			if (typeof err.message === 'string' || err.message instanceof String) {
 				result = <string>err.message;
 				result = result.replace(/\r?\n/g, ' ');
-				if (/^CLI: /.test(result)) {
-					result = result.substr(5);
+				if (result.startsWith('CLI: ')) {
+					result = result.substring(5);
 				}
 			} else {
 				result = `An unknown error occurred while validating document: ${document.uri}`;

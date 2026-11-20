@@ -29,4 +29,21 @@ void describe('Glob', () => {
 		assert.strictEqual(matches.length, 1);
 		assert.strictEqual(matches[0], toOSPath('/test/foo/'));
 	});
+
+	void it('Text before wildcard', () => {
+		for (const pattern of ['/test/lib-*/', '/test/lib-?/', '/test/lib-[a-z]/']) {
+			const regExp = convert2RegExp(pattern);
+			isDefined(regExp);
+			assert.strictEqual(regExp.test(toOSPath('/test/app/file.txt')), false, pattern);
+			assert.strictEqual(regExp.exec(toOSPath('/test/lib-a/file.txt'))?.[0], toOSPath('/test/lib-a/'), pattern);
+		}
+	});
+
+	void it('Text before wildcard in braces', () => {
+		const regExp = convert2RegExp('/test/{lib-*,app}/');
+		isDefined(regExp);
+		assert.strictEqual(regExp.test(toOSPath('/test/other/file.txt')), false);
+		assert.strictEqual(regExp.exec(toOSPath('/test/lib-a/file.txt'))?.[0], toOSPath('/test/lib-a/'));
+		assert.strictEqual(regExp.exec(toOSPath('/test/app/file.txt'))?.[0], toOSPath('/test/app/'));
+	});
 });
