@@ -64,11 +64,37 @@ function createDefaultConfiguration(): void {
 let onActivateCommands: Disposable[] | undefined;
 let client: LanguageClient;
 let acknowledgePerformanceStatus: () => void;
-const taskProvider: TaskProvider = new TaskProvider();
+const taskProvider: TaskProvider = new TaskProvider();
 const validator: Validator = new Validator(Workspace);
+
+function sanitizeOutputResourcePart(value: string): string {
+	return value.replace(/[\\\\/:*?"<>|]/g, '');
+}
 
-export function activate(context: ExtensionContext) {
+function isOutputChannelVisible(outputChannelName: string, extensionId: string): boolean {
+	const sanitizedExtensionId = sanitizeOutputResourcePart(extensionId).toLowerCase();
+	const sanitizedChannelName = sanitizeOutputResourcePart(outputChannelName).toLowerCase();
+	const expectedResourceName = sanitizedExtensionId + '.' + sanitizedChannelName + '.log';
+	const expectedResourcePath = '/' + sanitizedExtensionId + '/' + sanitizedChannelName + '.log';
 
+	return Window.visibleTextEditors.some(editor => {
+		if (editor.document.uri.scheme !== 'output') {
+			return false;
+		}
+		const resourcePath = editor.document.uri.path.toLowerCase();
+		const resourceName = resourcePath.slice(resourcePath.lastIndexOf('/') + 1);
+		return resourceName === expectedResourceName || resourcePath.endsWith(expectedResourcePath);
+	});
+}
+
+function showOutputChannelIfVisible(wasVisible: boolean): void {
+	if (wasVisible) {
+		client.outputChannel.show(true);
+	}
+}
+
+export function activate(context: ExtensionContext) {
+
 	function didOpenTextDocument(textDocument: TextDocument) {
 		if (activated) {
 			return;
@@ -150,28 +176,31 @@ function realActivate(context: ExtensionContext): void {
 		}),
 		Commands.registerCommand('eslint.migrateSettings', () => {
 			void ESLintClient.migrateSettings(client);
-		}),
+		}),
 		Commands.registerCommand('eslint.restart', async () => {
-			// If the previous start failed, we need to create a new client to pick up
-			// a potentially updated environment (e.g., PATH changes from direnv).
-			if (client.state === State.StartFailed) {
-				await client.dispose();
-				[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
-				return client.start().then(() => {
-					client.info('ESLint server restarted.');
-				}).catch((error) => {
-					client.error(`Starting the server failed.`, error, 'force');
-					const message = typeof error === 'string' ? error : typeof error.message === 'string' ? error.message : undefined;
-					if (message !== undefined && message.indexOf('ENOENT') !== -1) {
+			const outputChannelVisible = isOutputChannelVisible(client.outputChannel.name, context.extension.id);
+			// If the previous start failed, we need to create a new client to pick up
+			// a potentially updated environment (e.g., PATH changes from direnv).
+			if (client.state === State.StartFailed) {
+				await client.dispose();
+				[client, acknowledgePerformanceStatus] = ESLintClient.create(context, validator);
+				return client.start().then(() => {
+					client.info('ESLint server restarted.');
+					showOutputChannelIfVisible(outputChannelVisible);
+				}).catch((error) => {
+					client.error(`Starting the server failed.`, error, 'force');
+					const message = typeof error === 'string' ? error : typeof error.message === 'string' ? error.message : undefined;
+					if (message !== undefined && message.indexOf('ENOENT') !== -1) {
 						client.info(`PATH environment variable is: ${process.env['PATH']}`);
 					}
 				});
-			} else {
-				return client.restart().then(() => {
-					client.info('ESLint server restarted.');
-				}).catch((error) => client.error(`Restarting client failed`, error, 'force'));
-			}
-		}),
+			} else {
+				return client.restart().then(() => {
+					client.info('ESLint server restarted.');
+					showOutputChannelIfVisible(outputChannelVisible);
+				}).catch((error) => client.error(`Restarting client failed`, error, 'force'));
+			}
+		}),
 		Commands.registerCommand('eslint.revalidate', () => {
 			client.getFeature(DocumentDiagnosticRequest.method).refresh();
 		})
@@ -192,4 +221,4 @@ export function deactivate(): Promise<void> {
 	}
 	taskProvider.dispose();
 	return client !== undefined ? client.stop() : Promise.resolve();
-}
+}
