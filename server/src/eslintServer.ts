@@ -690,7 +690,7 @@ connection.onCodeAction(async (params) => {
 		}
 
 		if (settings.codeAction.showDocumentation.enable && result.get(ruleId).showDocumentation === undefined) {
-			if (RuleMetaData.hasRuleId(ruleId)) {
+			if (RuleMetaData.getUrl(ruleId)) {
 				result.get(ruleId).showDocumentation = createCodeAction(
 					`Show documentation for ${ruleId}`,
 					kind,

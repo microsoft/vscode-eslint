@@ -187,7 +187,7 @@ export namespace RuleMetaData {
 			if (ruleId2Meta.has(key)) {
 				return;
 			}
-			if (meta && meta.docs && Is.string(meta.docs.url)) {
+			if (meta) {
 				ruleId2Meta.set(key, meta);
 			}
 		});
@@ -200,7 +200,8 @@ export namespace RuleMetaData {
 	}
 
 	export function getUrl(ruleId: string): string | undefined {
-		return ruleId2Meta.get(ruleId)?.docs?.url;
+		const url = ruleId2Meta.get(ruleId)?.docs?.url;
+		return Is.string(url) ? url : undefined;
 	}
 
 	export function getType(ruleId: string): string | undefined {
