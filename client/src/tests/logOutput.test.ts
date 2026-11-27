@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as assert from 'node:assert';
-import { PassThrough } from 'node:stream';
+import { PassThrough, type Readable } from 'node:stream';
 import { describe, it } from 'node:test';
 
 import type { LogOutputChannel } from 'vscode';
@@ -59,6 +59,17 @@ void describe('Log output', () => {
 			'info:Info message',
 			'info:Plain message'
 		]);
+	});
+
+	void it('does not mask spawn errors when stdio is missing or invalid', () => {
+		const calls: string[] = [];
+		const outputChannel = createOutputChannel(calls);
+		const options = createEslintStdioOptions();
+		for (const input of [null, undefined, 0, 1, {}]) {
+			assert.doesNotThrow(() => options.stdout(input as Readable, outputChannel));
+			assert.doesNotThrow(() => options.stderr(input as Readable, outputChannel));
+		}
+		assert.deepStrictEqual(calls, []);
 	});
 });
 
